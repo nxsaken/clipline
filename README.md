@@ -1,5 +1,7 @@
 # ✂️ clipline 📏
 
+[![Rust](https://github.com/nxsaken/clipline/actions/workflows/rust.yml/badge.svg)](https://github.com/nxsaken/clipline/actions/workflows/rust.yml)
+
 `clipline` is a Rust crate for efficient scan conversion of a line 
 segment with [clipping](https://en.wikipedia.org/wiki/Line_clipping) to a rectangular window. It is an implementation of 
 [the 1995 paper by YP Kuzmin](https://doi.org/10.1111/1467-8659.1450275). 
