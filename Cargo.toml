@@ -1,0 +1,11 @@
+[package]
+name = "clipline"
+version = "0.1.0"
+authors = ["Nurzhan Sakén <nurzhan.sakenov@gmail.com>"]
+edition = "2021"
+description = "Bresenham's line algorithm with accurate clipping."
+readme = "README.md"
+repository = "https://github.com/nxsaken/clipline/"
+license = "MIT OR Apache-2.0"
+keywords = ["graphics", "clipping", "line", "bresenham", "rasterization"]
+categories = ["graphics", "rendering", "algorithms"]
