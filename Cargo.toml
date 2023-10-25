@@ -3,15 +3,13 @@ name = "clipline"
 version = "0.1.0"
 authors = ["Nurzhan Sakén <nurzhan.sakenov@gmail.com>"]
 edition = "2021"
-description = "Bresenham's line algorithm with accurate clipping."
+description = "Efficient scan conversion of a line segment with clipping to a rectangular window."
 readme = "README.md"
 repository = "https://github.com/nxsaken/clipline/"
 license = "MIT OR Apache-2.0"
 keywords = ["graphics", "clipping", "line", "bresenham", "rasterization"]
 categories = ["graphics", "rendering", "algorithms"]
-exclude = [
-    "img/*",
-    ".github/workflows/rust.yml",
-    ".gitignore",
-    "README.md"
+include = [
+    "**/*.rs",
+    "Cargo.toml",
 ]
