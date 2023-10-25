@@ -9,3 +9,9 @@ repository = "https://github.com/nxsaken/clipline/"
 license = "MIT OR Apache-2.0"
 keywords = ["graphics", "clipping", "line", "bresenham", "rasterization"]
 categories = ["graphics", "rendering", "algorithms"]
+exclude = [
+    "img/*",
+    ".github/workflows/rust.yml",
+    ".gitignore",
+    "README.md"
+]
