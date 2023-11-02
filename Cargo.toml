@@ -1,6 +1,6 @@
 [package]
 name = "clipline"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Nurzhan Sakén <nurzhan.sakenov@gmail.com>"]
 edition = "2021"
 description = "Efficient scan conversion (rasterization) of line segments with clipping to a rectangular window."
@@ -18,3 +18,12 @@ include = [
 default = ["func", "iter"]
 iter = []
 func = []
+
+[dev-dependencies]
+criterion = { version = "0.5.1"}
+bresenham = "0.1.1"
+line_drawing = "1.0.0"
+
+[[bench]]
+name = "bresenham_comparison"
+harness = false
