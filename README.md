@@ -30,7 +30,7 @@ To use `clipline`, add it to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-clipline = "0.1.1"
+clipline = "0.1.2"
 ```
 
 ## Usage
