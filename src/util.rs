@@ -1,34 +1,36 @@
 use core::cmp::{max, min};
+use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
 
-pub type Point = (isize, isize);
+pub type Point<T> = (T, T);
 
 /// Standardizes the line segment (such that `x1 < x2 && y1 < y2`).
 #[inline(always)]
-pub fn standardize(
-    xy1: isize,
-    xy2: isize,
-    wxy1: isize,
-    wxy2: isize,
-) -> Option<(isize, isize, isize, isize, isize)> {
+pub fn standardize<T: Ord + Neg<Output = T> + TryFrom<u8>>(
+    xy1: T,
+    xy2: T,
+    wxy1: T,
+    wxy2: T,
+) -> Option<(T, T, T, T, T)> {
+    let one = T::try_from(1).unwrap_or_else(|_| unreachable!());
     if xy1 < xy2 {
-        (xy1 <= wxy2 && xy2 >= wxy1).then_some((1, xy1, xy2, wxy1, wxy2))
+        (xy1 <= wxy2 && xy2 >= wxy1).then_some((one, xy1, xy2, wxy1, wxy2))
     } else {
-        (xy2 <= wxy2 && xy1 >= wxy1).then_some((-1, -xy1, -xy2, -wxy2, -wxy1))
+        (xy2 <= wxy2 && xy1 >= wxy1).then_some((-one, -xy1, -xy2, -wxy2, -wxy1))
     }
 }
 
 #[allow(clippy::too_many_arguments)]
 #[inline(always)]
-pub fn vertical_line(
-    x: isize,
-    y1: isize,
-    y2: isize,
-    wx1: isize,
-    wx2: isize,
-    wy1: isize,
-    wy2: isize,
-    mut pixel_op: impl FnMut(isize, isize),
-) -> Option<(isize, isize)> {
+pub fn vertical_line<T: Copy + Ord + Add<Output = T> + AddAssign + TryFrom<u8>>(
+    x: T,
+    y1: T,
+    y2: T,
+    wx1: T,
+    wx2: T,
+    wy1: T,
+    wy2: T,
+    mut pixel_op: impl FnMut(T, T),
+) -> Option<(T, T)> {
     if x < wx1 || x > wx2 {
         return None;
     }
@@ -37,24 +39,27 @@ pub fn vertical_line(
         return None;
     }
     let (cy1, cy2) = (max(y1, wy1), min(y2, wy2));
-    for y in cy1..(cy2 + 1) {
+    let one = T::try_from(1).unwrap_or_else(|_| unreachable!());
+    let mut y = cy1;
+    while y <= cy2 {
         pixel_op(x, y);
+        y += one;
     }
     Some((cy1, cy2))
 }
 
 #[allow(clippy::too_many_arguments)]
 #[inline(always)]
-pub fn horizontal_line(
-    y: isize,
-    x1: isize,
-    x2: isize,
-    wy1: isize,
-    wy2: isize,
-    wx1: isize,
-    wx2: isize,
-    mut pixel_op: impl FnMut(isize, isize),
-) -> Option<(isize, isize)> {
+pub fn horizontal_line<T: Copy + Ord + Add<Output = T> + AddAssign + TryFrom<u8>>(
+    y: T,
+    x1: T,
+    x2: T,
+    wy1: T,
+    wy2: T,
+    wx1: T,
+    wx2: T,
+    mut pixel_op: impl FnMut(T, T),
+) -> Option<(T, T)> {
     if y < wy1 || y > wy2 {
         return None;
     }
@@ -65,30 +70,47 @@ pub fn horizontal_line(
     let (cx1, cx2) = (max(x1, wx1), min(x2, wx2));
     // in practice it's better to fill the whole row in one operation,
     // but to keep the API simple we do it pixel-wise
-    for x in cx1..(cx2 + 1) {
+    let one = T::try_from(1).unwrap_or_else(|_| unreachable!());
+    let mut x = cx1;
+    while x <= cx2 {
         pixel_op(x, y);
+        x += one;
     }
     Some((cx1, cx2))
 }
 
 #[allow(clippy::too_many_arguments)]
 #[inline(always)]
-pub fn clip_rect_entry(
-    xy1: isize,
-    yx1: isize,
-    wxy1: isize,
-    wxy2: isize,
-    wyx1: isize,
-    wyx2: isize,
-    dyx: isize,
-    dxy2: isize,
-    dyx2: isize,
-) -> Option<(isize, isize, isize)> {
+pub fn clip_rect_entry<T>(
+    xy1: T,
+    yx1: T,
+    wxy1: T,
+    wxy2: T,
+    wyx1: T,
+    wyx2: T,
+    dyx: T,
+    dxy2: T,
+    dyx2: T,
+) -> Option<(T, T, T)>
+where
+    T: Copy
+        + Ord
+        + Add<Output = T>
+        + AddAssign
+        + Sub<Output = T>
+        + SubAssign
+        + Mul<Output = T>
+        + Div<Output = T>
+        + Rem<Output = T>
+        + TryFrom<u8>,
+{
+    let [zero, one, two] = [0, 1, 2].map(|n| T::try_from(n).unwrap_or_else(|_| unreachable!()));
+
     let (mut xyd, mut yxd) = (xy1, yx1);
     let mut err = dxy2 - dyx;
 
     if xy1 < wxy1 {
-        let tmp = (2 * (wxy1 - xy1) - 1) * dyx;
+        let tmp = (two * (wxy1 - xy1) - one) * dyx;
         let msd = tmp / dxy2;
         yxd += msd;
 
@@ -100,8 +122,8 @@ pub fn clip_rect_entry(
             let rem = tmp - msd * dxy2;
             xyd = wxy1;
             err -= rem + dyx;
-            if rem > 0 {
-                yxd += 1;
+            if rem > zero {
+                yxd += one;
                 err += dxy2;
             }
             return Some((xyd, yxd, err));
@@ -120,7 +142,7 @@ pub fn clip_rect_entry(
         yxd = wyx1;
         err += rem;
         if rem >= dyx {
-            xyd += 1;
+            xyd += one;
             err -= dyx2;
         }
     }
@@ -129,24 +151,26 @@ pub fn clip_rect_entry(
 
 #[allow(clippy::too_many_arguments)]
 #[inline(always)]
-pub fn clip_rect_exit(
-    xy1: isize,
-    xy2: isize,
-    yx1: isize,
-    yx2: isize,
-    wxy2: isize,
-    dyx: isize,
-    dxy2: isize,
-    dyx2: isize,
-) -> isize {
+pub fn clip_rect_exit<T>(xy1: T, xy2: T, yx1: T, yx2: T, wxy2: T, dyx: T, dxy2: T, dyx2: T) -> T
+where
+    T: Copy
+        + Ord
+        + Add<Output = T>
+        + Sub<Output = T>
+        + SubAssign
+        + Mul<Output = T>
+        + Div<Output = T>
+        + TryFrom<u8>,
+{
+    let [zero, one] = [0, 1].map(|n| T::try_from(n).unwrap_or_else(|_| unreachable!()));
     let mut term = yx2;
     if xy2 > wxy2 {
         let temp = dyx2 * (wxy2 - xy1) + dyx;
         let msd = temp / dxy2;
         term = yx1 + msd;
 
-        if (temp - msd * dxy2) == 0 {
-            term -= 1;
+        if (temp - msd * dxy2) == zero {
+            term -= one;
         }
     }
     term
@@ -154,31 +178,32 @@ pub fn clip_rect_exit(
 
 #[allow(clippy::too_many_arguments)]
 #[inline(always)]
-pub fn destandardize(
-    mut term: isize,
-    mut xyd: isize,
-    mut yxd: isize,
-    wxy2: isize,
-    txy: isize,
-    tyx: isize,
-) -> (isize, isize, isize) {
+pub fn destandardize<T>(mut term: T, mut xyd: T, mut yxd: T, wxy2: T, txy: T, tyx: T) -> (T, T, T)
+where
+    T: Copy + Ord + Add<Output = T> + Mul<Output = T> + MulAssign + TryFrom<u8>,
+{
+    let one = T::try_from(1).unwrap_or_else(|_| unreachable!());
     yxd *= tyx;
     xyd *= txy;
-    term = txy * (min(term, wxy2) + 1);
+    term = txy * (min(term, wxy2) + one);
     (xyd, yxd, term)
 }
 
 #[inline(always)]
-pub fn bresenham_step(
-    mut err: isize,
-    mut xyd: isize,
-    mut yxd: isize,
-    txy: isize,
-    tyx: isize,
-    dxy2: isize,
-    dyx2: isize,
-) -> (isize, isize, isize) {
-    if err >= 0 {
+pub fn bresenham_step<T>(
+    mut err: T,
+    mut xyd: T,
+    mut yxd: T,
+    txy: T,
+    tyx: T,
+    dxy2: T,
+    dyx2: T,
+) -> (T, T, T)
+where
+    T: Ord + AddAssign + SubAssign + TryFrom<u8>,
+{
+    let zero = T::try_from(0).unwrap_or_else(|_| unreachable!());
+    if err >= zero {
         yxd += tyx;
         err -= dxy2;
     } else {
