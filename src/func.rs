@@ -1,8 +1,8 @@
 use crate::util::{
     bresenham_step, clip_rect_entry, clip_rect_exit, destandardize, horizontal_line, standardize,
-    vertical_line, Point,
+    vertical_line, Constant, Point,
 };
-use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Range, Rem, Sub, SubAssign};
 
 /// Performs scan conversion of a line segment using Bresenham's algorithm,
 /// while clipping it to a specified rectangle.
@@ -54,6 +54,7 @@ use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
 ///
 /// This is slightly more optimized than the iterator version, but uses internal iteration. Unlike
 /// the iterator version, vertical and horizontal lines will always be traversed in an ascending order.
+#[allow(private_bounds)]
 pub fn clipline<T, F>(
     line: (Point<T>, Point<T>),
     clip_rect: (Point<T>, Point<T>),
@@ -71,7 +72,8 @@ where
         + Div<Output = T>
         + Rem<Output = T>
         + MulAssign
-        + TryFrom<u8>,
+        + Constant<Output = T>,
+    Range<T>: Iterator<Item = T>,
     F: FnMut(T, T),
 {
     let ((x1, y1), (x2, y2)) = line;
@@ -96,11 +98,7 @@ where
     let dx = x2 - x1;
     let dy = y2 - y1;
 
-    // TryFrom instead of From to support i8: https://stackoverflow.com/a/73783390/8707157
-    let two = T::try_from(2).unwrap_or_else(|_| unreachable!());
-
-    let (dx2, dy2) = (two * dx, two * dy);
-
+    let (dx2, dy2) = (T::TWO * dx, T::TWO * dy);
     if dx >= dy {
         let (yd, xd, mut err) = clip_rect_entry(y1, x1, wy1, wy2, wx1, wx2, dx, dy2, dx2)?;
         let term = clip_rect_exit(y1, y2, x1, x2, wy2, dx, dy2, dx2);

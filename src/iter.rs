@@ -1,5 +1,5 @@
 use crate::util::{
-    bresenham_step, clip_rect_entry, clip_rect_exit, destandardize, standardize, Point,
+    bresenham_step, clip_rect_entry, clip_rect_exit, destandardize, standardize, Constant, Point,
 };
 use core::cmp::{max, min};
 use core::iter::FusedIterator;
@@ -46,7 +46,7 @@ use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
 /// }
 /// ```
 #[derive(Clone, Debug)]
-pub enum Clipline<T> {
+pub enum Clipline<T = isize> {
     Vlipline(Vlipline<T>),
     Hlipline(Hlipline<T>),
     Gentleham(Gentleham<T>),
@@ -74,7 +74,7 @@ pub enum Clipline<T> {
 /// }
 /// ```
 #[derive(Clone, Debug)]
-pub struct Vlipline<T> {
+pub struct Vlipline<T = isize> {
     x: T,
     y1: T,
     y2: T,
@@ -101,7 +101,7 @@ pub struct Vlipline<T> {
 /// }
 /// ```
 #[derive(Clone, Debug)]
-pub struct Hlipline<T> {
+pub struct Hlipline<T = isize> {
     x1: T,
     x2: T,
     y: T,
@@ -129,7 +129,7 @@ pub struct Hlipline<T> {
 /// }
 /// ```
 #[derive(Clone, Debug)]
-pub struct Gentleham<T>(Bresenham<T>);
+pub struct Gentleham<T = isize>(Bresenham<T>);
 
 /// Iterator for steeply-sloped clipped lines.
 /// It is created via [`Clipline::new`].
@@ -151,7 +151,7 @@ pub struct Gentleham<T>(Bresenham<T>);
 /// }
 /// ```
 #[derive(Clone, Debug)]
-pub struct Steepnham<T>(Bresenham<T>);
+pub struct Steepnham<T = isize>(Bresenham<T>);
 
 #[derive(Clone, Debug)]
 struct Bresenham<T> {
@@ -165,6 +165,7 @@ struct Bresenham<T> {
     term: T,
 }
 
+#[allow(private_bounds)]
 impl<T> Clipline<T>
 where
     T: Copy
@@ -178,7 +179,7 @@ where
         + Div<Output = T>
         + Rem<Output = T>
         + MulAssign
-        + TryFrom<u8>,
+        + Constant<Output = T>,
 {
     /// Creates an appropriate iterator based on the provided line segment and clipping rectangle.
     ///
@@ -213,10 +214,7 @@ where
         let dx = x2 - x1;
         let dy = y2 - y1;
 
-        // TryFrom instead of From to support i8: https://stackoverflow.com/a/73783390/8707157
-        let two = T::try_from(2).unwrap_or_else(|_| unreachable!());
-
-        let (dx2, dy2) = (two * dx, two * dy);
+        let (dx2, dy2) = (T::TWO * dx, T::TWO * dy);
 
         let bresenham = if dx >= dy {
             let (yd, xd, err) = clip_rect_entry(y1, x1, wy1, wy2, wx1, wx2, dx, dy2, dx2)?;
@@ -237,9 +235,10 @@ where
     }
 }
 
+#[allow(private_bounds)]
 impl<T> Vlipline<T>
 where
-    T: Ord + Neg<Output = T> + TryFrom<u8>,
+    T: Ord + Neg<Output = T> + Constant<Output = T>,
 {
     /// Creates a vertical clipped line segment iterator.
     ///
@@ -265,7 +264,6 @@ where
         if x < wx1 || x > wx2 {
             return None;
         }
-        let one = T::try_from(1).unwrap_or_else(|_| unreachable!());
         if y1 > y2 {
             if y2 > wy2 || y1 < wy1 {
                 return None;
@@ -274,7 +272,7 @@ where
                 x,
                 y1: min(y1, wy2),
                 y2: max(y2, wy1),
-                sy: -one,
+                sy: -T::ONE,
             })
         } else {
             if y1 > wy2 || y2 < wy1 {
@@ -284,15 +282,16 @@ where
                 x,
                 y1: max(y1, wy1),
                 y2: min(y2, wy2),
-                sy: one,
+                sy: T::ONE,
             })
         }
     }
 }
 
+#[allow(private_bounds)]
 impl<T> Hlipline<T>
 where
-    T: Ord + Neg<Output = T> + TryFrom<u8>,
+    T: Ord + Neg<Output = T> + Constant<Output = T>,
 {
     /// Creates a horizontal clipped line segment iterator.
     ///
@@ -318,7 +317,6 @@ where
         if y < wy1 || y > wy2 {
             return None;
         }
-        let one = T::try_from(1).unwrap_or_else(|_| unreachable!());
         if x1 > x2 {
             if x2 > wx2 || x1 < wx1 {
                 return None;
@@ -327,7 +325,7 @@ where
                 x1: min(x1, wx2),
                 x2: max(x2, wx1),
                 y,
-                sx: -one,
+                sx: -T::ONE,
             })
         } else {
             if x1 > wx2 || x2 < wx1 {
@@ -337,7 +335,7 @@ where
                 x1: max(x1, wx1),
                 x2: min(x2, wx2),
                 y,
-                sx: one,
+                sx: T::ONE,
             })
         }
     }
@@ -371,7 +369,7 @@ where
         + Mul<Output = T>
         + AddAssign
         + SubAssign
-        + TryFrom<u8>
+        + Constant<Output = T>
         + AbsDiff,
     <T as AbsDiff>::Output: TryFrom<u8> + TryInto<usize> + Add<Output = <T as AbsDiff>::Output>,
 {
@@ -463,7 +461,7 @@ where
 
 impl<T> Iterator for Gentleham<T>
 where
-    T: Copy + Ord + Sub<Output = T> + AddAssign + SubAssign + TryFrom<u8> + AbsDiff,
+    T: Copy + Ord + Sub<Output = T> + AddAssign + SubAssign + Constant<Output = T> + AbsDiff,
     <T as AbsDiff>::Output: TryInto<usize>,
 {
     type Item = Point<T>;
@@ -493,7 +491,7 @@ where
 
 impl<T> Iterator for Steepnham<T>
 where
-    T: Copy + Ord + Sub<Output = T> + AddAssign + SubAssign + TryFrom<u8> + AbsDiff,
+    T: Copy + Ord + Sub<Output = T> + AddAssign + SubAssign + Constant<Output = T> + AbsDiff,
     <T as AbsDiff>::Output: TryInto<usize>,
 {
     type Item = Point<T>;
@@ -580,7 +578,7 @@ where
         + Mul<Output = T>
         + AddAssign
         + SubAssign
-        + TryFrom<u8>
+        + Constant<Output = T>
         + AbsDiff,
     <T as AbsDiff>::Output: TryFrom<u8> + Into<usize> + Add<Output = <T as AbsDiff>::Output>,
 {
@@ -605,7 +603,7 @@ where
         + Mul<Output = T>
         + AddAssign
         + SubAssign
-        + TryFrom<u8>
+        + Constant<Output = T>
         + AbsDiff,
     <T as AbsDiff>::Output: Into<usize>,
 {
@@ -618,7 +616,7 @@ where
         + Mul<Output = T>
         + AddAssign
         + SubAssign
-        + TryFrom<u8>
+        + Constant<Output = T>
         + AbsDiff,
     <T as AbsDiff>::Output: Into<usize>,
 {
@@ -635,7 +633,7 @@ where
         + Mul<Output = T>
         + AddAssign
         + SubAssign
-        + TryFrom<u8>
+        + Constant<Output = T>
         + AbsDiff,
     <T as AbsDiff>::Output: TryFrom<u8> + TryInto<usize> + Add<Output = <T as AbsDiff>::Output>,
 {
@@ -674,7 +672,7 @@ where
         + Mul<Output = T>
         + AddAssign
         + SubAssign
-        + TryFrom<u8>
+        + Constant<Output = T>
         + AbsDiff,
     <T as AbsDiff>::Output: TryInto<usize>,
 {
@@ -687,7 +685,7 @@ where
         + Mul<Output = T>
         + AddAssign
         + SubAssign
-        + TryFrom<u8>
+        + Constant<Output = T>
         + AbsDiff,
     <T as AbsDiff>::Output: TryInto<usize>,
 {
@@ -701,7 +699,7 @@ trait AbsDiff<Rhs = Self> {
     type Output;
 
     /// Computes the absolute difference between `self` and `other`.
-    #[must_use = "this returns the result of the operation, without modifying the original"]
+    #[must_use]
     fn abs_diff(self, rhs: Rhs) -> Self::Output;
 }
 
@@ -710,6 +708,7 @@ macro_rules! impl_abs_diff {
         impl AbsDiff for $signed {
             type Output = $unsigned;
 
+            #[inline(always)]
             fn abs_diff(self, rhs: Self) -> Self::Output {
                 <$signed>::abs_diff(self, rhs)
             }

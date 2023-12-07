@@ -21,8 +21,10 @@ clipping algorithms like [Cohen-Sutherland](https://en.wikipedia.org/wiki/Cohen%
 [Benchmarks are available here](BENCHMARKS.md). I used [criterion.rs](https://github.com/bheisler/criterion.rs) to 
 compare 
 `clipline` to two 
-popular line drawing crates – `bresenham` and `line_drawing`, on a variety of 
-clipping window sizes, line orientations and counts.
+popular line drawing crates – `bresenham` and `line_drawing`, by "drawing" 256 lines of varying 
+clipping window sizes and line orientations. 
+
+In practice, `bresenham` and `line_drawing` will require bounds checks when indexing into a frame buffer, hence the difference between the `draw_pixel_checked` and `draw_pixel_unchecked` functions.
 
 ## Installation
 
@@ -30,7 +32,7 @@ To use `clipline`, add it to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-clipline = "0.1.2"
+clipline = "0.1.3"
 ```
 
 ## Usage
