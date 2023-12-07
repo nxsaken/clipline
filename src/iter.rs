@@ -360,6 +360,8 @@ impl<T> Bresenham<T> {
     }
 }
 
+// -----------------------------------------------
+
 impl<T> Iterator for Clipline<T>
 where
     T: Copy
@@ -371,7 +373,7 @@ where
         + SubAssign
         + TryFrom<u8>
         + AbsDiff,
-    <T as AbsDiff>::Output: TryFrom<u8> + Into<usize> + Add<Output = <T as AbsDiff>::Output>,
+    <T as AbsDiff>::Output: TryFrom<u8> + TryInto<usize> + Add<Output = <T as AbsDiff>::Output>,
 {
     type Item = Point<T>;
 
@@ -399,7 +401,7 @@ where
 impl<T> Iterator for Vlipline<T>
 where
     T: Copy + Ord + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + AddAssign + AbsDiff,
-    <T as AbsDiff>::Output: TryFrom<u8> + Into<usize> + Add<Output = <T as AbsDiff>::Output>,
+    <T as AbsDiff>::Output: TryFrom<u8> + TryInto<usize> + Add<Output = <T as AbsDiff>::Output>,
 {
     type Item = Point<T>;
 
@@ -416,8 +418,11 @@ where
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         let one = <<T as AbsDiff>::Output>::try_from(1).unwrap_or_else(|_| unreachable!());
-        let len = (T::abs_diff(self.y1, self.y2) + one).into();
-        (len, Some(len))
+        if let Ok(len) = (T::abs_diff(self.y1, self.y2) + one).try_into() {
+            (len, Some(len))
+        } else {
+            (0, None)
+        }
     }
 }
 
@@ -431,7 +436,7 @@ where
         + Mul<Output = T>
         + AddAssign
         + AbsDiff,
-    <T as AbsDiff>::Output: TryFrom<u8> + Into<usize> + Add<Output = <T as AbsDiff>::Output>,
+    <T as AbsDiff>::Output: TryFrom<u8> + TryInto<usize> + Add<Output = <T as AbsDiff>::Output>,
 {
     type Item = Point<T>;
 
@@ -448,15 +453,18 @@ where
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         let one = <T as AbsDiff>::Output::try_from(1).unwrap_or_else(|_| unreachable!());
-        let len = (T::abs_diff(self.x1, self.x2) + one).into();
-        (len, Some(len))
+        if let Ok(len) = (T::abs_diff(self.x1, self.x2) + one).try_into() {
+            (len, Some(len))
+        } else {
+            (0, None)
+        }
     }
 }
 
 impl<T> Iterator for Gentleham<T>
 where
     T: Copy + Ord + Sub<Output = T> + AddAssign + SubAssign + TryFrom<u8> + AbsDiff,
-    <T as AbsDiff>::Output: Into<usize>,
+    <T as AbsDiff>::Output: TryInto<usize>,
 {
     type Item = Point<T>;
 
@@ -475,15 +483,18 @@ where
     fn size_hint(&self) -> (usize, Option<usize>) {
         let xd = self.0.xd;
         let term = self.0.term;
-        let len = T::abs_diff(xd, term).into();
-        (len, Some(len))
+        if let Ok(len) = T::abs_diff(xd, term).try_into() {
+            (len, Some(len))
+        } else {
+            (0, None)
+        }
     }
 }
 
 impl<T> Iterator for Steepnham<T>
 where
     T: Copy + Ord + Sub<Output = T> + AddAssign + SubAssign + TryFrom<u8> + AbsDiff,
-    <T as AbsDiff>::Output: Into<usize>,
+    <T as AbsDiff>::Output: TryInto<usize>,
 {
     type Item = Point<T>;
 
@@ -499,13 +510,18 @@ where
     }
 
     #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
+    fn size_hint(&self) -> (usize, Option<usize>) where {
         let yd = self.0.yd;
         let term = self.0.term;
-        let len = T::abs_diff(yd, term).into();
-        (len, Some(len))
+        if let Ok(len) = T::abs_diff(yd, term).try_into() {
+            (len, Some(len))
+        } else {
+            (0, None)
+        }
     }
 }
+
+// -----------------------------------------------
 
 impl<T> DoubleEndedIterator for Vlipline<T>
 where
@@ -552,6 +568,8 @@ where
         Some((x, y))
     }
 }
+
+// -----------------------------------------------
 
 impl<T> ExactSizeIterator for Clipline<T>
 where
@@ -606,6 +624,8 @@ where
 {
 }
 
+// -----------------------------------------------
+
 impl<T> FusedIterator for Clipline<T>
 where
     T: Copy
@@ -617,7 +637,7 @@ where
         + SubAssign
         + TryFrom<u8>
         + AbsDiff,
-    <T as AbsDiff>::Output: TryFrom<u8> + Into<usize> + Add<Output = <T as AbsDiff>::Output>,
+    <T as AbsDiff>::Output: TryFrom<u8> + TryInto<usize> + Add<Output = <T as AbsDiff>::Output>,
 {
 }
 impl<T> FusedIterator for Vlipline<T>
@@ -630,7 +650,7 @@ where
         + AddAssign
         + SubAssign
         + AbsDiff,
-    <T as AbsDiff>::Output: TryFrom<u8> + Into<usize> + Add<Output = <T as AbsDiff>::Output>,
+    <T as AbsDiff>::Output: TryFrom<u8> + TryInto<usize> + Add<Output = <T as AbsDiff>::Output>,
 {
 }
 impl<T> FusedIterator for Hlipline<T>
@@ -643,7 +663,7 @@ where
         + AddAssign
         + SubAssign
         + AbsDiff,
-    <T as AbsDiff>::Output: TryFrom<u8> + Into<usize> + Add<Output = <T as AbsDiff>::Output>,
+    <T as AbsDiff>::Output: TryFrom<u8> + TryInto<usize> + Add<Output = <T as AbsDiff>::Output>,
 {
 }
 impl<T> FusedIterator for Gentleham<T>
@@ -656,7 +676,7 @@ where
         + SubAssign
         + TryFrom<u8>
         + AbsDiff,
-    <T as AbsDiff>::Output: Into<usize>,
+    <T as AbsDiff>::Output: TryInto<usize>,
 {
 }
 impl<T> FusedIterator for Steepnham<T>
@@ -669,9 +689,11 @@ where
         + SubAssign
         + TryFrom<u8>
         + AbsDiff,
-    <T as AbsDiff>::Output: Into<usize>,
+    <T as AbsDiff>::Output: TryInto<usize>,
 {
 }
+
+// -----------------------------------------------
 
 /// The absolute difference operation.
 trait AbsDiff<Rhs = Self> {
@@ -708,6 +730,8 @@ impl_abs_diff!(u32, u32);
 impl_abs_diff!(u64, u64);
 impl_abs_diff!(u128, u128);
 impl_abs_diff!(usize, usize);
+
+// -----------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -1016,5 +1040,38 @@ mod tests {
         assert_eq!(clip.next(), Some((1, 0)));
         assert_eq!(clip.next_back(), None);
         assert_eq!(clip.next(), None);
+    }
+
+    #[test]
+    fn test_all_signed_integers() {
+        let points: [(isize, isize); 2] = [(0, 0), (1, 1)];
+        fn assert(
+            points: [(isize, isize); 2],
+            x: impl TryInto<isize> + Sized,
+            y: impl TryInto<isize> + Sized,
+        ) {
+            assert!(points.contains(&(
+                x.try_into().unwrap_or_else(|_| unreachable!()),
+                y.try_into().unwrap_or_else(|_| unreachable!())
+            )))
+        }
+        Clipline::<i8>::new(((0, 0), (1, 1)), ((0, 0), (1, 1)))
+            .unwrap_or_else(|| unreachable!())
+            .for_each(|(x, y)| assert(points, x, y));
+        Clipline::<i16>::new(((0, 0), (1, 1)), ((0, 0), (1, 1)))
+            .unwrap_or_else(|| unreachable!())
+            .for_each(|(x, y)| assert(points, x, y));
+        Clipline::<i32>::new(((0, 0), (1, 1)), ((0, 0), (1, 1)))
+            .unwrap_or_else(|| unreachable!())
+            .for_each(|(x, y)| assert(points, x, y));
+        Clipline::<i64>::new(((0, 0), (1, 1)), ((0, 0), (1, 1)))
+            .unwrap_or_else(|| unreachable!())
+            .for_each(|(x, y)| assert(points, x, y));
+        Clipline::<i128>::new(((0, 0), (1, 1)), ((0, 0), (1, 1)))
+            .unwrap_or_else(|| unreachable!())
+            .for_each(|(x, y)| assert(points, x, y));
+        Clipline::<isize>::new(((0, 0), (1, 1)), ((0, 0), (1, 1)))
+            .unwrap_or_else(|| unreachable!())
+            .for_each(|(x, y)| assert(points, x, y));
     }
 }

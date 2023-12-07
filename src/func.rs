@@ -360,4 +360,37 @@ mod tests {
         let clipped_line = clipline(line, clip_rect, |_, _| {});
         assert_eq!(clipped_line, Some(((4, 3), (4, 8))),);
     }
+
+    #[test]
+    fn test_all_signed_integers() {
+        let points: [(isize, isize); 2] = [(0, 0), (1, 1)];
+        fn assert(
+            points: [(isize, isize); 2],
+            x: impl TryInto<isize> + Sized,
+            y: impl TryInto<isize> + Sized,
+        ) {
+            assert!(points.contains(&(
+                x.try_into().unwrap_or_else(|_| unreachable!()),
+                y.try_into().unwrap_or_else(|_| unreachable!())
+            )))
+        }
+        clipline::<i8, _>(((0, 0), (1, 1)), ((0, 0), (1, 1)), |x, y| {
+            assert(points, x, y)
+        });
+        clipline::<i16, _>(((0, 0), (1, 1)), ((0, 0), (1, 1)), |x, y| {
+            assert(points, x, y)
+        });
+        clipline::<i32, _>(((0, 0), (1, 1)), ((0, 0), (1, 1)), |x, y| {
+            assert(points, x, y)
+        });
+        clipline::<i64, _>(((0, 0), (1, 1)), ((0, 0), (1, 1)), |x, y| {
+            assert(points, x, y)
+        });
+        clipline::<i128, _>(((0, 0), (1, 1)), ((0, 0), (1, 1)), |x, y| {
+            assert(points, x, y)
+        });
+        clipline::<isize, _>(((0, 0), (1, 1)), ((0, 0), (1, 1)), |x, y| {
+            assert(points, x, y)
+        });
+    }
 }
