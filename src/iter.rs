@@ -2,6 +2,7 @@ use crate::util::{
     bresenham_step, clip_rect_entry, clip_rect_exit, destandardize, standardize, Point,
 };
 use core::cmp::{max, min};
+use core::iter::FusedIterator;
 
 /// Enum representing the different variants of clipped line segment iterators.
 ///
@@ -43,6 +44,7 @@ use core::cmp::{max, min};
 ///     }
 /// }
 /// ```
+#[derive(Clone, Debug)]
 pub enum Clipline {
     Vlipline(Vlipline),
     Hlipline(Hlipline),
@@ -70,6 +72,7 @@ pub enum Clipline {
 ///     draw_pixel(x, y);
 /// }
 /// ```
+#[derive(Clone, Debug)]
 pub struct Vlipline {
     x: isize,
     y1: isize,
@@ -96,6 +99,7 @@ pub struct Vlipline {
 ///     draw_pixel(x, y)
 /// }
 /// ```
+#[derive(Clone, Debug)]
 pub struct Hlipline {
     x1: isize,
     x2: isize,
@@ -123,6 +127,7 @@ pub struct Hlipline {
 ///     _ => {}
 /// }
 /// ```
+#[derive(Clone, Debug)]
 pub struct Gentleham(Bresenham);
 
 /// Iterator for steeply-sloped clipped lines.
@@ -144,8 +149,10 @@ pub struct Gentleham(Bresenham);
 ///     _ => {}
 /// }
 /// ```
+#[derive(Clone, Debug)]
 pub struct Steepnham(Bresenham);
 
+#[derive(Clone, Debug)]
 struct Bresenham {
     tx: isize,
     ty: isize,
@@ -353,6 +360,16 @@ impl Iterator for Clipline {
             Self::Steepnham(iter) => iter.next(),
         }
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::Vlipline(iter) => iter.size_hint(),
+            Self::Hlipline(iter) => iter.size_hint(),
+            Self::Gentleham(iter) => iter.size_hint(),
+            Self::Steepnham(iter) => iter.size_hint(),
+        }
+    }
 }
 
 impl Iterator for Vlipline {
@@ -367,6 +384,12 @@ impl Iterator for Vlipline {
         self.y1 += self.sy;
         Some((x, y))
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = isize::abs_diff(self.y1, self.y2) + 1;
+        (len, Some(len))
+    }
 }
 
 impl Iterator for Hlipline {
@@ -380,6 +403,12 @@ impl Iterator for Hlipline {
         let (x, y) = (self.x1, self.y);
         self.x1 += self.sx;
         Some((x, y))
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = isize::abs_diff(self.x1, self.x2) + 1;
+        (len, Some(len))
     }
 }
 
@@ -396,6 +425,12 @@ impl Iterator for Gentleham {
         (b.err, b.xd, b.yd) = bresenham_step(b.err, b.xd, b.yd, b.tx, b.ty, b.dx2, b.dy2);
         Some((x, y))
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = isize::abs_diff(self.0.xd, self.0.term);
+        (len, Some(len))
+    }
 }
 
 impl Iterator for Steepnham {
@@ -411,7 +446,49 @@ impl Iterator for Steepnham {
         (b.err, b.yd, b.xd) = bresenham_step(b.err, b.yd, b.xd, b.ty, b.tx, b.dy2, b.dx2);
         Some((x, y))
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = isize::abs_diff(self.0.yd, self.0.term);
+        (len, Some(len))
+    }
 }
+
+impl DoubleEndedIterator for Vlipline {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.y1 * self.sy > self.y2 * self.sy {
+            return None;
+        }
+        let (x, y) = (self.x, self.y2);
+        self.y2 -= self.sy;
+        Some((x, y))
+    }
+}
+
+impl DoubleEndedIterator for Hlipline {
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.x1 * self.sx > self.x2 * self.sx {
+            return None;
+        }
+        let (x, y) = (self.x2, self.y);
+        self.x2 -= self.sx;
+        Some((x, y))
+    }
+}
+
+impl ExactSizeIterator for Clipline {}
+impl ExactSizeIterator for Vlipline {}
+impl ExactSizeIterator for Hlipline {}
+impl ExactSizeIterator for Gentleham {}
+impl ExactSizeIterator for Steepnham {}
+
+impl FusedIterator for Clipline {}
+impl FusedIterator for Vlipline {}
+impl FusedIterator for Hlipline {}
+impl FusedIterator for Gentleham {}
+impl FusedIterator for Steepnham {}
 
 #[cfg(test)]
 mod tests {
@@ -656,5 +733,67 @@ mod tests {
             &actual_points[..num_points],
             &[(2, 5), (2, 4), (1, 3), (1, 2), (0, 1), (0, 0)]
         );
+    }
+
+    #[test]
+    fn test_size_hint_horizontal() {
+        let clip = Hlipline::new(0, 9, 0, ((0, 0), (10, 10))).unwrap();
+        assert_eq!(clip.size_hint(), (10, Some(10)));
+        assert_eq!(clip.len(), 10);
+        let mut count = 0;
+        clip.for_each(|_| count += 1);
+        assert_eq!(count, 10);
+    }
+
+    #[test]
+    fn test_size_hint_vertical() {
+        let clip = Vlipline::new(0, 0, 9, ((0, 0), (10, 10))).unwrap();
+        assert_eq!(clip.size_hint(), (10, Some(10)));
+        assert_eq!(clip.len(), 10);
+        let mut count = 0;
+        clip.for_each(|_| count += 1);
+        assert_eq!(count, 10);
+    }
+
+    #[test]
+    fn test_size_hint_steep() {
+        let clip = Clipline::new(((0, 0), (9, 3)), ((0, 0), (10, 10))).unwrap();
+        assert_eq!(clip.size_hint(), (10, Some(10)));
+        assert_eq!(clip.len(), 10);
+        let mut count = 0;
+        clip.for_each(|_| count += 1);
+        assert_eq!(count, 10);
+    }
+
+    #[test]
+    fn test_size_hint_gentle() {
+        let clip = Clipline::new(((0, 0), (8, 9)), ((0, 0), (10, 10))).unwrap();
+        assert_eq!(clip.size_hint(), (10, Some(10)));
+        assert_eq!(clip.len(), 10);
+        let mut count = 0;
+        clip.for_each(|_| count += 1);
+        assert_eq!(count, 10);
+    }
+
+    #[test]
+    fn test_double_ended_vertical() {
+        let mut clip = Vlipline::new(0, 0, 3, ((0, 0), (3, 3))).unwrap();
+        assert_eq!(clip.next_back(), Some((0, 3)));
+        assert_eq!(clip.next_back(), Some((0, 2)));
+        assert_eq!(clip.next(), Some((0, 0)));
+        assert_eq!(clip.next(), Some((0, 1)));
+        assert_eq!(clip.next_back(), None);
+        assert_eq!(clip.next(), None);
+    }
+
+    #[test]
+    fn test_double_ended_horizontal() {
+        let mut clip = Hlipline::new(0, 3, 0, ((0, 0), (3, 3))).unwrap();
+        assert_eq!(clip.next_back(), Some((3, 0)));
+        assert_eq!(clip.next_back(), Some((2, 0)));
+        assert_eq!(clip.next(), Some((0, 0)));
+        assert_eq!(clip.next(), Some((1, 0)));
+        assert_eq!(clip.next_back(), None);
+        assert_eq!(clip.next(), None);
     }
 }
