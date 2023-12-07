@@ -1,7 +1,8 @@
 use crate::util::{
     bresenham_step, clip_rect_entry, clip_rect_exit, destandardize, horizontal_line, standardize,
-    vertical_line, Point,
+    vertical_line, Constant, Point,
 };
+use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Range, Rem, Sub, SubAssign};
 
 /// Performs scan conversion of a line segment using Bresenham's algorithm,
 /// while clipping it to a specified rectangle.
@@ -53,13 +54,27 @@ use crate::util::{
 ///
 /// This is slightly more optimized than the iterator version, but uses internal iteration. Unlike
 /// the iterator version, vertical and horizontal lines will always be traversed in an ascending order.
-pub fn clipline<F>(
-    line: (Point, Point),
-    clip_rect: (Point, Point),
+#[allow(private_bounds)]
+pub fn clipline<T, F>(
+    line: (Point<T>, Point<T>),
+    clip_rect: (Point<T>, Point<T>),
     mut pixel_op: F,
-) -> Option<(Point, Point)>
+) -> Option<(Point<T>, Point<T>)>
 where
-    F: FnMut(isize, isize),
+    T: Copy
+        + Ord
+        + Neg<Output = T>
+        + Add<Output = T>
+        + AddAssign
+        + Sub<Output = T>
+        + SubAssign
+        + Mul<Output = T>
+        + Div<Output = T>
+        + Rem<Output = T>
+        + MulAssign
+        + Constant<Output = T>,
+    Range<T>: Iterator<Item = T>,
+    F: FnMut(T, T),
 {
     let ((x1, y1), (x2, y2)) = line;
     let ((wx1, wy1), (wx2, wy2)) = clip_rect;
@@ -83,8 +98,7 @@ where
     let dx = x2 - x1;
     let dy = y2 - y1;
 
-    let (dx2, dy2) = (2 * dx, 2 * dy);
-
+    let (dx2, dy2) = (T::TWO * dx, T::TWO * dy);
     if dx >= dy {
         let (yd, xd, mut err) = clip_rect_entry(y1, x1, wy1, wy2, wx1, wx2, dx, dy2, dx2)?;
         let term = clip_rect_exit(y1, y2, x1, x2, wy2, dx, dy2, dx2);
@@ -343,5 +357,38 @@ mod tests {
 
         let clipped_line = clipline(line, clip_rect, |_, _| {});
         assert_eq!(clipped_line, Some(((4, 3), (4, 8))),);
+    }
+
+    #[test]
+    fn test_all_signed_integers() {
+        let points: [(isize, isize); 2] = [(0, 0), (1, 1)];
+        fn assert(
+            points: [(isize, isize); 2],
+            x: impl TryInto<isize> + Sized,
+            y: impl TryInto<isize> + Sized,
+        ) {
+            assert!(points.contains(&(
+                x.try_into().unwrap_or_else(|_| unreachable!()),
+                y.try_into().unwrap_or_else(|_| unreachable!())
+            )))
+        }
+        clipline::<i8, _>(((0, 0), (1, 1)), ((0, 0), (1, 1)), |x, y| {
+            assert(points, x, y)
+        });
+        clipline::<i16, _>(((0, 0), (1, 1)), ((0, 0), (1, 1)), |x, y| {
+            assert(points, x, y)
+        });
+        clipline::<i32, _>(((0, 0), (1, 1)), ((0, 0), (1, 1)), |x, y| {
+            assert(points, x, y)
+        });
+        clipline::<i64, _>(((0, 0), (1, 1)), ((0, 0), (1, 1)), |x, y| {
+            assert(points, x, y)
+        });
+        clipline::<i128, _>(((0, 0), (1, 1)), ((0, 0), (1, 1)), |x, y| {
+            assert(points, x, y)
+        });
+        clipline::<isize, _>(((0, 0), (1, 1)), ((0, 0), (1, 1)), |x, y| {
+            assert(points, x, y)
+        });
     }
 }

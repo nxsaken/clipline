@@ -1,7 +1,9 @@
 use crate::util::{
-    bresenham_step, clip_rect_entry, clip_rect_exit, destandardize, standardize, Point,
+    bresenham_step, clip_rect_entry, clip_rect_exit, destandardize, standardize, Constant, Point,
 };
 use core::cmp::{max, min};
+use core::iter::FusedIterator;
+use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
 
 /// Enum representing the different variants of clipped line segment iterators.
 ///
@@ -43,11 +45,12 @@ use core::cmp::{max, min};
 ///     }
 /// }
 /// ```
-pub enum Clipline {
-    Vlipline(Vlipline),
-    Hlipline(Hlipline),
-    Gentleham(Gentleham),
-    Steepnham(Steepnham),
+#[derive(Clone, Debug)]
+pub enum Clipline<T = isize> {
+    Vlipline(Vlipline<T>),
+    Hlipline(Hlipline<T>),
+    Gentleham(Gentleham<T>),
+    Steepnham(Steepnham<T>),
 }
 
 /// Iterator for vertical clipped lines.
@@ -70,11 +73,12 @@ pub enum Clipline {
 ///     draw_pixel(x, y);
 /// }
 /// ```
-pub struct Vlipline {
-    x: isize,
-    y1: isize,
-    y2: isize,
-    sy: isize,
+#[derive(Clone, Debug)]
+pub struct Vlipline<T = isize> {
+    x: T,
+    y1: T,
+    y2: T,
+    sy: T,
 }
 
 /// Iterator for horizontal clipped lines.
@@ -96,11 +100,12 @@ pub struct Vlipline {
 ///     draw_pixel(x, y)
 /// }
 /// ```
-pub struct Hlipline {
-    x1: isize,
-    x2: isize,
-    y: isize,
-    sx: isize,
+#[derive(Clone, Debug)]
+pub struct Hlipline<T = isize> {
+    x1: T,
+    x2: T,
+    y: T,
+    sx: T,
 }
 
 /// Iterator for gently-sloped clipped lines.
@@ -123,7 +128,8 @@ pub struct Hlipline {
 ///     _ => {}
 /// }
 /// ```
-pub struct Gentleham(Bresenham);
+#[derive(Clone, Debug)]
+pub struct Gentleham<T = isize>(Bresenham<T>);
 
 /// Iterator for steeply-sloped clipped lines.
 /// It is created via [`Clipline::new`].
@@ -144,27 +150,43 @@ pub struct Gentleham(Bresenham);
 ///     _ => {}
 /// }
 /// ```
-pub struct Steepnham(Bresenham);
+#[derive(Clone, Debug)]
+pub struct Steepnham<T = isize>(Bresenham<T>);
 
-struct Bresenham {
-    tx: isize,
-    ty: isize,
-    dx2: isize,
-    dy2: isize,
-    xd: isize,
-    yd: isize,
-    err: isize,
-    term: isize,
+#[derive(Clone, Debug)]
+struct Bresenham<T> {
+    tx: T,
+    ty: T,
+    dx2: T,
+    dy2: T,
+    xd: T,
+    yd: T,
+    err: T,
+    term: T,
 }
 
-impl Clipline {
+#[allow(private_bounds)]
+impl<T> Clipline<T>
+where
+    T: Copy
+        + Ord
+        + Neg<Output = T>
+        + Add<Output = T>
+        + AddAssign
+        + Sub<Output = T>
+        + SubAssign
+        + Mul<Output = T>
+        + Div<Output = T>
+        + Rem<Output = T>
+        + MulAssign
+        + Constant<Output = T>,
+{
     /// Creates an appropriate iterator based on the provided line segment and clipping rectangle.
     ///
     /// # Arguments
     ///
     /// * `line`: A tuple representing the endpoints of the line segment.
     /// The line segment will be iterated from start to end, inclusive.
-    ///
     /// * `clip_rect`: A tuple representing the corners of the clipping rectangle, inclusive.
     /// The line segment will be clipped to this rectangle, and only the visible portion will be iterated.
     ///
@@ -173,7 +195,7 @@ impl Clipline {
     /// If any part of the line segment is visible within the clipping rectangle,
     /// the function returns an [`Option`] containing the appropriate [`Clipline`] variant.
     /// If the line segment is entirely outside the clipping region, the function returns [`None`].
-    pub fn new(line: (Point, Point), clip_rect: (Point, Point)) -> Option<Self> {
+    pub fn new(line: (Point<T>, Point<T>), clip_rect: (Point<T>, Point<T>)) -> Option<Self> {
         let ((x1, y1), (x2, y2)) = line;
 
         if x1 == x2 {
@@ -192,7 +214,7 @@ impl Clipline {
         let dx = x2 - x1;
         let dy = y2 - y1;
 
-        let (dx2, dy2) = (2 * dx, 2 * dy);
+        let (dx2, dy2) = (T::TWO * dx, T::TWO * dy);
 
         let bresenham = if dx >= dy {
             let (yd, xd, err) = clip_rect_entry(y1, x1, wy1, wy2, wx1, wx2, dx, dy2, dx2)?;
@@ -213,7 +235,11 @@ impl Clipline {
     }
 }
 
-impl Vlipline {
+#[allow(private_bounds)]
+impl<T> Vlipline<T>
+where
+    T: Ord + Neg<Output = T> + Constant<Output = T>,
+{
     /// Creates a vertical clipped line segment iterator.
     ///
     /// This function will return an iterator for a vertical line segment specified by its x-coordinate,
@@ -222,9 +248,7 @@ impl Vlipline {
     /// # Arguments
     ///
     /// * `x1`: The x-coordinate of the line segment.
-    ///
     /// * `y1`: The starting y-coordinate of the line segment.
-    ///
     /// * `y2`: The ending y-coordinate of the line segment, inclusive.
     ///
     /// * `clip_rect`: A tuple representing the corners of the clipping rectangle, inclusive.
@@ -235,7 +259,7 @@ impl Vlipline {
     /// If any part of the line segment is visible within the clipping rectangle,
     /// the function returns an [`Option`] containing the [`Vlipline`] iterator.
     /// If the line segment is entirely outside the clipping region, the function returns [`None`].
-    pub fn new(x: isize, y1: isize, y2: isize, clip_rect: (Point, Point)) -> Option<Self> {
+    pub fn new(x: T, y1: T, y2: T, clip_rect: (Point<T>, Point<T>)) -> Option<Self> {
         let ((wx1, wy1), (wx2, wy2)) = clip_rect;
         if x < wx1 || x > wx2 {
             return None;
@@ -248,7 +272,7 @@ impl Vlipline {
                 x,
                 y1: min(y1, wy2),
                 y2: max(y2, wy1),
-                sy: -1,
+                sy: -T::ONE,
             })
         } else {
             if y1 > wy2 || y2 < wy1 {
@@ -258,13 +282,17 @@ impl Vlipline {
                 x,
                 y1: max(y1, wy1),
                 y2: min(y2, wy2),
-                sy: 1,
+                sy: T::ONE,
             })
         }
     }
 }
 
-impl Hlipline {
+#[allow(private_bounds)]
+impl<T> Hlipline<T>
+where
+    T: Ord + Neg<Output = T> + Constant<Output = T>,
+{
     /// Creates a horizontal clipped line segment iterator.
     ///
     /// This function will return an iterator for a horizontal line segment specified by its starting
@@ -273,9 +301,7 @@ impl Hlipline {
     /// # Arguments
     ///
     /// * `x1`: The starting x-coordinate of the line segment.
-    ///
     /// * `x2`: The ending x-coordinate of the line segment, inclusive.
-    ///
     /// * `y`: The y-coordinate of the line segment.
     ///
     /// * `clip_rect`: A tuple representing the corners of the clipping rectangle, inclusive.
@@ -286,7 +312,7 @@ impl Hlipline {
     /// If any part of the line segment is visible within the clipping rectangle,
     /// the function returns an [`Option`] containing the [`Hlipline`] iterator.
     /// If the line segment is entirely outside the clipping region, the function returns [`None`].
-    pub fn new(x1: isize, x2: isize, y: isize, clip_rect: (Point, Point)) -> Option<Self> {
+    pub fn new(x1: T, x2: T, y: T, clip_rect: (Point<T>, Point<T>)) -> Option<Self> {
         let ((wx1, wy1), (wx2, wy2)) = clip_rect;
         if y < wy1 || y > wy2 {
             return None;
@@ -299,7 +325,7 @@ impl Hlipline {
                 x1: min(x1, wx2),
                 x2: max(x2, wx1),
                 y,
-                sx: -1,
+                sx: -T::ONE,
             })
         } else {
             if x1 > wx2 || x2 < wx1 {
@@ -309,25 +335,16 @@ impl Hlipline {
                 x1: max(x1, wx1),
                 x2: min(x2, wx2),
                 y,
-                sx: 1,
+                sx: T::ONE,
             })
         }
     }
 }
 
-impl Bresenham {
+impl<T> Bresenham<T> {
     #[allow(clippy::too_many_arguments)]
     #[inline(always)]
-    const fn new(
-        tx: isize,
-        ty: isize,
-        dx2: isize,
-        dy2: isize,
-        xd: isize,
-        yd: isize,
-        err: isize,
-        term: isize,
-    ) -> Self {
+    const fn new(tx: T, ty: T, dx2: T, dy2: T, xd: T, yd: T, err: T, term: T) -> Self {
         Self {
             tx,
             ty,
@@ -341,8 +358,22 @@ impl Bresenham {
     }
 }
 
-impl Iterator for Clipline {
-    type Item = Point;
+// -----------------------------------------------
+
+impl<T> Iterator for Clipline<T>
+where
+    T: Copy
+        + Ord
+        + Add<Output = T>
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + AddAssign
+        + SubAssign
+        + Constant<Output = T>
+        + AbsDiff,
+    <T as AbsDiff>::Output: TryFrom<u8> + TryInto<usize> + Add<Output = <T as AbsDiff>::Output>,
+{
+    type Item = Point<T>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -353,10 +384,24 @@ impl Iterator for Clipline {
             Self::Steepnham(iter) => iter.next(),
         }
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        match self {
+            Self::Vlipline(iter) => iter.size_hint(),
+            Self::Hlipline(iter) => iter.size_hint(),
+            Self::Gentleham(iter) => iter.size_hint(),
+            Self::Steepnham(iter) => iter.size_hint(),
+        }
+    }
 }
 
-impl Iterator for Vlipline {
-    type Item = Point;
+impl<T> Iterator for Vlipline<T>
+where
+    T: Copy + Ord + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + AddAssign + AbsDiff,
+    <T as AbsDiff>::Output: TryFrom<u8> + TryInto<usize> + Add<Output = <T as AbsDiff>::Output>,
+{
+    type Item = Point<T>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -367,10 +412,31 @@ impl Iterator for Vlipline {
         self.y1 += self.sy;
         Some((x, y))
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let one = <<T as AbsDiff>::Output>::try_from(1).unwrap_or_else(|_| unreachable!());
+        if let Ok(len) = (T::abs_diff(self.y1, self.y2) + one).try_into() {
+            (len, Some(len))
+        } else {
+            (0, None)
+        }
+    }
 }
 
-impl Iterator for Hlipline {
-    type Item = Point;
+impl<T> Iterator for Hlipline<T>
+where
+    T: Copy
+        + Ord
+        + Add<Output = T>
+        + Sub<Output = T>
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + AddAssign
+        + AbsDiff,
+    <T as AbsDiff>::Output: TryFrom<u8> + TryInto<usize> + Add<Output = <T as AbsDiff>::Output>,
+{
+    type Item = Point<T>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -381,10 +447,24 @@ impl Iterator for Hlipline {
         self.x1 += self.sx;
         Some((x, y))
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let one = <T as AbsDiff>::Output::try_from(1).unwrap_or_else(|_| unreachable!());
+        if let Ok(len) = (T::abs_diff(self.x1, self.x2) + one).try_into() {
+            (len, Some(len))
+        } else {
+            (0, None)
+        }
+    }
 }
 
-impl Iterator for Gentleham {
-    type Item = Point;
+impl<T> Iterator for Gentleham<T>
+where
+    T: Copy + Ord + Sub<Output = T> + AddAssign + SubAssign + Constant<Output = T> + AbsDiff,
+    <T as AbsDiff>::Output: TryInto<usize>,
+{
+    type Item = Point<T>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -396,10 +476,25 @@ impl Iterator for Gentleham {
         (b.err, b.xd, b.yd) = bresenham_step(b.err, b.xd, b.yd, b.tx, b.ty, b.dx2, b.dy2);
         Some((x, y))
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let xd = self.0.xd;
+        let term = self.0.term;
+        if let Ok(len) = T::abs_diff(xd, term).try_into() {
+            (len, Some(len))
+        } else {
+            (0, None)
+        }
+    }
 }
 
-impl Iterator for Steepnham {
-    type Item = Point;
+impl<T> Iterator for Steepnham<T>
+where
+    T: Copy + Ord + Sub<Output = T> + AddAssign + SubAssign + Constant<Output = T> + AbsDiff,
+    <T as AbsDiff>::Output: TryInto<usize>,
+{
+    type Item = Point<T>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -411,16 +506,242 @@ impl Iterator for Steepnham {
         (b.err, b.yd, b.xd) = bresenham_step(b.err, b.yd, b.xd, b.ty, b.tx, b.dy2, b.dx2);
         Some((x, y))
     }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) where {
+        let yd = self.0.yd;
+        let term = self.0.term;
+        if let Ok(len) = T::abs_diff(yd, term).try_into() {
+            (len, Some(len))
+        } else {
+            (0, None)
+        }
+    }
 }
+
+// -----------------------------------------------
+
+impl<T> DoubleEndedIterator for Vlipline<T>
+where
+    T: Copy
+        + Ord
+        + Add<Output = T>
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + AddAssign
+        + SubAssign
+        + AbsDiff,
+    <T as AbsDiff>::Output: TryFrom<u8> + Into<usize> + Add<Output = <T as AbsDiff>::Output>,
+{
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.y1 * self.sy > self.y2 * self.sy {
+            return None;
+        }
+        let (x, y) = (self.x, self.y2);
+        self.y2 -= self.sy;
+        Some((x, y))
+    }
+}
+
+impl<T> DoubleEndedIterator for Hlipline<T>
+where
+    T: Copy
+        + Ord
+        + Add<Output = T>
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + AddAssign
+        + SubAssign
+        + AbsDiff,
+    <T as AbsDiff>::Output: TryFrom<u8> + Into<usize> + Add<Output = <T as AbsDiff>::Output>,
+{
+    #[inline]
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.x1 * self.sx > self.x2 * self.sx {
+            return None;
+        }
+        let (x, y) = (self.x2, self.y);
+        self.x2 -= self.sx;
+        Some((x, y))
+    }
+}
+
+// -----------------------------------------------
+
+impl<T> ExactSizeIterator for Clipline<T>
+where
+    T: Copy
+        + Ord
+        + Add<Output = T>
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + AddAssign
+        + SubAssign
+        + Constant<Output = T>
+        + AbsDiff,
+    <T as AbsDiff>::Output: TryFrom<u8> + Into<usize> + Add<Output = <T as AbsDiff>::Output>,
+{
+}
+impl<T> ExactSizeIterator for Vlipline<T>
+where
+    T: Copy + Ord + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + AddAssign + AbsDiff,
+    <T as AbsDiff>::Output: TryFrom<u8> + Into<usize> + Add<Output = <T as AbsDiff>::Output>,
+{
+}
+impl<T> ExactSizeIterator for Hlipline<T>
+where
+    T: Copy + Ord + Add<Output = T> + Sub<Output = T> + Mul<Output = T> + AddAssign + AbsDiff,
+    <T as AbsDiff>::Output: TryFrom<u8> + Into<usize> + Add<Output = <T as AbsDiff>::Output>,
+{
+}
+impl<T> ExactSizeIterator for Gentleham<T>
+where
+    T: Copy
+        + Ord
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + AddAssign
+        + SubAssign
+        + Constant<Output = T>
+        + AbsDiff,
+    <T as AbsDiff>::Output: Into<usize>,
+{
+}
+impl<T> ExactSizeIterator for Steepnham<T>
+where
+    T: Copy
+        + Ord
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + AddAssign
+        + SubAssign
+        + Constant<Output = T>
+        + AbsDiff,
+    <T as AbsDiff>::Output: Into<usize>,
+{
+}
+
+// -----------------------------------------------
+
+impl<T> FusedIterator for Clipline<T>
+where
+    T: Copy
+        + Ord
+        + Add<Output = T>
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + AddAssign
+        + SubAssign
+        + Constant<Output = T>
+        + AbsDiff,
+    <T as AbsDiff>::Output: TryFrom<u8> + TryInto<usize> + Add<Output = <T as AbsDiff>::Output>,
+{
+}
+impl<T> FusedIterator for Vlipline<T>
+where
+    T: Copy
+        + Ord
+        + Add<Output = T>
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + AddAssign
+        + SubAssign
+        + AbsDiff,
+    <T as AbsDiff>::Output: TryFrom<u8> + TryInto<usize> + Add<Output = <T as AbsDiff>::Output>,
+{
+}
+impl<T> FusedIterator for Hlipline<T>
+where
+    T: Copy
+        + Ord
+        + Add<Output = T>
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + AddAssign
+        + SubAssign
+        + AbsDiff,
+    <T as AbsDiff>::Output: TryFrom<u8> + TryInto<usize> + Add<Output = <T as AbsDiff>::Output>,
+{
+}
+impl<T> FusedIterator for Gentleham<T>
+where
+    T: Copy
+        + Ord
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + AddAssign
+        + SubAssign
+        + Constant<Output = T>
+        + AbsDiff,
+    <T as AbsDiff>::Output: TryInto<usize>,
+{
+}
+impl<T> FusedIterator for Steepnham<T>
+where
+    T: Copy
+        + Ord
+        + Sub<Output = T>
+        + Mul<Output = T>
+        + AddAssign
+        + SubAssign
+        + Constant<Output = T>
+        + AbsDiff,
+    <T as AbsDiff>::Output: TryInto<usize>,
+{
+}
+
+// -----------------------------------------------
+
+/// The absolute difference operation.
+trait AbsDiff<Rhs = Self> {
+    /// The resulting type after applying the `+` operator.
+    type Output;
+
+    /// Computes the absolute difference between `self` and `other`.
+    #[must_use]
+    fn abs_diff(self, rhs: Rhs) -> Self::Output;
+}
+
+macro_rules! impl_abs_diff {
+    ($signed:ty, $unsigned:ty) => {
+        impl AbsDiff for $signed {
+            type Output = $unsigned;
+
+            #[inline(always)]
+            fn abs_diff(self, rhs: Self) -> Self::Output {
+                <$signed>::abs_diff(self, rhs)
+            }
+        }
+    };
+}
+
+impl_abs_diff!(i8, u8);
+impl_abs_diff!(i16, u16);
+impl_abs_diff!(i32, u32);
+impl_abs_diff!(i64, u64);
+impl_abs_diff!(i128, u128);
+impl_abs_diff!(isize, usize);
+
+impl_abs_diff!(u8, u8);
+impl_abs_diff!(u16, u16);
+impl_abs_diff!(u32, u32);
+impl_abs_diff!(u64, u64);
+impl_abs_diff!(u128, u128);
+impl_abs_diff!(usize, usize);
+
+// -----------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    type Pnt = (i8, i8);
+
     fn test_line_scenario(
-        line: ((isize, isize), (isize, isize)),
-        clip_rect: ((isize, isize), (isize, isize)),
-        actual_points: &mut [(isize, isize)],
+        line: (Pnt, Pnt),
+        clip_rect: (Pnt, Pnt),
+        actual_points: &mut [Pnt],
     ) -> usize {
         let mut num_points = 0;
         if let Some(cline) = Clipline::new(line, clip_rect) {
@@ -656,5 +977,100 @@ mod tests {
             &actual_points[..num_points],
             &[(2, 5), (2, 4), (1, 3), (1, 2), (0, 1), (0, 0)]
         );
+    }
+
+    #[test]
+    fn test_size_hint_horizontal() {
+        let clip = Hlipline::<i8>::new(0, 9, 0, ((0, 0), (10, 10))).unwrap();
+        assert_eq!(clip.size_hint(), (10, Some(10)));
+        assert_eq!(clip.len(), 10);
+        let mut count = 0;
+        clip.for_each(|_| count += 1);
+        assert_eq!(count, 10);
+    }
+
+    #[test]
+    fn test_size_hint_vertical() {
+        let clip = Vlipline::<i8>::new(0, 0, 9, ((0, 0), (10, 10))).unwrap();
+        assert_eq!(clip.size_hint(), (10, Some(10)));
+        assert_eq!(clip.len(), 10);
+        let mut count = 0;
+        clip.for_each(|_| count += 1);
+        assert_eq!(count, 10);
+    }
+
+    #[test]
+    fn test_size_hint_steep() {
+        let clip = Clipline::<i8>::new(((0, 0), (9, 3)), ((0, 0), (10, 10))).unwrap();
+        assert_eq!(clip.size_hint(), (10, Some(10)));
+        assert_eq!(clip.len(), 10);
+        let mut count = 0;
+        clip.for_each(|_| count += 1);
+        assert_eq!(count, 10);
+    }
+
+    #[test]
+    fn test_size_hint_gentle() {
+        let clip = Clipline::<i8>::new(((0, 0), (8, 9)), ((0, 0), (10, 10))).unwrap();
+        assert_eq!(clip.size_hint(), (10, Some(10)));
+        assert_eq!(clip.len(), 10);
+        let mut count = 0;
+        clip.for_each(|_| count += 1);
+        assert_eq!(count, 10);
+    }
+
+    #[test]
+    fn test_double_ended_vertical() {
+        let mut clip = Vlipline::<i8>::new(0, 0, 3, ((0, 0), (3, 3))).unwrap();
+        assert_eq!(clip.next_back(), Some((0, 3)));
+        assert_eq!(clip.next_back(), Some((0, 2)));
+        assert_eq!(clip.next(), Some((0, 0)));
+        assert_eq!(clip.next(), Some((0, 1)));
+        assert_eq!(clip.next_back(), None);
+        assert_eq!(clip.next(), None);
+    }
+
+    #[test]
+    fn test_double_ended_horizontal() {
+        let mut clip = Hlipline::<i8>::new(0, 3, 0, ((0, 0), (3, 3))).unwrap();
+        assert_eq!(clip.next_back(), Some((3, 0)));
+        assert_eq!(clip.next_back(), Some((2, 0)));
+        assert_eq!(clip.next(), Some((0, 0)));
+        assert_eq!(clip.next(), Some((1, 0)));
+        assert_eq!(clip.next_back(), None);
+        assert_eq!(clip.next(), None);
+    }
+
+    #[test]
+    fn test_all_signed_integers() {
+        let points: [(isize, isize); 2] = [(0, 0), (1, 1)];
+        fn assert(
+            points: [(isize, isize); 2],
+            x: impl TryInto<isize> + Sized,
+            y: impl TryInto<isize> + Sized,
+        ) {
+            assert!(points.contains(&(
+                x.try_into().unwrap_or_else(|_| unreachable!()),
+                y.try_into().unwrap_or_else(|_| unreachable!())
+            )))
+        }
+        Clipline::<i8>::new(((0, 0), (1, 1)), ((0, 0), (1, 1)))
+            .unwrap_or_else(|| unreachable!())
+            .for_each(|(x, y)| assert(points, x, y));
+        Clipline::<i16>::new(((0, 0), (1, 1)), ((0, 0), (1, 1)))
+            .unwrap_or_else(|| unreachable!())
+            .for_each(|(x, y)| assert(points, x, y));
+        Clipline::<i32>::new(((0, 0), (1, 1)), ((0, 0), (1, 1)))
+            .unwrap_or_else(|| unreachable!())
+            .for_each(|(x, y)| assert(points, x, y));
+        Clipline::<i64>::new(((0, 0), (1, 1)), ((0, 0), (1, 1)))
+            .unwrap_or_else(|| unreachable!())
+            .for_each(|(x, y)| assert(points, x, y));
+        Clipline::<i128>::new(((0, 0), (1, 1)), ((0, 0), (1, 1)))
+            .unwrap_or_else(|| unreachable!())
+            .for_each(|(x, y)| assert(points, x, y));
+        Clipline::<isize>::new(((0, 0), (1, 1)), ((0, 0), (1, 1)))
+            .unwrap_or_else(|| unreachable!())
+            .for_each(|(x, y)| assert(points, x, y));
     }
 }
