@@ -54,7 +54,6 @@ use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Range, Rem, Sub, SubAs
 ///
 /// This is slightly more optimized than the iterator version, but uses internal iteration. Unlike
 /// the iterator version, vertical and horizontal lines will always be traversed in an ascending order.
-#[allow(private_bounds)]
 pub fn clipline<T, F>(
     line: (Point<T>, Point<T>),
     clip_rect: (Point<T>, Point<T>),

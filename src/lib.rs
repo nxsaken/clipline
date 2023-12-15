@@ -22,4 +22,6 @@ mod util;
 #[cfg(feature = "func")]
 pub use func::clipline;
 #[cfg(feature = "iter")]
-pub use iter::{Clipline, Gentleham, Hlipline, Steepnham, Vlipline};
+pub use iter::{AbsDiff, Clipline, Gentleham, Hlipline, Steepnham, Vlipline};
+#[cfg(any(feature = "func", feature = "iter"))]
+pub use util::Constant;
