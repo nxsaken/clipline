@@ -1,9 +1,10 @@
-use crate::util::{
-    bresenham_step, clip_rect_entry, clip_rect_exit, destandardize, standardize, Constant, Point,
-};
 use core::cmp::{max, min};
 use core::iter::FusedIterator;
 use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
+
+use crate::util::{
+    bresenham_step, clip_rect_entry, clip_rect_exit, destandardize, standardize, Constant, Point,
+};
 
 /// Enum representing the different variants of clipped line segment iterators.
 ///
@@ -165,7 +166,6 @@ struct Bresenham<T> {
     term: T,
 }
 
-#[allow(private_bounds)]
 impl<T> Clipline<T>
 where
     T: Copy
@@ -235,7 +235,6 @@ where
     }
 }
 
-#[allow(private_bounds)]
 impl<T> Vlipline<T>
 where
     T: Ord + Neg<Output = T> + Constant<Output = T>,
@@ -288,7 +287,6 @@ where
     }
 }
 
-#[allow(private_bounds)]
 impl<T> Hlipline<T>
 where
     T: Ord + Neg<Output = T> + Constant<Output = T>,
@@ -694,8 +692,8 @@ where
 // -----------------------------------------------
 
 /// The absolute difference operation.
-trait AbsDiff<Rhs = Self> {
-    /// The resulting type after applying the `+` operator.
+pub trait AbsDiff<Rhs = Self> {
+    /// The resulting type after applying the `abs_diff` operation.
     type Output;
 
     /// Computes the absolute difference between `self` and `other`.

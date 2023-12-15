@@ -209,7 +209,8 @@ where
     (err, xyd, yxd)
 }
 
-pub(crate) trait Constant {
+/// Provides constants for `0`, `1` and `2`.
+pub trait Constant {
     type Output;
 
     const ZERO: Self::Output;
