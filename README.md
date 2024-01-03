@@ -2,6 +2,7 @@
 
 [![Rust](https://github.com/nxsaken/clipline/actions/workflows/rust.yml/badge.svg)](https://github.com/nxsaken/clipline/actions/workflows/rust.yml)
 [![crates.io](https://img.shields.io/crates/v/clipline.svg)](https://crates.io/crates/clipline)
+[![Crates.io](https://img.shields.io/crates/d/clipline.svg)](https://crates.io/crates/clipline)
 [![docs.rs](https://img.shields.io/docsrs/clipline)](https://docs.rs/clipline/latest/clipline/)
 
 `clipline` is a Rust crate for efficient scan conversion (rasterization) of line segments with [clipping](https://en.wikipedia.org/wiki/Line_clipping) to a rectangular window. It is an implementation of
