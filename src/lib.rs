@@ -11,17 +11,35 @@
 //! Both methods can be toggled with the `func` and `iter` features (both enabled by default).
 
 #![no_std]
+#![cfg_attr(feature = "try_fold", feature(try_trait_v2))]
+#![cfg_attr(feature = "is_empty", feature(exact_size_is_empty))]
+#![forbid(unsafe_code)]
+#![deny(
+    missing_docs
+    // TODO: clippy::arithmetic_side_effects
+)]
+#![warn(clippy::nursery, clippy::cargo, clippy::pedantic)]
+#![allow(
+    clippy::match_bool,
+    clippy::module_name_repetitions,
+    clippy::inline_always,
+    clippy::similar_names
+)]
 
-#[cfg(feature = "func")]
-mod func;
-#[cfg(feature = "iter")]
-mod iter;
-#[cfg(any(feature = "func", feature = "iter"))]
-mod util;
+mod axis_aligned;
+mod bresenham;
 
-#[cfg(feature = "func")]
-pub use func::clipline;
-#[cfg(feature = "iter")]
-pub use iter::{AbsDiff, Clipline, Gentleham, Hlipline, Steepnham, Vlipline};
-#[cfg(any(feature = "func", feature = "iter"))]
-pub use util::Constant;
+pub use axis_aligned::{
+    AxisAligned, Horizontal, NegativeHorizontal, NegativeVertical, PositiveHorizontal,
+    PositiveVertical, SignedAxisAligned, Vertical,
+};
+
+pub use bresenham::{
+    Bresenham, Octant as BresenhamOctant, Octant0 as BresenhamOctant0, Octant1 as BresenhamOctant1,
+    Octant2 as BresenhamOctant2, Octant3 as BresenhamOctant3, Octant4 as BresenhamOctant4,
+    Octant5 as BresenhamOctant5, Octant6 as BresenhamOctant6, Octant7 as BresenhamOctant7,
+};
+
+// TODO: support numeric types other than `isize`.
+/// Generic point on a Cartesian plane.
+pub type Point<T> = (T, T);
