@@ -15,15 +15,14 @@ include = [
 ]
 
 [features]
-default = ["func", "iter"]
-iter = []
-func = []
+default = []
+
+# Enable optimized `try_fold` implementations.
+# Requires the unstable `try_trait_v2` feature.
+try_fold = []
+
+# Enable optimized `is_empty` implementations.
+# Requires the unstable `exact_size_is_empty` feature.
+is_empty = []
 
 [dev-dependencies]
-criterion = { version = "0.5.1"}
-bresenham = "0.1.1"
-line_drawing = "1.0.0"
-
-[[bench]]
-name = "bresenham_comparison"
-harness = false
