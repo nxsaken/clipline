@@ -1,6 +1,6 @@
 [package]
 name = "clipline"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Nurzhan Sakén <nurzhan.sakenov@gmail.com>"]
 edition = "2021"
 description = "Efficient scan conversion (rasterization) of line segments with clipping to a rectangular window."
