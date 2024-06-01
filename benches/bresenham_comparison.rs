@@ -59,7 +59,7 @@ fn clipline_c(line: Line, clip: Rect) {
 }
 
 fn bench_lines(c: &mut Criterion) {
-    let cases = [1, 8, 32].iter().flat_map(|mult| {
+    let cases = [1, 4, 8, 16].iter().flat_map(|mult| {
         let (w, h) = (160 * mult, 160 * mult);
         [
             (
@@ -87,64 +87,64 @@ fn bench_lines(c: &mut Criterion) {
     });
     for (case_name, clip_size, line) in cases {
         let mut group = c.benchmark_group(case_name);
-        for num_lines in [1, 1024, 8192, 32768] {
-            group.throughput(Throughput::Elements(num_lines));
-            group.bench_with_input(
-                BenchmarkId::new("bresenham", num_lines),
-                &num_lines,
-                |b, &num_lines| {
-                    b.iter(|| {
-                        for _ in 0..num_lines {
-                            line_a(line, ((0, 0), clip_size));
-                        }
-                    });
-                },
-            );
-            group.bench_with_input(
-                BenchmarkId::new("line_drawing", num_lines),
-                &num_lines,
-                |b, &num_lines| {
-                    b.iter(|| {
-                        for _ in 0..num_lines {
-                            line_b(line, ((0, 0), clip_size));
-                        }
-                    });
-                },
-            );
-            group.bench_with_input(
-                BenchmarkId::new("clipline(fn)", num_lines),
-                &num_lines,
-                |b, &num_lines| {
-                    b.iter(|| {
-                        for _ in 0..num_lines {
-                            clipline_a(line, ((0, 0), clip_size));
-                        }
-                    });
-                },
-            );
-            group.bench_with_input(
-                BenchmarkId::new("Clipline(iter)", num_lines),
-                &num_lines,
-                |b, &num_lines| {
-                    b.iter(|| {
-                        for _ in 0..num_lines {
-                            clipline_b(line, ((0, 0), clip_size));
-                        }
-                    });
-                },
-            );
-            group.bench_with_input(
-                BenchmarkId::new("Clipline(match-iter)", num_lines),
-                &num_lines,
-                |b, &num_lines| {
-                    b.iter(|| {
-                        for _ in 0..num_lines {
-                            clipline_c(line, ((0, 0), clip_size));
-                        }
-                    });
-                },
-            );
-        }
+        let num_lines = 256;
+        group.throughput(Throughput::Elements(num_lines));
+        group.bench_with_input(
+            BenchmarkId::new("bresenham", num_lines),
+            &num_lines,
+            |b, &num_lines| {
+                b.iter(|| {
+                    for _ in 0..num_lines {
+                        line_a(line, ((0, 0), clip_size));
+                    }
+                });
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("line_drawing", num_lines),
+            &num_lines,
+            |b, &num_lines| {
+                b.iter(|| {
+                    for _ in 0..num_lines {
+                        line_b(line, ((0, 0), clip_size));
+                    }
+                });
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("clipline(fn)", num_lines),
+            &num_lines,
+            |b, &num_lines| {
+                b.iter(|| {
+                    for _ in 0..num_lines {
+                        clipline_a(line, ((0, 0), clip_size));
+                    }
+                });
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("Clipline(iter)", num_lines),
+            &num_lines,
+            |b, &num_lines| {
+                b.iter(|| {
+                    for _ in 0..num_lines {
+                        clipline_b(line, ((0, 0), clip_size));
+                    }
+                });
+            },
+        );
+        group.bench_with_input(
+            BenchmarkId::new("Clipline(match-iter)", num_lines),
+            &num_lines,
+            |b, &num_lines| {
+                b.iter(|| {
+                    for _ in 0..num_lines {
+                        clipline_c(line, ((0, 0), clip_size));
+                    }
+                });
+            },
+        );
+
         group.finish()
     }
 }
