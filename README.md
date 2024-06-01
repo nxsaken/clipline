@@ -16,6 +16,14 @@ clipping algorithms like [Cohen-Sutherland](https://en.wikipedia.org/wiki/Cohen%
 
 ![`clipline` in action](img/clip_anim.gif)
 
+## Benchmarks
+
+[Benchmarks are available here](BENCHMARKS.md). I used [criterion.rs](https://github.com/bheisler/criterion.rs) to 
+compare 
+`clipline` to two 
+popular line drawing crates – `bresenham` and `line_drawing`, on a variety of 
+clipping window sizes, line orientations and counts.
+
 ## Installation
 
 To use `clipline`, add it to your `Cargo.toml` file:
@@ -52,7 +60,7 @@ for (x, y) in Clipline::new(line, clip_rect).unwrap() {
     draw_pixel(x, y);
 }
 
-// C. Iterate over each `Clipline` case directly (faster, recommended)
+// C. Iterate over each `Clipline` case directly
 match Clipline::new(line, clip_rect).unwrap() {
     Vlipline(pixels) => pixels.for_each(|(x, y)| draw_pixel(x, y)),
     Hlipline(pixels) => pixels.for_each(|(x, y)| draw_pixel(x, y)),
