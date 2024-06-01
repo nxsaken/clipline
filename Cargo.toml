@@ -1,6 +1,6 @@
 [package]
 name = "clipline"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Nurzhan Sakén <nurzhan.sakenov@gmail.com>"]
 edition = "2021"
 description = "Efficient scan conversion (rasterization) of line segments with clipping to a rectangular window."
@@ -8,7 +8,7 @@ readme = "README.md"
 repository = "https://github.com/nxsaken/clipline/"
 license = "MIT OR Apache-2.0"
 keywords = ["graphics", "clipping", "line", "bresenham", "rasterization"]
-categories = ["graphics", "rendering", "algorithms"]
+categories = ["graphics", "rendering", "algorithms", "game-development", "rendering"]
 include = [
     "**/*.rs",
     "Cargo.toml",
