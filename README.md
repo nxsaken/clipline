@@ -13,8 +13,9 @@ The key advantage of `clipline` over vanilla Bresenham is that it eliminates the
 
 ## Benchmarks
 
-[Benchmarks are available here](BENCHMARKS.md). I used [criterion.rs](https://github.com/bheisler/criterion.rs) to compare
-`clipline` to two popular line drawing crates – `bresenham` and `line_drawing`, on a variety of clipping window sizes, line orientations and counts.
+[Benchmarks are available here](BENCHMARKS.md). I used [criterion.rs](https://github.com/bheisler/criterion.rs) to compare `clipline` to two popular line drawing crates – `bresenham` and `line_drawing`, by "drawing" 256 lines of varying clipping window sizes and line orientations.
+
+In practice, `bresenham` and `line_drawing` will require bounds checks when indexing into a frame buffer, hence the difference between the `draw_pixel_checked` and `draw_pixel_unchecked` functions.
 
 ## Installation
 
@@ -33,9 +34,9 @@ This crate provides two ways of performing scan conversion: the `clipline` funct
 ```rust
 use clipline::{clipline, Clipline, Clipline::*};
 
-let draw_pixel = | x, y| {
-// Your custom pixel logic
-// No bounds checks necessary here!
+let draw_pixel = |x, y| {
+    // Your custom pixel logic
+    // No bounds checks necessary here!
 };
 
 let line = ((0, 0), (10, 10));
@@ -44,23 +45,23 @@ let clip_rect = ((2, 2), (8, 8));
 // A. Use the `clipline` function for slightly faster operations
 // `(start, end)` represents the visible portion of the line.
 let (start, end) = clipline(line, clip_rect, draw_pixel)
-.expect("line intersects clip_rect");
+    .expect("line intersects clip_rect");
 
 // B. Iterate over `Clipline` with indirection
 // `Clipline::new` returns None if `line` is fully outside `clip_rect`.
 for (x, y) in Clipline::new(line, clip_rect).unwrap() {
-draw_pixel(x, y);
+    draw_pixel(x, y);
 }
 
 // C. Iterate over each `Clipline` case directly
 match Clipline::new(line, clip_rect).unwrap() {
-Vlipline(pixels) => pixels.for_each( |(x, y) | draw_pixel(x, y)),
-Hlipline(pixels) => pixels.for_each( | (x, y) | draw_pixel(x, y)),
-Gentleham(pixels) => pixels.for_each( | (x, y) | draw_pixel(x, y)),
-Steepnham(pixels) => {
-for (x, y) in pixels {
-draw_pixel(x, y);
-}
-}
+    Vlipline(pixels) => pixels.for_each(|(x, y)| draw_pixel(x, y)),
+    Hlipline(pixels) => pixels.for_each(|(x, y)| draw_pixel(x, y)),
+    Gentleham(pixels) => pixels.for_each(|(x, y)| draw_pixel(x, y)),
+    Steepnham(pixels) => {
+        for (x, y) in pixels {
+            draw_pixel(x, y);
+        }
+    }
 }
 ```
