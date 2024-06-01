@@ -118,7 +118,7 @@ where
 mod tests {
     use super::*;
 
-    fn draw_pixel(_x: isize, _y: isize) {}
+    const fn draw_pixel(_x: isize, _y: isize) {}
 
     #[test]
     fn test_line_outside_clip() {
