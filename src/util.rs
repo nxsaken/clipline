@@ -3,6 +3,7 @@ use core::cmp::{max, min};
 pub type Point = (isize, isize);
 
 /// Standardizes the line segment (such that `x1 < x2 && y1 < y2`).
+#[inline(always)]
 pub fn standardize(
     xy1: isize,
     xy2: isize,
@@ -17,6 +18,7 @@ pub fn standardize(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[inline(always)]
 pub fn vertical_line(
     x: isize,
     y1: isize,
@@ -35,13 +37,14 @@ pub fn vertical_line(
         return None;
     }
     let (cy1, cy2) = (max(y1, wy1), min(y2, wy2));
-    for y in cy1..=cy2 {
+    for y in cy1..(cy2 + 1) {
         pixel_op(x, y);
     }
     Some((cy1, cy2))
 }
 
 #[allow(clippy::too_many_arguments)]
+#[inline(always)]
 pub fn horizontal_line(
     y: isize,
     x1: isize,
@@ -62,13 +65,14 @@ pub fn horizontal_line(
     let (cx1, cx2) = (max(x1, wx1), min(x2, wx2));
     // in practice it's better to fill the whole row in one operation,
     // but to keep the API simple we do it pixel-wise
-    for x in cx1..=cx2 {
+    for x in cx1..(cx2 + 1) {
         pixel_op(x, y);
     }
     Some((cx1, cx2))
 }
 
 #[allow(clippy::too_many_arguments)]
+#[inline(always)]
 pub fn clip_rect_entry(
     xy1: isize,
     yx1: isize,
@@ -124,6 +128,7 @@ pub fn clip_rect_entry(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[inline(always)]
 pub fn clip_rect_exit(
     xy1: isize,
     xy2: isize,
@@ -148,6 +153,7 @@ pub fn clip_rect_exit(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[inline(always)]
 pub fn destandardize(
     mut term: isize,
     mut xyd: isize,
@@ -162,6 +168,7 @@ pub fn destandardize(
     (xyd, yxd, term)
 }
 
+#[inline(always)]
 pub fn bresenham_step(
     mut err: isize,
     mut xyd: isize,

@@ -317,7 +317,8 @@ impl Hlipline {
 
 impl Bresenham {
     #[allow(clippy::too_many_arguments)]
-    fn new(
+    #[inline(always)]
+    const fn new(
         tx: isize,
         ty: isize,
         dx2: isize,
@@ -343,12 +344,13 @@ impl Bresenham {
 impl Iterator for Clipline {
     type Item = Point;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            Clipline::Vlipline(iter) => iter.next(),
-            Clipline::Hlipline(iter) => iter.next(),
-            Clipline::Gentleham(iter) => iter.next(),
-            Clipline::Steepnham(iter) => iter.next(),
+            Self::Vlipline(iter) => iter.next(),
+            Self::Hlipline(iter) => iter.next(),
+            Self::Gentleham(iter) => iter.next(),
+            Self::Steepnham(iter) => iter.next(),
         }
     }
 }
@@ -356,6 +358,7 @@ impl Iterator for Clipline {
 impl Iterator for Vlipline {
     type Item = Point;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         if self.y1 * self.sy > self.y2 * self.sy {
             return None;
@@ -369,6 +372,7 @@ impl Iterator for Vlipline {
 impl Iterator for Hlipline {
     type Item = Point;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         if self.x1 * self.sx > self.x2 * self.sx {
             return None;
@@ -382,6 +386,7 @@ impl Iterator for Hlipline {
 impl Iterator for Gentleham {
     type Item = Point;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let Self(b) = self;
         if b.xd == b.term {
@@ -396,6 +401,7 @@ impl Iterator for Gentleham {
 impl Iterator for Steepnham {
     type Item = Point;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let Self(b) = self;
         if b.yd == b.term {
