@@ -15,14 +15,18 @@ include = [
 ]
 
 [features]
-default = []
-
+default = ["bresenham", "bresenham_diagonals", "kuzmin"]
+# Enable Bresenham's algorithm.
+bresenham = []
+# Enable diagonal cases in Bresenham's algorithm.
+# Makes diagonal lines faster, but adds an extra check at construction.
+bresenham_diagonals = ["bresenham"]
+# Enable Kuzmin's algorithm.
+# Allows clipping arbitrary line segments.
+kuzmin = ["bresenham"]
 # Enable optimized `try_fold` implementations.
 # Requires the unstable `try_trait_v2` feature.
 try_fold = []
-
 # Enable optimized `is_empty` implementations.
 # Requires the unstable `exact_size_is_empty` feature.
 is_empty = []
-
-[dev-dependencies]
