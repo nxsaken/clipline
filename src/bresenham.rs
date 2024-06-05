@@ -1,68 +1,102 @@
-//! Bresenham iterators.
+//! ## Bresenham line segment iterators
+//!
+//! This module provides a family of iterators
+//! for directed line segments powered by [Bresenham's algorithm][1].
+//!
+//! [1]: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 
-use crate::{
-    AxisAligned, Horizontal, NegativeHorizontal, NegativeVertical, Point, PositiveHorizontal,
-    PositiveVertical, Vertical,
-};
+#[cfg(feature = "bresenham_diagonals")]
+use crate::diagonal;
+#[cfg(feature = "kuzmin")]
+use crate::kuzmin;
+use crate::{axis_aligned, Point};
 
-/// Line segment iterator backed by one of the eight octants of
-/// [Bresenham's algorithm](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm).
+/// Iterator over a directed line segment in the given octant of [Bresenham's algorithm][1].
 ///
-/// An octant is one of the eight sectors of a Cartesian plane
-/// spanning an angle of 45 degrees.
+/// An octant is defined by its transformations relative to [`Octant0`]:
+/// - `FY`: flip the `y` axis if `true`.
+/// - `FX`: flip the `x` axis if `true`.
+/// - `SWAP`: swap the `x` and `y` axes if `true`.
 ///
-/// The generic parameters represent symmetries relative to the first octant:
-/// - `FY`: flip the `y` coordinate if `true`.
-/// - `FX`: flip the `x` coordinate if `true`.
-/// - `SWAP`: swap the `x` and `y` coordinates if `true`.
+/// [1]: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct Octant<const FY: bool, const FX: bool, const SWAP: bool> {
-    x: isize,
-    y: isize,
+    x1: isize,
+    y1: isize,
     dx2: isize,
     dy2: isize,
     error: isize,
-    // TODO: store both end coordinates and impl DoubleEndedIterator.
+    // TODO(#13): implement `DoubleEndedIterator`.
     end: isize,
 }
 
-impl<const FY: bool, const FX: bool, const SWAP: bool> Iterator for Octant<FY, FX, SWAP> {
-    type Item = Point<isize>;
+/// Iterator over a directed line segment in the first [`Octant`].
+///
+/// This octant covers the sector where both `x` and `y` are increasing,
+/// with `x` changing faster than `y` (gentle slope, covers `(0°, 45°)`).
+pub type Octant0 = Octant<false, false, false>;
 
-    #[inline]
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.terminated() {
-            return None;
-        }
-        let (x, y) = (self.x, self.y);
-        if self.error >= 0 {
-            match SWAP {
-                true => self.x += if FX { -1 } else { 1 },
-                false => self.y += if FY { -1 } else { 1 },
-            }
-            self.error -= self.dx2;
-        }
-        match SWAP {
-            true => self.y += if FY { -1 } else { 1 },
-            false => self.x += if FX { -1 } else { 1 },
-        }
-        self.error += self.dy2;
-        Some((x, y))
-    }
+/// Iterator over a directed line segment in the second [`Octant`].
+///
+/// This octant covers the sector where both `x` and `y` are
+/// increasing, with `y` changing faster than `x` (steep slope, covers `[45°, 90°)`).
+///
+/// Can be obtained from [`Octant0`] by swapping the `x` and `y` coordinates.
+pub type Octant1 = Octant<false, false, true>;
 
-    #[inline]
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let length = match SWAP {
-            true => isize::abs_diff(self.y, self.end),
-            false => isize::abs_diff(self.x, self.end),
-        };
-        (length, Some(length))
-    }
-}
+/// Iterator over a directed line segment in the third [`Octant`].
+///
+/// This octant covers the sector where `x` is decreasing and `y` is
+/// increasing, with `x` changing faster than `y` (gentle slope, covers `(135°, 180°)`).
+///
+/// Can be obtained from [`Octant0`] by flipping the `x` coordinate.
+pub type Octant2 = Octant<false, true, false>;
+
+/// Iterator over a directed line segment in the fourth [`Octant`].
+///
+/// This octant covers the sector where `x` is decreasing and `y` is
+/// increasing, with `y` changing faster than `x` (steep slope, covers `[90°, 135°]`).
+///
+/// Can be obtained from [`Octant0`] by flipping the `x` coordinate,
+/// and swapping the `x` and `y` coordinates.
+pub type Octant3 = Octant<false, true, true>;
+
+/// Iterator over a directed line segment in the fifth [`Octant`].
+///
+/// This octant covers the sector where `x` is increasing and `y` is
+/// decreasing, with `x` changing faster than `y` (gentle slope, covers `(315°, 360°]`).
+///
+/// Can be obtained from [`Octant0`] by flipping the `y` coordinate.
+pub type Octant4 = Octant<true, false, false>;
+
+/// Iterator over a directed line segment in the sixth [`Octant`].
+///
+/// This octant covers the sector where `x` is increasing and `y` is
+/// decreasing, with `y` changing faster than `x` (steep slope, covers `(270°, 315°]`).
+///
+/// Can be obtained from [`Octant0`] by flipping the `y` coordinate,
+/// and swapping the `x` and `y` coordinates.
+pub type Octant5 = Octant<true, false, true>;
+
+/// Iterator over a directed line segment in the seventh [`Octant`].
+///
+/// This octant covers the sector where `x` is decreasing and `y` is
+/// decreasing, with `x` changing faster than `y` (gentle slope, covers `[180°, 225°)`).
+///
+/// Can be obtained from [`Octant0`] by flipping the `x` and `y` coordinates.
+pub type Octant6 = Octant<true, true, false>;
+
+/// Iterator over a directed line segment in the eighth [`Octant`].
+///
+/// This octant covers the sector where `x` is decreasing and `y` is
+/// decreasing, with `y` changing faster than `x` (steep slope, covers `[225°, 270°]`).
+///
+/// Can be obtained from [`Octant0`] by flipping and swapping the `x` and `y` coordinates.
+pub type Octant7 = Octant<true, true, true>;
 
 impl<const FY: bool, const FX: bool, const SWAP: bool> Octant<FY, FX, SWAP> {
-    /// Creates an [`Octant`] instance if the line segment
-    /// defined by the given endpoints belongs to the octant.
+    /// Creates an iterator over a directed line segment
+    /// if covered by the [`Octant`].
     #[inline]
     #[must_use]
     pub const fn new((x1, y1): Point<isize>, (x2, y2): Point<isize>) -> Option<Self> {
@@ -75,24 +109,80 @@ impl<const FY: bool, const FX: bool, const SWAP: bool> Octant<FY, FX, SWAP> {
         if SWAP && dy < dx || !SWAP && dx <= dy {
             return None;
         }
-        Some(Self::new_unchecked((x1, y1), (x2, y2), (dx, dy)))
+        Some(Self::raw_unchecked((x1, y1), (x2, y2), (dx, dy)))
+    }
+
+    /// Creates an iterator over a directed line segment
+    /// if it is covered by the [`Octant`]
+    /// and overlaps the [clipping][1] window.
+    ///
+    /// The line segment will be clipped to the window
+    /// using [Kuzmin's algorithm][2].
+    ///
+    /// [1]: https://en.wikipedia.org/wiki/Line_clipping
+    /// [2]: kuzmin
+    #[cfg(feature = "kuzmin")]
+    #[inline]
+    #[must_use]
+    pub const fn clip(
+        (x1, y1): Point<isize>,
+        (x2, y2): Point<isize>,
+        (wx1, wy1): Point<isize>,
+        (wx2, wy2): Point<isize>,
+    ) -> Option<Self> {
+        let (dx, dy) = (x2 - x1, y2 - y1);
+        if FY && 0 < dy || !FY && dy <= 0 || FX && 0 < dx || !FX && dx <= 0 {
+            return None;
+        }
+        let dy = if FY { -dy } else { dy };
+        let dx = if FX { -dx } else { dx };
+        if SWAP && dy < dx || !SWAP && dx <= dy {
+            return None;
+        }
+        Self::clip_unchecked((x1, y1), (x2, y2), (dx, dy), (wx1, wy1), (wx2, wy2))
+    }
+
+    #[cfg(feature = "kuzmin")]
+    #[inline(always)]
+    #[must_use]
+    const fn clip_unchecked(
+        (x1, y1): Point<isize>,
+        (x2, y2): Point<isize>,
+        (dx, dy): (isize, isize),
+        window_min: Point<isize>,
+        window_max: Point<isize>,
+    ) -> Option<Self> {
+        let (dx2, dy2) = (dx << 1, dy << 1);
+        let Some(((_cx1, _cy1), error)) =
+            kuzmin::enter::<FY, FX, SWAP>((x1, y1), (dx, dy), (dx2, dy2), window_min, window_max)
+        else {
+            return None;
+        };
+        let end =
+            kuzmin::exit::<FY, FX, SWAP>((x1, y1), (x2, y2), (dx, dy), (dx2, dy2), window_max);
+        Some(Self {
+            x1,
+            y1,
+            dx2,
+            dy2,
+            error,
+            end,
+        })
     }
 
     #[inline(always)]
     #[must_use]
-    const fn new_unchecked(
+    const fn raw_unchecked(
         (x1, y1): Point<isize>,
         (x2, y2): Point<isize>,
         (dx, dy): (isize, isize),
     ) -> Self {
-        let (dx, dy) = if SWAP { (dy, dx) } else { (dx, dy) };
-        // TODO: check overflow.
         let (dx2, dy2) = (dx << 1, dy << 1);
-        let error = dy2 - dx;
+        let error = if SWAP { dx2 - dy } else { dy2 - dx };
         let end = if SWAP { y2 } else { x2 };
         Self {
-            x: x1,
-            y: y1,
+            x1,
+            y1,
             dx2,
             dy2,
             error,
@@ -100,122 +190,107 @@ impl<const FY: bool, const FX: bool, const SWAP: bool> Octant<FY, FX, SWAP> {
         }
     }
 
-    /// Checks if the iterator has terminated.
+    /// Returns `true` if the iterator has terminated.
     #[inline]
     #[must_use]
-    pub const fn terminated(&self) -> bool {
+    pub const fn is_done(&self) -> bool {
         match SWAP {
             true => match FY {
-                true => self.y <= self.end,
-                false => self.end <= self.y,
+                true => self.y1 <= self.end,
+                false => self.end <= self.y1,
             },
             false => match FX {
-                true => self.x <= self.end,
-                false => self.end <= self.x,
+                true => self.x1 <= self.end,
+                false => self.end <= self.x1,
             },
         }
     }
 }
 
-/// Special case of the [`Octant`] iterator representing the first octant.
-///
-/// This octant covers the sector where both `x` and `y` are increasing,
-/// with `x` changing faster than `y` (gentle slope, covers `(0°, 45°)`).
-pub type Octant0 = Octant<false, false, false>;
+impl<const FY: bool, const FX: bool, const SWAP: bool> Iterator for Octant<FY, FX, SWAP> {
+    type Item = Point<isize>;
 
-/// Special case of the [`Octant`] iterator representing the second octant.
-///
-/// This octant covers the sector where both `x` and `y` are
-/// increasing, with `y` changing faster than `x` (steep slope, covers `[45°, 90°)`).
-///
-/// Can be obtained from [`Octant0`] by swapping the `x` and `y` coordinates.
-pub type Octant1 = Octant<false, false, true>;
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.is_done() {
+            return None;
+        }
+        let (x, y) = (self.x1, self.y1);
+        if self.error >= 0 {
+            match SWAP {
+                true => self.x1 += if FX { -1 } else { 1 },
+                false => self.y1 += if FY { -1 } else { 1 },
+            }
+            self.error -= if SWAP { self.dy2 } else { self.dx2 };
+        }
+        match SWAP {
+            true => self.y1 += if FY { -1 } else { 1 },
+            false => self.x1 += if FX { -1 } else { 1 },
+        }
+        self.error += if SWAP { self.dx2 } else { self.dy2 };
+        Some((x, y))
+    }
 
-/// Special case of the [`Octant`] iterator representing the third octant.
-///
-/// This octant covers the sector where `x` is decreasing and `y` is
-/// increasing, with `x` changing faster than `y` (gentle slope, covers `(135°, 180°)`).
-///
-/// Can be obtained from [`Octant0`] by flipping the `x` coordinate.
-pub type Octant2 = Octant<false, true, false>;
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        // slightly optimized over `isize::abs_diff`,
+        // see its implementation for the proof that this cast is legal
+        #[allow(clippy::cast_sign_loss)]
+        let length = match SWAP {
+            true => match FY {
+                true => usize::wrapping_sub(self.y1 as usize, self.end as usize),
+                false => usize::wrapping_sub(self.end as usize, self.y1 as usize),
+            },
+            false => match FX {
+                true => usize::wrapping_sub(self.x1 as usize, self.end as usize),
+                false => usize::wrapping_sub(self.end as usize, self.x1 as usize),
+            },
+        };
+        (length, Some(length))
+    }
+}
 
-/// Special case of the [`Octant`] iterator representing the fourth octant.
-///
-/// This octant covers the sector where `x` is decreasing and `y` is
-/// increasing, with `y` changing faster than `x` (steep slope, covers `[90°, 135°]`).
-///
-/// Can be obtained from [`Octant0`] by flipping the `x` coordinate,
-/// and swapping the `x` and `y` coordinates.
-pub type Octant3 = Octant<false, true, true>;
-
-/// Special case of the [`Octant`] iterator representing the fifth octant.
-///
-/// This octant covers the sector where `x` is increasing and `y` is
-/// decreasing, with `x` changing faster than `y` (gentle slope, covers `(315°, 360°]`).
-///
-/// Can be obtained from [`Octant0`] by flipping the `y` coordinate.
-pub type Octant4 = Octant<true, false, false>;
-
-/// Special case of the [`Octant`] iterator representing the sixth octant.
-///
-/// This octant covers the sector where `x` is increasing and `y` is
-/// decreasing, with `y` changing faster than `x` (steep slope, covers `(270°, 315°]`).
-///
-/// Can be obtained from [`Octant0`] by flipping the `y` coordinate,
-/// and swapping the `x` and `y` coordinates.
-pub type Octant5 = Octant<true, false, true>;
-
-/// Special case of the [`Octant`] iterator representing the seventh octant.
-///
-/// This octant covers the sector where `x` is decreasing and `y` is
-/// decreasing, with `x` changing faster than `y` (gentle slope, covers `[180°, 225°)`).
-///
-/// Can be obtained from [`Octant0`] by flipping the `x` and `y` coordinates.
-pub type Octant6 = Octant<true, true, false>;
-
-/// Special case of the [`Octant`] iterator representing the eighth octant.
-///
-/// This octant covers the sector where `x` is decreasing and `y` is
-/// decreasing, with `y` changing faster than `x` (steep slope, covers `[225°, 270°]`).
-///
-/// Can be obtained from [`Octant0`] by flipping and swapping the `x` and `y` coordinates.
-pub type Octant7 = Octant<true, true, true>;
-
-impl<const FY: bool, const FX: bool, const SWAP: bool> ExactSizeIterator for Octant<FY, FX, SWAP> {}
+impl<const FY: bool, const FX: bool, const SWAP: bool> ExactSizeIterator for Octant<FY, FX, SWAP> {
+    #[cfg(feature = "is_empty")]
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.is_done()
+    }
+}
 
 impl<const FY: bool, const FX: bool, const SWAP: bool> core::iter::FusedIterator
     for Octant<FY, FX, SWAP>
 {
 }
 
-/// Line segment iterator backed by
-/// [Bresenham's algorithm](https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm).
+/// Iterator over a directed line segment backed by [Bresenham's algorithm][1].
 ///
-/// This enum encapsulates different variants of line segment iterators
-/// corresponding to the eight [`Octant`]s defined in Bresenham's algorithm,
-/// as well as the [`AxisAligned`] cases. The appropriate variant
-/// is chosen to efficiently generate points along the line segment.
+/// Contains specialized sub-iterators, and picks the appropriate variant
+/// based on the orientation and direction of the line segment.
 ///
-/// **Note:** if you know the slope of the line segment beforehand,
-/// it's recommended to directly construct the relevant variant.
+/// **Note**: an optimized implementation of [`Bresenham::fold`] is provided.
+/// This makes [`Bresenham::for_each`] faster than a `for` loop, since it checks
+/// the iteration octant only once instead of on every call to [`Bresenham::next`].
+///
+/// [1]: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub enum Bresenham {
-    /// See [`PositiveHorizontal`].
-    ///
-    /// Such lines are covered by [`Octant4`], but this implementation is faster.
-    PositiveHorizontal(PositiveHorizontal),
-    /// See [`NegativeHorizontal`].
-    ///
-    /// Such lines are covered by [`Octant6`], but this implementation is faster.
-    NegativeHorizontal(NegativeHorizontal),
-    /// See [`PositiveVertical`].
-    ///
-    /// Such lines are covered by [`Octant3`], but this implementation is faster.
-    PositiveVertical(PositiveVertical),
-    /// See [`NegativeVertical`].
-    ///
-    /// Such lines are covered by [`Octant7`], but this implementation is faster.
-    NegativeVertical(NegativeVertical),
+    /// Optimized [`axis_aligned::Horizontal`] case.
+    Horizontal(axis_aligned::Horizontal),
+    /// Optimized [`axis_aligned::Vertical`] case.
+    Vertical(axis_aligned::Vertical),
+    /// Optimized diagonal [`diagonal::Quadrant0`] case.
+    #[cfg(feature = "bresenham_diagonals")]
+    Diagonal0(diagonal::Quadrant0),
+    /// Optimized diagonal [`diagonal::Quadrant1`] case.
+    #[cfg(feature = "bresenham_diagonals")]
+    Diagonal1(diagonal::Quadrant1),
+    /// Optimized diagonal [`diagonal::Quadrant2`] case.
+    #[cfg(feature = "bresenham_diagonals")]
+    Diagonal2(diagonal::Quadrant2),
+    /// Optimized diagonal [`diagonal::Quadrant3`] case.
+    #[cfg(feature = "bresenham_diagonals")]
+    Diagonal3(diagonal::Quadrant3),
     /// See [`Octant0`].
     Octant0(Octant0),
     /// See [`Octant1`].
@@ -234,75 +309,98 @@ pub enum Bresenham {
     Octant7(Octant7),
 }
 
+/// Delegates calls to octant variants.
+macro_rules! delegate {
+    ($self:ident, $me:ident => $call:expr) => {
+        match $self {
+            Self::Horizontal($me) => $call,
+            Self::Vertical($me) => $call,
+            #[cfg(feature = "bresenham_diagonals")]
+            Self::Diagonal0($me) => $call,
+            #[cfg(feature = "bresenham_diagonals")]
+            Self::Diagonal1($me) => $call,
+            #[cfg(feature = "bresenham_diagonals")]
+            Self::Diagonal2($me) => $call,
+            #[cfg(feature = "bresenham_diagonals")]
+            Self::Diagonal3($me) => $call,
+            Self::Octant0($me) => $call,
+            Self::Octant1($me) => $call,
+            Self::Octant2($me) => $call,
+            Self::Octant3($me) => $call,
+            Self::Octant4($me) => $call,
+            Self::Octant5($me) => $call,
+            Self::Octant6($me) => $call,
+            Self::Octant7($me) => $call,
+        }
+    };
+}
+
 impl Bresenham {
-    /// Constructs a new [`Bresenham`] iterator from the given endpoints.
+    /// Constructs a [`Bresenham`] iterator from `(x1, y1)` to `(x2, y2)`, *exclusive*.
     ///
-    /// Determines the [`Octant`] of the line segment
-    /// and initializes the appropriate variant.
+    /// **Note:** if you know the kind of the line segment beforehand,
+    /// it's recommended to construct the relevant variant directly,
+    /// since it saves an extra check.
     #[must_use]
     pub const fn new((x1, y1): Point<isize>, (x2, y2): Point<isize>) -> Self {
         if y1 == y2 {
-            return match Horizontal::new(x1, y1, y2) {
-                AxisAligned::Positive(me) => Self::PositiveHorizontal(me),
-                AxisAligned::Negative(me) => Self::NegativeHorizontal(me),
-            };
+            return Self::Horizontal(axis_aligned::Horizontal::new(y1, x1, x2));
         }
         if x1 == x2 {
-            return match Vertical::new(x1, y1, y2) {
-                AxisAligned::Positive(me) => Self::PositiveVertical(me),
-                AxisAligned::Negative(me) => Self::NegativeVertical(me),
-            };
+            return Self::Vertical(axis_aligned::Vertical::new(x1, y1, y2));
         }
-        // TODO: check overflow.
         let (dx, dy) = (x2 - x1, y2 - y1);
         if 0 < dy {
             if 0 < dx {
-                match dy < dx {
-                    true => Self::Octant0(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy))),
-                    false => Self::Octant1(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy))),
+                if dy < dx {
+                    return Self::Octant0(Octant::raw_unchecked((x1, y1), (x2, y2), (dx, dy)));
                 }
+                #[cfg(feature = "bresenham_diagonals")]
+                if dy == dx {
+                    return Self::Diagonal0(diagonal::Quadrant::new_unchecked((x1, y1), (x2, y2)));
+                }
+                Self::Octant1(Octant::raw_unchecked((x1, y1), (x2, y2), (dx, dy)))
             } else {
                 let dx = -dx;
-                match dy < dx {
-                    true => Self::Octant2(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy))),
-                    false => Self::Octant3(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy))),
+                if dy < dx {
+                    return Self::Octant2(Octant::raw_unchecked((x1, y1), (x2, y2), (dx, dy)));
                 }
+                #[cfg(feature = "bresenham_diagonals")]
+                if dy == dx {
+                    return Self::Diagonal1(diagonal::Quadrant::new_unchecked((x1, y1), (x2, y2)));
+                }
+                Self::Octant3(Octant::raw_unchecked((x1, y1), (x2, y2), (dx, dy)))
             }
         } else {
             let dy = -dy;
             if 0 < dx {
-                match dy < dx {
-                    true => Self::Octant4(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy))),
-                    false => Self::Octant5(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy))),
+                if dy < dx {
+                    return Self::Octant4(Octant::raw_unchecked((x1, y1), (x2, y2), (dx, dy)));
                 }
+                #[cfg(feature = "bresenham_diagonals")]
+                if dy == dx {
+                    return Self::Diagonal2(diagonal::Quadrant::new_unchecked((x1, y1), (x2, y2)));
+                }
+                Self::Octant5(Octant::raw_unchecked((x1, y1), (x2, y2), (dx, dy)))
             } else {
                 let dx = -dx;
-                match dy < dx {
-                    true => Self::Octant6(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy))),
-                    false => Self::Octant7(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy))),
+                if dy < dx {
+                    return Self::Octant6(Octant::raw_unchecked((x1, y1), (x2, y2), (dx, dy)));
                 }
+                #[cfg(feature = "bresenham_diagonals")]
+                if dy == dx {
+                    return Self::Diagonal3(diagonal::Quadrant::new_unchecked((x1, y1), (x2, y2)));
+                }
+                Self::Octant7(Octant::raw_unchecked((x1, y1), (x2, y2), (dx, dy)))
             }
         }
     }
 
-    /// Checks if the iterator has terminated.
+    /// Returns `true` if the iterator has terminated.
     #[inline]
     #[must_use]
-    pub const fn terminated(&self) -> bool {
-        match self {
-            Self::PositiveHorizontal(me) => me.terminated(),
-            Self::NegativeHorizontal(me) => me.terminated(),
-            Self::PositiveVertical(me) => me.terminated(),
-            Self::NegativeVertical(me) => me.terminated(),
-            Self::Octant0(me) => me.terminated(),
-            Self::Octant1(me) => me.terminated(),
-            Self::Octant2(me) => me.terminated(),
-            Self::Octant3(me) => me.terminated(),
-            Self::Octant4(me) => me.terminated(),
-            Self::Octant5(me) => me.terminated(),
-            Self::Octant6(me) => me.terminated(),
-            Self::Octant7(me) => me.terminated(),
-        }
+    pub const fn is_done(&self) -> bool {
+        delegate!(self, me => me.is_done())
     }
 }
 
@@ -311,38 +409,12 @@ impl Iterator for Bresenham {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            Self::PositiveHorizontal(me) => me.next(),
-            Self::NegativeHorizontal(me) => me.next(),
-            Self::PositiveVertical(me) => me.next(),
-            Self::NegativeVertical(me) => me.next(),
-            Self::Octant0(me) => me.next(),
-            Self::Octant1(me) => me.next(),
-            Self::Octant2(me) => me.next(),
-            Self::Octant3(me) => me.next(),
-            Self::Octant4(me) => me.next(),
-            Self::Octant5(me) => me.next(),
-            Self::Octant6(me) => me.next(),
-            Self::Octant7(me) => me.next(),
-        }
+        delegate!(self, me => me.next())
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        match self {
-            Self::PositiveHorizontal(me) => me.size_hint(),
-            Self::NegativeHorizontal(me) => me.size_hint(),
-            Self::PositiveVertical(me) => me.size_hint(),
-            Self::NegativeVertical(me) => me.size_hint(),
-            Self::Octant0(me) => me.size_hint(),
-            Self::Octant1(me) => me.size_hint(),
-            Self::Octant2(me) => me.size_hint(),
-            Self::Octant3(me) => me.size_hint(),
-            Self::Octant4(me) => me.size_hint(),
-            Self::Octant5(me) => me.size_hint(),
-            Self::Octant6(me) => me.size_hint(),
-            Self::Octant7(me) => me.size_hint(),
-        }
+        delegate!(self, me => me.size_hint())
     }
 
     #[cfg(feature = "try_fold")]
@@ -353,20 +425,7 @@ impl Iterator for Bresenham {
         F: FnMut(B, Self::Item) -> R,
         R: core::ops::Try<Output = B>,
     {
-        match self {
-            Self::PositiveHorizontal(me) => me.try_fold(init, f),
-            Self::NegativeHorizontal(me) => me.try_fold(init, f),
-            Self::PositiveVertical(me) => me.try_fold(init, f),
-            Self::NegativeVertical(me) => me.try_fold(init, f),
-            Self::Octant0(me) => me.try_fold(init, f),
-            Self::Octant1(me) => me.try_fold(init, f),
-            Self::Octant2(me) => me.try_fold(init, f),
-            Self::Octant3(me) => me.try_fold(init, f),
-            Self::Octant4(me) => me.try_fold(init, f),
-            Self::Octant5(me) => me.try_fold(init, f),
-            Self::Octant6(me) => me.try_fold(init, f),
-            Self::Octant7(me) => me.try_fold(init, f),
-        }
+        delegate!(self, me => me.try_fold(init, f))
     }
 
     #[inline]
@@ -375,46 +434,16 @@ impl Iterator for Bresenham {
         Self: Sized,
         F: FnMut(B, Self::Item) -> B,
     {
-        match self {
-            Self::PositiveHorizontal(me) => me.fold(init, f),
-            Self::NegativeHorizontal(me) => me.fold(init, f),
-            Self::PositiveVertical(me) => me.fold(init, f),
-            Self::NegativeVertical(me) => me.fold(init, f),
-            Self::Octant0(me) => me.fold(init, f),
-            Self::Octant1(me) => me.fold(init, f),
-            Self::Octant2(me) => me.fold(init, f),
-            Self::Octant3(me) => me.fold(init, f),
-            Self::Octant4(me) => me.fold(init, f),
-            Self::Octant5(me) => me.fold(init, f),
-            Self::Octant6(me) => me.fold(init, f),
-            Self::Octant7(me) => me.fold(init, f),
-        }
+        delegate!(self, me => me.fold(init, f))
     }
 }
 
-impl<const FY: bool, const FX: bool, const SWAP: bool> TryFrom<Bresenham> for Octant<FY, FX, SWAP> {
-    type Error = Bresenham;
-
+impl ExactSizeIterator for Bresenham {
+    #[cfg(feature = "is_empty")]
     #[inline]
-    fn try_from(value: Bresenham) -> Result<Self, Self::Error> {
-        #[rustfmt::skip]
-        macro_rules! try_from_bresenham_case {
-            ($value:ident, $octant:ident) => {
-                if let Bresenham::$octant(Octant { x, y, dx2, dy2, error, end: term, }) = $value {
-                    return Ok(Self { x, y, dx2, dy2, error, end:term, });
-                }
-            };
-        }
-        match (FY, FX, SWAP) {
-            (false, false, false) => try_from_bresenham_case!(value, Octant0),
-            (false, false, true) => try_from_bresenham_case!(value, Octant1),
-            (false, true, false) => try_from_bresenham_case!(value, Octant2),
-            (false, true, true) => try_from_bresenham_case!(value, Octant3),
-            (true, false, false) => try_from_bresenham_case!(value, Octant4),
-            (true, false, true) => try_from_bresenham_case!(value, Octant5),
-            (true, true, false) => try_from_bresenham_case!(value, Octant6),
-            (true, true, true) => try_from_bresenham_case!(value, Octant7),
-        }
-        Err(value)
+    fn is_empty(&self) -> bool {
+        self.is_done()
     }
 }
+
+impl core::iter::FusedIterator for Bresenham {}
