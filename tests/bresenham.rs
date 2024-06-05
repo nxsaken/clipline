@@ -1,8 +1,7 @@
 //! Bresenham line segment iterator tests.
 
+#[cfg(feature = "bresenham")]
 mod octant_bounds {
-    //! Tests to ensure that octants have correct bounds.
-
     #[test]
     fn octant_0_excludes_0_and_excludes_45_degrees() {
         assert!(clipline::BresenhamOctant0::new((0, 0), (1, 0)).is_none());
@@ -66,8 +65,9 @@ mod octant_bounds {
 
     #[test]
     fn octant_7_includes_empty_line() {
-        assert!(clipline::BresenhamOctant7::new((0, 0), (0, 0))
-            .is_some_and(|octant| octant.terminated()));
+        assert!(
+            clipline::BresenhamOctant7::new((0, 0), (0, 0)).unwrap().is_done()
+        );
     }
 
     #[test]
@@ -93,8 +93,17 @@ mod octant_bounds {
     }
 }
 
-mod iteration {
-    //! Tests to ensure that octants produce correct points.
+#[cfg(feature = "bresenham")]
+mod rasterization {
+    #[test]
+    fn length_is_correct() {
+        for x in -2..=2 {
+            for y in -2..=2 {
+                let length = isize::abs_diff(0, x).max(isize::abs_diff(0, y));
+                assert_eq!(clipline::Bresenham::new((0, 0), (x, y)).len(), length);
+            }
+        }
+    }
 
     #[test]
     fn octant_0_produces_correct_points() {

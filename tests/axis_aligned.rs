@@ -3,37 +3,41 @@
 mod signed {
     #[test]
     fn empty_when_endpoints_are_equal() {
-        assert!(clipline::PositiveVertical::new(0, 0, 0).terminated());
-        assert!(clipline::PositiveHorizontal::new(0, 0, 0).terminated());
-        assert!(clipline::NegativeVertical::new(0, 0, 0).terminated());
-        assert!(clipline::NegativeHorizontal::new(0, 0, 0).terminated());
+        assert!(clipline::PositiveVertical::new(0, 0, 0).is_none());
+        assert!(clipline::PositiveHorizontal::new(0, 0, 0).is_none());
+        assert!(clipline::NegativeVertical::new(0, 0, 0).is_none());
+        assert!(clipline::NegativeHorizontal::new(0, 0, 0).is_none());
     }
 
     #[test]
     fn non_empty_when_range_is_aligned_with_direction() {
-        assert!(!clipline::PositiveVertical::new(0, 0, 1).terminated());
-        assert!(!clipline::PositiveHorizontal::new(0, 0, 1).terminated());
-        assert!(!clipline::NegativeVertical::new(0, 1, 0).terminated());
-        assert!(!clipline::NegativeHorizontal::new(0, 1, 0).terminated());
+        assert!(!clipline::PositiveVertical::new(0, 0, 1).unwrap().is_done());
+        assert!(!clipline::PositiveHorizontal::new(0, 0, 1)
+            .unwrap()
+            .is_done());
+        assert!(!clipline::NegativeVertical::new(0, 1, 0).unwrap().is_done());
+        assert!(!clipline::NegativeHorizontal::new(0, 1, 0)
+            .unwrap()
+            .is_done());
     }
 
     #[test]
     fn empty_when_range_is_opposite_to_direction() {
-        assert!(clipline::PositiveVertical::new(0, 1, 0).terminated());
-        assert!(clipline::PositiveHorizontal::new(0, 1, 0).terminated());
-        assert!(clipline::NegativeVertical::new(0, 0, 1).terminated());
-        assert!(clipline::NegativeHorizontal::new(0, 0, 1).terminated());
+        assert!(clipline::PositiveVertical::new(0, 1, 0).is_none());
+        assert!(clipline::PositiveHorizontal::new(0, 1, 0).is_none());
+        assert!(clipline::NegativeVertical::new(0, 0, 1).is_none());
+        assert!(clipline::NegativeHorizontal::new(0, 0, 1).is_none());
     }
 }
 
 mod general {
     #[test]
     fn length_is_correct() {
-        for v1 in -2..=2 {
-            for v2 in -2..=2 {
+        for v1 in -2..4 {
+            for v2 in -2..4 {
                 let length = isize::abs_diff(v1, v2);
-                assert_eq!(clipline::Horizontal::new(0, v1, v2).count(), length);
-                assert_eq!(clipline::Vertical::new(0, v1, v2).count(), length);
+                assert_eq!(clipline::Horizontal::new(0, v1, v2).len(), length);
+                assert_eq!(clipline::Vertical::new(0, v1, v2).len(), length);
             }
         }
     }
@@ -83,7 +87,7 @@ mod general {
         let mut line = clipline::Horizontal::new(0, 0, 2);
         assert_eq!(line.next_back(), Some((1, 0)));
         assert_eq!(line.next(), Some((0, 0)));
-        assert!(line.terminated());
+        assert!(line.is_done());
     }
 
     #[test]
@@ -98,6 +102,6 @@ mod general {
         let mut line = clipline::Horizontal::new(0, 0, -2);
         assert_eq!(line.next_back(), Some((-1, 0)));
         assert_eq!(line.next(), Some((0, 0)));
-        assert!(line.terminated());
+        assert!(line.is_done());
     }
 }
