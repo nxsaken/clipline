@@ -1,75 +1,128 @@
-//! ## Diagonal line segment iterators
+//! ## Diagonal iterators
 //!
-//! This module provides a family of iterators
-//! for directed diagonal line segments.
+//! This module provides a family of iterators for directed diagonal line segments.
+//!
+//! For any diagonal line segment, use the [diagonal](Diagonal) iterator.
+//! If you know the direction and length of the diagonal line segment, use
+//! one of the [diagonal quadrant](Quadrant) iterators instead.
 
-use crate::Point;
+use crate::clip::Clip;
+use crate::math::{Math, Num, Point};
+use crate::symmetry::{fx, fy, sorted};
+use crate::utils::map_opt;
 
-/// Iterator over a directed diagonal line segment in the given quadrant.
+pub mod clip;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Diagonal quadrant iterators
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// Iterator over a directed diagonal line segment covered by the given *quadrant*.
 ///
-/// A quadrant is defined by its transformations relative to [`Quadrant0`].
-/// - `FY`: flip the `y` axis if `true`.
-/// - `FX`: flip the `x` axis if `true`.
+/// A quadrant is defined by the directions of the line segment it covers along each axis:
+/// - Negative along the `y` axis if `FY`, positive otherwise.
+/// - Negative along the `x` axis if `FX`, positive otherwise.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub struct Quadrant<const FY: bool, const FX: bool> {
-    x1: isize,
-    y1: isize,
-    x2: isize,
-    y2: isize,
+pub struct Quadrant<T, const FX: bool, const FY: bool> {
+    x1: T,
+    y1: T,
+    x2: T,
 }
 
-/// Iterator over a directed diagonal line segment in the [`Quadrant`]
-/// where `x` and `y` both increase.
-pub type Quadrant0 = Quadrant<false, false>;
-/// Iterator over a directed diagonal line segment in the [`Quadrant`]
-/// where `x` decreases and `y` increases.
-pub type Quadrant1 = Quadrant<false, true>;
-/// Iterator over a directed diagonal line segment in the [`Quadrant`]
-/// where `x` increases and `y` decreases.
-pub type Quadrant2 = Quadrant<true, false>;
-/// Iterator over a directed diagonal line segment in the [`Quadrant`]
-/// where `x` and `y` both decrease.
-pub type Quadrant3 = Quadrant<true, true>;
+/// Iterator over a directed diagonal line segment covered
+/// by the [quadrant](Quadrant) where `x` and `y` both increase.
+pub type Quadrant0<T> = Quadrant<T, false, false>;
+/// Iterator over a directed diagonal line segment covered
+/// by the [quadrant](Quadrant) where `x` increases and `y` decreases.
+pub type Quadrant1<T> = Quadrant<T, false, true>;
+/// Iterator over a directed diagonal line segment covered
+/// by the [quadrant](Quadrant) where `x` decreases and `y` increases.
+pub type Quadrant2<T> = Quadrant<T, true, false>;
+/// Iterator over a directed diagonal line segment covered
+/// by the [quadrant](Quadrant) where `x` and `y` both decrease.
+pub type Quadrant3<T> = Quadrant<T, true, true>;
 
-impl<const FY: bool, const FX: bool> Quadrant<FY, FX> {
-    /// Creates a diagonal iterator from `(x1, y1)` to `(x2, y2)`, *exclusive*.
-    ///
-    /// Returns [`None`] if the given line segment is not diagonal,
-    /// or if it is uncovered by the [`Quadrant`].
-    #[inline]
+impl<const FX: bool, const FY: bool> Quadrant<i8, FX, FY> {
+    #[inline(always)]
     #[must_use]
-    pub const fn new((x1, y1): Point<isize>, (x2, y2): Point<isize>) -> Option<Self> {
-        let (dx, dy) = (x2 - x1, y2 - y1);
-        if FX && 0 <= dx || !FX && dx <= 0 || FY && 0 <= dy || !FY && dy <= 0 {
-            return None;
-        }
-        let dy = if FY { -dy } else { dy };
-        let dx = if FX { -dx } else { dx };
-        if dy != dx {
-            return None;
-        }
-        Some(Self::new_unchecked((x1, y1), (x2, y2)))
+    const fn new_inner((x1, y1): Point<i8>, x2: i8) -> Self {
+        Self { x1, y1, x2 }
     }
 
+    #[inline(always)]
+    #[must_use]
+    const fn covers((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> bool {
+        let dx = {
+            let (a, b) = sorted!(FX, x1, x2, false);
+            Math::delta(b, a)
+        };
+        let dy = {
+            let (a, b) = sorted!(FY, y1, y2, false);
+            Math::delta(b, a)
+        };
+        dx == dy
+    }
+
+    #[must_use]
+    #[inline(always)]
+    const fn clip_inner((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
+        if clip::out_of_bounds::<FX, FY>((x1, y1), (x2, y2), clip) {
+            return None;
+        }
+        let Some((cx1, cy1)) = clip::enter::<FX, FY>((x1, y1), clip) else {
+            return None;
+        };
+        let cx2 = clip::exit::<FX, FY>((x1, y1), (x2, y2), clip);
+        Some(Self::new_inner((cx1, cy1), cx2))
+    }
+
+    /// Returns an iterator over a directed line segment
+    /// if it is diagonal and covered by the given [quadrant](Quadrant).
+    ///
+    /// Returns [`None`] if the line segment is not diagonal,
+    /// or is not covered by the quadrant.
     #[inline]
     #[must_use]
-    pub(crate) const fn new_unchecked((x1, y1): Point<isize>, (x2, y2): Point<isize>) -> Self {
-        Self { x1, y1, x2, y2 }
+    pub const fn new((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Option<Self> {
+        if !Self::covers((x1, y1), (x2, y2)) {
+            return None;
+        }
+        Some(Self::new_inner((x1, y1), x2))
+    }
+
+    /// Returns an iterator over a directed line segment, if it is diagonal and
+    /// covered by the given [quadrant](Quadrant), clipped to a [rectangular region](Clip).
+    ///
+    /// Returns [`None`] if the line segment is not diagonal,
+    /// is not covered by the quadrant, or does not intersect the clipping region.
+    #[inline]
+    #[must_use]
+    pub const fn clip((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
+        if !Self::covers((x1, y1), (x2, y2)) {
+            return None;
+        }
+        Self::clip_inner((x1, y1), (x2, y2), clip)
     }
 
     /// Returns `true` if the iterator has terminated.
     #[inline]
     #[must_use]
     pub const fn is_done(&self) -> bool {
-        match FX {
-            true => self.x1 <= self.x2,
-            false => self.x2 <= self.x1,
-        }
+        fx!(self.x2 <= self.x1, self.x1 <= self.x2)
+    }
+
+    /// Returns the remaining length of this iterator.
+    ///
+    /// Optimized over [`i8::abs_diff`].
+    #[inline]
+    #[must_use]
+    pub const fn length(&self) -> <i8 as Num>::U {
+        Math::delta(fx!(self.x2, self.x1), fx!(self.x1, self.x2))
     }
 }
 
-impl<const FY: bool, const FX: bool> Iterator for Quadrant<FY, FX> {
-    type Item = Point<isize>;
+impl<const FX: bool, const FY: bool> Iterator for Quadrant<i8, FX, FY> {
+    type Item = Point<i8>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -77,38 +130,19 @@ impl<const FY: bool, const FX: bool> Iterator for Quadrant<FY, FX> {
             return None;
         }
         let (x, y) = (self.x1, self.y1);
-        self.x1 += if FX { -1 } else { 1 };
-        self.y1 += if FY { -1 } else { 1 };
+        self.x1 = fx!(self.x1.wrapping_add(1), self.x1.wrapping_sub(1));
+        self.y1 = fy!(self.y1.wrapping_add(1), self.y1.wrapping_sub(1));
         Some((x, y))
     }
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // slightly optimized over `isize::abs_diff`,
-        // see its implementation for the proof that this cast is legal
-        #[allow(clippy::cast_sign_loss)]
-        let length = match FX {
-            true => usize::wrapping_sub(self.x1 as usize, self.x2 as usize),
-            false => usize::wrapping_sub(self.x2 as usize, self.x1 as usize),
-        };
+        let length = self.length() as usize;
         (length, Some(length))
     }
 }
 
-impl<const FY: bool, const FX: bool> DoubleEndedIterator for Quadrant<FY, FX> {
-    #[inline]
-    fn next_back(&mut self) -> Option<Self::Item> {
-        if self.is_done() {
-            return None;
-        }
-        self.x2 -= if FX { -1 } else { 1 };
-        self.y2 -= if FY { -1 } else { 1 };
-        let (x, y) = (self.x2, self.y2);
-        Some((x, y))
-    }
-}
-
-impl<const FY: bool, const FX: bool> ExactSizeIterator for Quadrant<FY, FX> {
+impl<const FX: bool, const FY: bool> ExactSizeIterator for Quadrant<i8, FX, FY> {
     #[cfg(feature = "is_empty")]
     #[inline]
     fn is_empty(&self) -> bool {
@@ -116,24 +150,31 @@ impl<const FY: bool, const FX: bool> ExactSizeIterator for Quadrant<FY, FX> {
     }
 }
 
-impl<const FY: bool, const FX: bool> core::iter::FusedIterator for Quadrant<FY, FX> {}
+impl<const FX: bool, const FY: bool> core::iter::FusedIterator for Quadrant<i8, FX, FY> {}
 
-/// Iterator over a directed diagonal line segment.
-/// The quadrant of iteration is determined at runtime.
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Arbitrary diagonal iterator
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// Iterator over a directed diagonal line segment,
+/// with the [quadrant](Quadrant) of iteration determined at runtime.
 ///
-/// **Note**: an optimized implementation of [`Diagonal::fold`] is provided.
-/// This makes [`Diagonal::for_each`] faster than a `for` loop, since it checks
-/// the iteration quadrant only once instead of on every call to [`Diagonal::next`].
+/// If you know the [quadrant](Quadrant) alignment of the line segment beforehand, consider the
+/// more specific [`Quadrant0`], [`Quadrant1`], [`Quadrant2`] and [`Quadrant3`] iterators instead.
+///
+/// **Note**: an optimized implementation of [`Iterator::fold`] is provided.
+/// This makes [`Iterator::for_each`] faster than a `for` loop, since it checks
+/// the quadrant of iteration only once instead of on every call to [`Iterator::next`].
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub enum Diagonal {
-    /// See [`Quadrant0`].
-    Quadrant0(Quadrant0),
-    /// See [`Quadrant1`].
-    Quadrant1(Quadrant1),
-    /// See [`Quadrant2`].
-    Quadrant2(Quadrant2),
-    /// See [`Quadrant3`].
-    Quadrant3(Quadrant3),
+pub enum Diagonal<T> {
+    /// Diagonal line segment at `45°`, see [`Quadrant0`].
+    Quadrant0(Quadrant0<T>),
+    /// Diagonal line segment at `135°`, see [`Quadrant1`].
+    Quadrant1(Quadrant1<T>),
+    /// Diagonal line segment at `225°`, see [`Quadrant2`].
+    Quadrant2(Quadrant2<T>),
+    /// Diagonal line segment at `315°`, see [`Quadrant3`].
+    Quadrant3(Quadrant3<T>),
 }
 
 /// Delegates calls to quadrant variants.
@@ -148,35 +189,79 @@ macro_rules! delegate {
     };
 }
 
-impl Diagonal {
-    /// Creates a [`Diagonal`] iterator from `(x1, y1)` to `(x2, y2)`, *exclusive*.
-    ///
-    /// Returns [`None`] if the given line segment is not diagonal.
-    #[must_use]
-    pub const fn new((x1, y1): Point<isize>, (x2, y2): Point<isize>) -> Option<Self> {
-        let (dx, dy) = (x2 - x1, y2 - y1);
-        if 0 < dy {
-            if 0 < dx {
+macro_rules! quadrants {
+    (
+        ($x1:ident, $y1:ident), ($x2:ident, $y2:ident),
+        $quadrant_0:expr,
+        $quadrant_1:expr,
+        $quadrant_2:expr,
+        $quadrant_3:expr
+    ) => {
+        #[allow(clippy::cast_sign_loss)]
+        {
+            if $x1 < $x2 {
+                let dx = Math::delta($x2, $x1);
+                if $y1 < $y2 {
+                    let dy = Math::delta($y2, $y1);
+                    if dx != dy {
+                        return None;
+                    }
+                    return $quadrant_0;
+                }
+                let dy = Math::delta($y1, $y2);
                 if dx != dy {
                     return None;
                 }
-                return Some(Self::Quadrant0(Quadrant::new_unchecked((x1, y1), (x2, y2))));
+                return $quadrant_1;
             }
-            if -dx != dy {
+            let dx = Math::delta($x1, $x2);
+            if $y1 < $y2 {
+                let dy = Math::delta($y2, $y1);
+                if dx != dy {
+                    return None;
+                }
+                return $quadrant_2;
+            }
+            let dy = Math::delta($y1, $y2);
+            if dx != dy {
                 return None;
             }
-            return Some(Self::Quadrant1(Quadrant::new_unchecked((x1, y1), (x2, y2))));
+            return $quadrant_3;
         }
-        if 0 < dx {
-            if dx != -dy {
-                return None;
-            }
-            return Some(Self::Quadrant2(Quadrant::new_unchecked((x1, y1), (x2, y2))));
-        }
-        if -dx != -dy {
-            return None;
-        }
-        Some(Self::Quadrant3(Quadrant::new_unchecked((x1, y1), (x2, y2))))
+    };
+}
+
+impl Diagonal<i8> {
+    /// Returns an iterator over a directed line segment if it is [diagonal](Diagonal).
+    ///
+    /// Returns [`None`] if the given line segment is not diagonal.
+    #[must_use]
+    pub const fn new((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Option<Self> {
+        quadrants!(
+            (x1, y1),
+            (x2, y2),
+            Some(Self::Quadrant0(Quadrant::new_inner((x1, y1), x2))),
+            Some(Self::Quadrant1(Quadrant::new_inner((x1, y1), x2))),
+            Some(Self::Quadrant2(Quadrant::new_inner((x1, y1), x2))),
+            Some(Self::Quadrant3(Quadrant::new_inner((x1, y1), x2)))
+        );
+    }
+
+    /// Returns an iterator over a directed line segment,
+    /// if it is [diagonal](Diagonal), clipped to a [rectangular region](Clip).
+    ///
+    /// Returns [`None`] if the given line segment is not diagonal,
+    /// or if it does not intersect the clipping region.
+    #[must_use]
+    pub const fn clip((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
+        quadrants!(
+            (x1, y1),
+            (x2, y2),
+            map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant0),
+            map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant1),
+            map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant2),
+            map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant3)
+        );
     }
 
     /// Returns `true` if the iterator has terminated.
@@ -185,10 +270,17 @@ impl Diagonal {
     pub const fn is_done(&self) -> bool {
         delegate!(self, me => me.is_done())
     }
+
+    /// Returns the remaining length of this iterator.
+    #[inline]
+    #[must_use]
+    pub const fn length(&self) -> u8 {
+        delegate!(self, me => me.length())
+    }
 }
 
-impl Iterator for Diagonal {
-    type Item = Point<isize>;
+impl Iterator for Diagonal<i8> {
+    type Item = Point<i8>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -221,34 +313,7 @@ impl Iterator for Diagonal {
     }
 }
 
-impl DoubleEndedIterator for Diagonal {
-    #[inline]
-    fn next_back(&mut self) -> Option<Self::Item> {
-        delegate!(self, me => me.next_back())
-    }
-
-    #[cfg(feature = "try_fold")]
-    #[inline]
-    fn try_rfold<B, F, R>(&mut self, init: B, f: F) -> R
-    where
-        Self: Sized,
-        F: FnMut(B, Self::Item) -> R,
-        R: core::ops::Try<Output = B>,
-    {
-        delegate!(self, me => me.try_rfold(init, f))
-    }
-
-    #[inline]
-    fn rfold<B, F>(self, init: B, f: F) -> B
-    where
-        Self: Sized,
-        F: FnMut(B, Self::Item) -> B,
-    {
-        delegate!(self, me => me.rfold(init, f))
-    }
-}
-
-impl ExactSizeIterator for Diagonal {
+impl ExactSizeIterator for Diagonal<i8> {
     #[cfg(feature = "is_empty")]
     #[inline]
     fn is_empty(&self) -> bool {
@@ -256,4 +321,4 @@ impl ExactSizeIterator for Diagonal {
     }
 }
 
-impl core::iter::FusedIterator for Diagonal {}
+impl core::iter::FusedIterator for Diagonal<i8> {}
