@@ -1,14 +1,6 @@
-//! Efficient scan conversion (rasterization) of line segments with clipping to a rectangular window.
+//! # Clipline
 //!
-//! The key advantage of `clipline` over vanilla Bresenham is that it eliminates the need for
-//! bounds checking on every pixel, which speeds up line drawing. Furthermore, the clipping uses
-//! integer arithmetic, producing pixel-perfect endpoints. This sets it apart from floating-point
-//! clipping algorithms like Cohen-Sutherland, which may distort the line due to rounding errors.
-//!
-//! ## Usage
-//! This crate provides two ways of performing scan conversion: the [`clipline`] function, and the
-//! [`Clipline`] iterator. The former is slightly more optimized, the latter allows external iteration.
-//! Both methods can be toggled with the `func` and `iter` features (both enabled by default).
+//! Efficient rasterization of line segments with clipping.
 
 #![no_std]
 #![cfg_attr(feature = "try_fold", feature(try_trait_v2))]
