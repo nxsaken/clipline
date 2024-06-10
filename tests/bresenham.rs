@@ -65,9 +65,9 @@ mod octant_bounds {
 
     #[test]
     fn octant_7_includes_empty_line() {
-        assert!(
-            clipline::BresenhamOctant7::new((0, 0), (0, 0)).unwrap().is_done()
-        );
+        assert!(clipline::BresenhamOctant7::new((0, 0), (0, 0))
+            .unwrap()
+            .is_done());
     }
 
     #[test]
