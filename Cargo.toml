@@ -3,7 +3,7 @@ name = "clipline"
 version = "0.2.0"
 authors = ["Nurzhan Sakén <nurzhan.sakenov@gmail.com>"]
 edition = "2021"
-description = "Efficient scan conversion (rasterization) of line segments with clipping to a rectangular window."
+description = "Efficient rasterization of line segments with clipping."
 readme = "README.md"
 repository = "https://github.com/nxsaken/clipline/"
 license = "MIT OR Apache-2.0"
@@ -15,18 +15,26 @@ include = [
 ]
 
 [features]
-default = ["bresenham", "bresenham_diagonals", "kuzmin"]
+default = ["bresenham", "bresenham_diagonals", "double_ended", "kuzmin"]
+
 # Enable Bresenham's algorithm.
 bresenham = []
 # Enable diagonal cases in Bresenham's algorithm.
 # Makes diagonal lines faster, but adds an extra check at construction.
 bresenham_diagonals = ["bresenham"]
+# Enable `DoubleEndedIterator` implementations.
+# Adds an extra numeric field to diagonal and Bresenham iterators.
+# Axis-aligned iterators are unaffected by this feature.
+double_ended = ["bresenham"]
 # Enable Kuzmin's algorithm.
 # Allows clipping arbitrary line segments.
 kuzmin = ["bresenham"]
+
+# Enable unstable features.
+nightly = []
 # Enable optimized `try_fold` implementations.
 # Requires the unstable `try_trait_v2` feature.
-try_fold = []
+try_fold = ["nightly"]
 # Enable optimized `is_empty` implementations.
 # Requires the unstable `exact_size_is_empty` feature.
-is_empty = []
+is_empty = ["nightly"]

@@ -15,6 +15,7 @@ pub struct Quadrant<const FY: bool, const FX: bool> {
     x1: isize,
     y1: isize,
     x2: isize,
+    #[cfg(feature = "double_ended")]
     y2: isize,
 }
 
@@ -54,7 +55,15 @@ impl<const FY: bool, const FX: bool> Quadrant<FY, FX> {
     #[inline]
     #[must_use]
     pub(crate) const fn new_unchecked((x1, y1): Point<isize>, (x2, y2): Point<isize>) -> Self {
-        Self { x1, y1, x2, y2 }
+        #[cfg(not(feature = "double_ended"))]
+        let _ = y2;
+        Self {
+            x1,
+            y1,
+            x2,
+            #[cfg(feature = "double_ended")]
+            y2,
+        }
     }
 
     /// Returns `true` if the iterator has terminated.
@@ -95,6 +104,7 @@ impl<const FY: bool, const FX: bool> Iterator for Quadrant<FY, FX> {
     }
 }
 
+#[cfg(feature = "double_ended")]
 impl<const FY: bool, const FX: bool> DoubleEndedIterator for Quadrant<FY, FX> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
@@ -221,6 +231,7 @@ impl Iterator for Diagonal {
     }
 }
 
+#[cfg(feature = "double_ended")]
 impl DoubleEndedIterator for Diagonal {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
