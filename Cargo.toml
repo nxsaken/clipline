@@ -15,7 +15,7 @@ include = [
 ]
 
 [features]
-default = ["bresenham", "bresenham_diagonals", "double_ended", "kuzmin"]
+default = []
 
 # Enable Bresenham's algorithm.
 bresenham = []
