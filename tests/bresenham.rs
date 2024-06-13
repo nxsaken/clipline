@@ -25,9 +25,20 @@ mod octant_bounds {
     }
 
     #[test]
-    fn octant_3_includes_90_and_includes_135_degrees() {
-        assert!(clipline::BresenhamOctant3::new((0, 0), (0, 1)).is_some());
-        assert!(clipline::BresenhamOctant3::new((0, 0), (-1, 1)).is_some());
+    fn octant_2_excludes_315_degrees_and_includes_0_degrees() {
+        assert!(clipline::BresenhamOctant2::new((0, 0), (1, -1)).is_none());
+        assert!(clipline::BresenhamOctant2::new((0, 0), (1, 0)).is_some());
+    }
+
+    #[test]
+    fn octant_2_excludes_empty_line() {
+        assert!(clipline::BresenhamOctant2::new((0, 0), (0, 0)).is_none());
+    }
+
+    #[test]
+    fn octant_3_excludes_270_degrees_and_includes_315_degrees() {
+        assert!(clipline::BresenhamOctant3::new((0, 0), (0, -1)).is_none());
+        assert!(clipline::BresenhamOctant3::new((0, 0), (1, -1)).is_some());
     }
 
     #[test]
@@ -36,14 +47,25 @@ mod octant_bounds {
     }
 
     #[test]
-    fn octant_2_excludes_135_and_excludes_180_degrees() {
-        assert!(clipline::BresenhamOctant2::new((0, 0), (-1, 1)).is_none());
-        assert!(clipline::BresenhamOctant2::new((0, 0), (-1, 0)).is_none());
+    fn octant_4_excludes_135_and_excludes_180_degrees() {
+        assert!(clipline::BresenhamOctant4::new((0, 0), (-1, 1)).is_none());
+        assert!(clipline::BresenhamOctant4::new((0, 0), (-1, 0)).is_none());
     }
 
     #[test]
-    fn octant_2_excludes_empty_line() {
-        assert!(clipline::BresenhamOctant2::new((0, 0), (0, 0)).is_none());
+    fn octant_4_excludes_empty_line() {
+        assert!(clipline::BresenhamOctant4::new((0, 0), (0, 0)).is_none());
+    }
+
+    #[test]
+    fn octant_5_includes_90_and_includes_135_degrees() {
+        assert!(clipline::BresenhamOctant5::new((0, 0), (0, 1)).is_some());
+        assert!(clipline::BresenhamOctant5::new((0, 0), (-1, 1)).is_some());
+    }
+
+    #[test]
+    fn octant_5_excludes_empty_line() {
+        assert!(clipline::BresenhamOctant5::new((0, 0), (0, 0)).is_none());
     }
 
     #[test]
@@ -65,31 +87,7 @@ mod octant_bounds {
 
     #[test]
     fn octant_7_includes_empty_line() {
-        assert!(clipline::BresenhamOctant7::new((0, 0), (0, 0))
-            .unwrap()
-            .is_done());
-    }
-
-    #[test]
-    fn octant_5_excludes_270_degrees_and_includes_315_degrees() {
-        assert!(clipline::BresenhamOctant5::new((0, 0), (0, -1)).is_none());
-        assert!(clipline::BresenhamOctant5::new((0, 0), (1, -1)).is_some());
-    }
-
-    #[test]
-    fn octant_5_excludes_empty_line() {
-        assert!(clipline::BresenhamOctant5::new((0, 0), (0, 0)).is_none());
-    }
-
-    #[test]
-    fn octant_4_excludes_315_degrees_and_includes_0_degrees() {
-        assert!(clipline::BresenhamOctant4::new((0, 0), (1, -1)).is_none());
-        assert!(clipline::BresenhamOctant4::new((0, 0), (1, 0)).is_some());
-    }
-
-    #[test]
-    fn octant_4_excludes_empty_line() {
-        assert!(clipline::BresenhamOctant4::new((0, 0), (0, 0)).is_none());
+        assert!(clipline::BresenhamOctant7::new((0, 0), (0, 0)).unwrap().is_done());
     }
 }
 
@@ -128,27 +126,7 @@ mod rasterization {
     #[test]
     fn octant_2_produces_correct_points() {
         assert_eq!(
-            clipline::BresenhamOctant2::new((0, 0), (-5, 2))
-                .expect("octant should be correct")
-                .collect::<Vec<_>>(),
-            vec![(0, 0), (-1, 0), (-2, 1), (-3, 1), (-4, 2)]
-        );
-    }
-
-    #[test]
-    fn octant_3_produces_correct_points() {
-        assert_eq!(
-            clipline::BresenhamOctant3::new((0, 0), (-2, 5))
-                .expect("octant should be correct")
-                .collect::<Vec<_>>(),
-            vec![(0, 0), (0, 1), (-1, 2), (-1, 3), (-2, 4)]
-        );
-    }
-
-    #[test]
-    fn octant_4_produces_correct_points() {
-        assert_eq!(
-            clipline::BresenhamOctant4::new((0, 0), (5, -2))
+            clipline::BresenhamOctant2::new((0, 0), (5, -2))
                 .expect("octant should be correct")
                 .collect::<Vec<_>>(),
             vec![(0, 0), (1, 0), (2, -1), (3, -1), (4, -2)]
@@ -156,12 +134,32 @@ mod rasterization {
     }
 
     #[test]
-    fn octant_5_produces_correct_points() {
+    fn octant_3_produces_correct_points() {
         assert_eq!(
-            clipline::BresenhamOctant5::new((0, 0), (2, -5))
+            clipline::BresenhamOctant3::new((0, 0), (2, -5))
                 .expect("octant should be correct")
                 .collect::<Vec<_>>(),
             vec![(0, 0), (0, -1), (1, -2), (1, -3), (2, -4)]
+        );
+    }
+
+    #[test]
+    fn octant_4_produces_correct_points() {
+        assert_eq!(
+            clipline::BresenhamOctant4::new((0, 0), (-5, 2))
+                .expect("octant should be correct")
+                .collect::<Vec<_>>(),
+            vec![(0, 0), (-1, 0), (-2, 1), (-3, 1), (-4, 2)]
+        );
+    }
+
+    #[test]
+    fn octant_5_produces_correct_points() {
+        assert_eq!(
+            clipline::BresenhamOctant5::new((0, 0), (-2, 5))
+                .expect("octant should be correct")
+                .collect::<Vec<_>>(),
+            vec![(0, 0), (0, 1), (-1, 2), (-1, 3), (-2, 4)]
         );
     }
 

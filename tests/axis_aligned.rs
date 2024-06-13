@@ -1,5 +1,6 @@
 //! Axis-aligned line segment iterator tests.
 
+#[cfg(feature = "axis_aligned")]
 mod signed {
     #[test]
     fn empty_when_endpoints_are_equal() {
@@ -12,13 +13,9 @@ mod signed {
     #[test]
     fn non_empty_when_range_is_aligned_with_direction() {
         assert!(!clipline::PositiveVertical::new(0, 0, 1).unwrap().is_done());
-        assert!(!clipline::PositiveHorizontal::new(0, 0, 1)
-            .unwrap()
-            .is_done());
+        assert!(!clipline::PositiveHorizontal::new(0, 0, 1).unwrap().is_done());
         assert!(!clipline::NegativeVertical::new(0, 1, 0).unwrap().is_done());
-        assert!(!clipline::NegativeHorizontal::new(0, 1, 0)
-            .unwrap()
-            .is_done());
+        assert!(!clipline::NegativeHorizontal::new(0, 1, 0).unwrap().is_done());
     }
 
     #[test]
@@ -30,6 +27,7 @@ mod signed {
     }
 }
 
+#[cfg(feature = "axis_aligned")]
 mod general {
     #[test]
     fn length_is_correct() {
@@ -45,18 +43,14 @@ mod general {
     #[test]
     fn coordinate_order_is_correct() {
         let points = [-2, -1, 0, 1];
-        clipline::Horizontal::new(0, -2, 2)
-            .enumerate()
-            .for_each(|(i, (x, y))| {
-                assert_eq!(x, points[i]);
-                assert_eq!(y, 0);
-            });
-        clipline::Vertical::new(0, -2, 2)
-            .enumerate()
-            .for_each(|(i, (x, y))| {
-                assert_eq!(x, 0);
-                assert_eq!(y, points[i]);
-            });
+        clipline::Horizontal::new(0, -2, 2).enumerate().for_each(|(i, (x, y))| {
+            assert_eq!(x, points[i]);
+            assert_eq!(y, 0);
+        });
+        clipline::Vertical::new(0, -2, 2).enumerate().for_each(|(i, (x, y))| {
+            assert_eq!(x, 0);
+            assert_eq!(y, points[i]);
+        });
     }
 
     #[test]
