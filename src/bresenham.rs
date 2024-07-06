@@ -168,8 +168,8 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<isize, FX, FY, SWA
             y1: cy1,
             error,
             end: clip::kuzmin::exit::<FX, FY, SWAP>((x1, y1), (x2, y2), (dx, dy), (dx2, dy2), clip),
-            dx2: if !SWAP { dx2 - dy2 } else { dx2 },
-            dy2: if !SWAP { dy2 } else { dy2 - dx2 },
+            dx2,
+            dy2,
         })
     }
 
