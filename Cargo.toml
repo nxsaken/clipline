@@ -17,22 +17,6 @@ include = [
 [features]
 default = []
 
-# Enable axis-aligned iterators.
-axis_aligned = []
-# Enable diagonal iterators.
-diagonal = []
-# Enable Bresenham iterators.
-bresenham = ["axis_aligned"]
-# Enable diagonal cases in Bresenham's algorithm.
-# Makes diagonal lines faster, but adds an extra check on construction.
-bresenham_diagonals = ["bresenham", "diagonal"]
-# Enable clipping.
-clip = []
-# Enable `DoubleEndedIterator` implementations.
-# Adds an extra numeric field to diagonal and Bresenham iterators.
-# Axis-aligned iterators are unaffected by this feature.
-double_ended = []
-
 # Enable unstable features.
 nightly = []
 # Enable optimized `try_fold` implementations.

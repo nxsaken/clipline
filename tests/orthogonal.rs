@@ -1,6 +1,5 @@
 //! Axis-aligned line segment iterator tests.
 
-#[cfg(feature = "axis_aligned")]
 mod signed {
     #[test]
     fn empty_when_endpoints_are_equal() {
@@ -27,7 +26,6 @@ mod signed {
     }
 }
 
-#[cfg(feature = "axis_aligned")]
 mod general {
     #[test]
     fn length_is_correct() {

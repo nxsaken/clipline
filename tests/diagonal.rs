@@ -1,6 +1,5 @@
 //! Diagonal line segment iterator tests.
 
-#[cfg(feature = "diagonal")]
 mod quadrant {
     #[test]
     fn all_quadrants_exclude_empty_lines() {
@@ -19,7 +18,6 @@ mod quadrant {
     }
 }
 
-#[cfg(feature = "diagonal")]
 mod general {
     #[test]
     fn length_is_correct() {

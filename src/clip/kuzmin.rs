@@ -1,50 +1,27 @@
 //! ## Kuzmin clipping
 //!
-//! This module provides an implementation of [Kuzmin's algorithm][1] for
-//! clipping directed line segments with integer coordinates to [rectangular regions](Region).
+//! This module provides an implementation of [YP Kuzmin's algorithm][1] for
+//! efficient clipping of directed line segments to [rectangular regions](Clip).
 //!
 //! [1]: https://doi.org/10.1111/1467-8659.1450275
 
-use super::Offset;
-use crate::{Point, Region};
+use crate::{Clip, Offset, Point};
 
-/// Clips a directed line segment in the given octant against a rectangular window.
+/// Clips the starting point of a directed line segment covered by the given
+/// [octant](crate::BresenhamOctant) against a [rectangular region](Clip).
 ///
-/// Returns the clipped point `(cx1, cy1)`, the initial `error` term,
-/// and the `end` coordinate along the iteration axis, or [`None`]
-/// if the line segment does not intersect the window.
-#[must_use]
-#[inline(always)]
-pub const fn clip<const FX: bool, const FY: bool, const SWAP: bool>(
-    (x1, y1): Point<isize>,
-    (x2, y2): Point<isize>,
-    (dx, dy): Offset<isize>,   // absolute value
-    (dx2, dy2): Offset<isize>, // absolute value
-    Region { wx1, wy1, wx2, wy2 }: Region<isize>,
-) -> Option<(Point<isize>, isize, isize)> {
-    let Some(((cx1, cy1), error)) =
-        enter::<FX, FY, SWAP>((x1, y1), (dx, dy), (dx2, dy2), (wx1, wy1), (wx2, wy2))
-    else {
-        return None;
-    };
-    let end =
-        exit::<FX, FY, SWAP>((x1, y1), (x2, y2), (dx, dy), (dx2, dy2), (wx1, wy1), (wx2, wy2));
-    Some(((cx1, cy1), error, end))
-}
-
-/// Clips the starting point of a line segment in the given octant
-/// against a rectangular window.
+/// Returns the clipped point `(cx1, cy1)` and the initial `error` term,
+/// or [`None`] if the line segment does not intersect the clipping region.
 ///
-/// Returns the clipped point `(cx1, cy1)` and the initial `error` term.
+/// **Note**: this function assumes that the line segment was not trivially rejected.
 #[allow(clippy::cognitive_complexity)]
 #[must_use]
 #[inline(always)]
-const fn enter<const FX: bool, const FY: bool, const SWAP: bool>(
+pub const fn enter<const FX: bool, const FY: bool, const SWAP: bool>(
     (x1, y1): Point<isize>,
     (dx, dy): Offset<isize>,   // absolute value
     (dx2, dy2): Offset<isize>, // absolute value
-    (wx1, wy1): Point<isize>,
-    (wx2, wy2): Point<isize>,
+    &Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: &Clip<isize>,
 ) -> Option<(Point<isize>, isize)> {
     let (mut cx1, mut cy1) = (x1, y1);
     let mut error = if !SWAP { dy2 - dx } else { dx2 - dy };
@@ -126,19 +103,21 @@ const fn enter<const FX: bool, const FY: bool, const SWAP: bool>(
     Some(((cx1, cy1), error))
 }
 
-/// Clips the ending point of a line segment against a rectangular window.
+/// Clips the ending point of a directed line segment covered by the given
+/// [octant](crate::BresenhamOctant) against a [rectangular region](Clip).
 ///
 /// Returns the clipped `end` coordinate along the axis of iteration
-/// (`end_x` for gentle slopes, `end_y` for steep slopes).
+/// (`x` for gentle slopes, `y` for steep slopes).
+///
+/// **Note**: this function assumes that the line segment intersects the clipping region.
 #[must_use]
 #[inline(always)]
-const fn exit<const FX: bool, const FY: bool, const SWAP: bool>(
+pub const fn exit<const FX: bool, const FY: bool, const SWAP: bool>(
     (x1, y1): Point<isize>,
     (x2, y2): Point<isize>,
     (dx, dy): Offset<isize>,   // absolute value
     (dx2, dy2): Offset<isize>, // absolute value
-    (wx1, wy1): Point<isize>,
-    (wx2, wy2): Point<isize>,
+    &Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: &Clip<isize>,
 ) -> isize {
     let mut end = if !SWAP { x2 } else { y2 };
     if !SWAP && (!FY && wy2 < y2 || FY && y2 < wy1) || SWAP && (!FX && wx2 < x2 || FX && x2 < wx1) {
@@ -147,17 +126,13 @@ const fn exit<const FX: bool, const FY: bool, const SWAP: bool>(
             true => dy2 * if !FX { wx2 - x1 } else { x1 - wx1 } + dy,
         };
         let msd = tmp / if !SWAP { dy2 } else { dx2 };
-        end = match SWAP {
-            false => match FX {
-                false => msd + x1,
-                true => msd - x1,
-            },
-            true => match FY {
-                false => msd + y1,
-                true => msd - y1,
-            },
+        end = match (SWAP, FX, FY) {
+            (false, false, _) => msd + x1,
+            (false, true, _) => msd - x1,
+            (true, _, false) => msd + y1,
+            (true, _, true) => msd - y1,
         };
-        if tmp - msd * if !SWAP { dy2 } else { dx2 } == 0 {
+        if tmp == msd * if !SWAP { dy2 } else { dx2 } {
             end -= 1;
         }
     }
@@ -167,44 +142,5 @@ const fn exit<const FX: bool, const FY: bool, const SWAP: bool>(
         (true, _, false) if wy2 < end => wy2,
         (true, _, true) if end < wy1 => wy1,
         _ => end,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const REGION: Region<isize> = Region::new((0, 0), (320, 240));
-
-    #[test]
-    fn octant_0_vertical_entry() {
-        let (x1, y1) = (-160, 0);
-        let (x2, y2) = (320, 360);
-        assert_eq!(
-            clip::<false, false, false>(
-                (x1, y1),
-                (x2, y2),
-                (x2 - x1, y2 - y1),
-                (2 * (x2 - x1), 2 * (y2 - y1)),
-                REGION
-            ),
-            Some(((0, 120), 240, 160))
-        );
-    }
-
-    #[test]
-    fn octant_0_horizontal_entry() {
-        let (x1, y1) = (80, -60);
-        let (x2, y2) = (320 + 80, 240 - 60);
-        assert_eq!(
-            clip::<false, false, false>(
-                (x1, y1),
-                (x2, y2),
-                (x2 - x1, y2 - y1),
-                (2 * (x2 - x1), 2 * (y2 - y1)),
-                REGION
-            ),
-            Some(((160, 0), 160, 320))
-        );
     }
 }
