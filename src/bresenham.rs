@@ -9,11 +9,16 @@
 //!
 //! [1]: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 
-use crate::{clip, orthogonal, Clip, Offset, Point};
+use crate::{clip, orthogonal, Clip, Coord, Delta, Point};
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Bresenham octant iterators
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// TODO: consider removing the Coord trait
+//  - add a type parameter for error, dx2/dy2
+//  - impl everything for different combinations
+//  - find a way to hide the extra type params (type aliases + modules?)
 
 /// Iterator over a directed line segment in the given octant of [Bresenham's algorithm][1].
 ///
@@ -23,25 +28,26 @@ use crate::{clip, orthogonal, Clip, Offset, Point};
 /// - `SWAP`: swap the `x` and `y` axes if `true`.
 ///
 /// [1]: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
+#[allow(private_bounds)]
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub struct Octant<T, const FX: bool, const FY: bool, const SWAP: bool> {
+pub struct Octant<T: Coord, const FX: bool, const FY: bool, const SWAP: bool> {
     x1: T,
     y1: T,
-    error: T,
+    error: T::Error,
+    dx2: T::Delta2,
+    dy2: T::Delta2,
     end: T,
-    dx2: T,
-    dy2: T,
 }
 
 /// Iterator over a directed line segment in the first [octant](Octant)
-/// covering the `(0°, 45°)` sector of the Cartesian plane.
+/// covering the `(0°, 45°]` sector of the Cartesian plane.
 ///
 /// In this octant, both `x` and `y` increase,
 /// with `x` changing faster than `y` (gentle slope).
 pub type Octant0<T> = Octant<T, false, false, false>;
 
 /// Iterator over a directed line segment in the second [octant](Octant)
-/// covering the `[45°, 90°)` sector of the Cartesian plane.
+/// covering the `(45°, 90°)` sector of the Cartesian plane.
 ///
 /// In this octant, both `x` and `y` increase,
 /// with `y` changing faster than `x` (steep slope).
@@ -50,7 +56,7 @@ pub type Octant0<T> = Octant<T, false, false, false>;
 pub type Octant1<T> = Octant<T, false, false, true>;
 
 /// Iterator over a directed line segment in the third [octant](Octant).
-/// covering the `(315°, 360°]` sector of the Cartesian plane.
+/// covering the `[315°, 360°)` sector of the Cartesian plane.
 ///
 /// In this octant, `x` increases and `y` decreases,
 /// with `x` changing faster than `y` (gentle slope).
@@ -59,7 +65,7 @@ pub type Octant1<T> = Octant<T, false, false, true>;
 pub type Octant2<T> = Octant<T, false, true, false>;
 
 /// Iterator over a directed line segment in the fourth [octant](Octant).
-/// covering the `(270°, 315°]` sector of the Cartesian plane.
+/// covering the `(270°, 315°)` sector of the Cartesian plane.
 ///
 /// In this octant, `x` increases and `y` decreases,
 /// with `y` changing faster than `x` (steep slope).
@@ -69,7 +75,7 @@ pub type Octant2<T> = Octant<T, false, true, false>;
 pub type Octant3<T> = Octant<T, false, true, true>;
 
 /// Iterator over a directed line segment in the fifth [octant](Octant)
-/// covering the `(135°, 180°)` sector of the Cartesian plane.
+/// covering the `[135°, 180°)` sector of the Cartesian plane.
 ///
 /// In this octant, `x` decreases and `y` increases,
 /// with `x` changing faster than `y` (gentle slope).
@@ -78,7 +84,7 @@ pub type Octant3<T> = Octant<T, false, true, true>;
 pub type Octant4<T> = Octant<T, true, false, false>;
 
 /// Iterator over a directed line segment in the sixth [octant](Octant)
-/// covering the `[90°, 135°]` sector of the Cartesian plane.
+/// covering the `(90°, 135°)` sector of the Cartesian plane.
 ///
 /// In this octant, `x` decreases and `y` increases,
 /// with `y` changing faster than `x` (steep slope).
@@ -88,7 +94,7 @@ pub type Octant4<T> = Octant<T, true, false, false>;
 pub type Octant5<T> = Octant<T, true, false, true>;
 
 /// Iterator over a directed line segment in the seventh [octant](Octant)
-/// covering the `[180°, 225°)` sector of the Cartesian plane.
+/// covering the `(180°, 225°]` sector of the Cartesian plane.
 ///
 /// In this octant, both `x` and `y` decrease,
 /// with `x` changing faster than `y` (gentle slope).
@@ -97,7 +103,7 @@ pub type Octant5<T> = Octant<T, true, false, true>;
 pub type Octant6<T> = Octant<T, true, true, false>;
 
 /// Iterator over a directed line segment in the eighth [octant](Octant)
-/// covering the `[225°, 270°]` sector of the Cartesian plane.
+/// covering the `(225°, 270°)` sector of the Cartesian plane.
 ///
 /// In this octant, both `x` and `y` decrease,
 /// with `y` changing faster than `x` (steep slope).
@@ -111,11 +117,42 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     /// *Assumes that the line segment is covered by the given octant.*
     #[inline(always)]
     #[must_use]
-    const fn new_unchecked((x1, y1): Point<i8>, (x2, y2): Point<i8>, (dx, dy): Offset<i8>) -> Self {
-        let (dx2, dy2) = (dx << 1, dy << 1);
-        let error = if !SWAP { dy2 - dx } else { dx2 - dy };
+    const fn new_unchecked((x1, y1): Point<i8>, (x2, y2): Point<i8>, (dx, dy): Delta<i8>) -> Self {
+        type D2 = <i8 as Coord>::Delta2;
+        let (dx2, dy2) = ((dx as D2).wrapping_shl(1), (dy as D2).wrapping_shl(1));
+        // dx2, dy2 have range [0, u8::MAX * 2], both fit into i16
+        #[allow(clippy::cast_possible_wrap)]
+        let error = match SWAP {
+            false => i16::wrapping_sub(dy2 as _, dx as _),
+            true => i16::wrapping_sub(dx2 as _, dy as _),
+        };
         let end = if !SWAP { x2 } else { y2 };
-        Self { x1, y1, error, end, dx2, dy2 }
+        Self { x1, y1, error, dx2, dy2, end }
+    }
+
+    /// Checks that the given [octant](Octant) covers a directed line segment.
+    ///
+    /// Returns the absolute [offsets](Delta) along each coordinate axis
+    /// if the line segment is covered.
+    #[inline(always)]
+    #[must_use]
+    const fn covers((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Option<Delta<i8>> {
+        #[allow(clippy::cast_sign_loss)]
+        let dx = match FX {
+            false if x1 < x2 => u8::wrapping_sub(x2 as _, x1 as _),
+            true if x2 < x1 => u8::wrapping_sub(x1 as _, x2 as _),
+            _ => return None,
+        };
+        #[allow(clippy::cast_sign_loss)]
+        let dy = match FY {
+            false if y1 < y2 => u8::wrapping_sub(y2 as _, y1 as _),
+            true if y2 < y1 => u8::wrapping_sub(y1 as _, y2 as _),
+            _ => return None,
+        };
+        if !SWAP && dx < dy || SWAP && dy <= dx {
+            return None;
+        }
+        Some((dx, dy))
     }
 
     /// Returns an iterator over a directed line segment
@@ -127,13 +164,11 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     /// Returns [`None`] if the offsets don't match the steepness of the octant.
     #[inline]
     #[must_use]
-    pub const fn new((x1, y1): Point<i8>, (dx, dy): Offset<i8>) -> Option<Self> {
-        if !FX && dx == 0 || !FY && dy == 0 || !SWAP && dx <= dy || SWAP && dy < dx {
+    pub const fn new(start: Point<i8>, end: Point<i8>) -> Option<Self> {
+        let Some(delta) = Self::covers(start, end) else {
             return None;
-        }
-        let x2 = if !FX { x1 + dx } else { x1 - dx };
-        let y2 = if !FY { y1 + dy } else { y1 - dy };
-        Some(Self::new_unchecked((x1, y1), (x2, y2), (dx, dy)))
+        };
+        Some(Self::new_unchecked(start, end, delta))
     }
 
     /// Returns an iterator over a directed line segment covered by the [octant](Octant),
@@ -145,28 +180,22 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     #[must_use]
     #[inline(always)]
     const fn clip_unchecked(
-        (x1, y1): Point<i8>,
-        (x2, y2): Point<i8>,
-        (dx, dy): Offset<i8>, // absolute value
+        start: Point<i8>,
+        end: Point<i8>,
+        (dx, dy): Delta<i8>,
         clip: Clip<i8>,
     ) -> Option<Self> {
-        if clip::diagonal::out_of_bounds::<FX, FY>((x1, y1), (x2, y2), clip) {
+        if clip::diagonal::out_of_bounds::<FX, FY>(start, end, clip) {
             return None;
         }
-        let (dx2, dy2) = (dx << 1, dy << 1);
+        let (dx2, dy2) = ((dx as u16).wrapping_shl(1), (dy as u16).wrapping_shl(1));
         let Some(((cx1, cy1), error)) =
-            clip::kuzmin::enter::<FX, FY, SWAP>((x1, y1), (dx, dy), (dx2, dy2), clip)
+            clip::kuzmin::enter::<FX, FY, SWAP>(start, (dx, dy), (dx2, dy2), clip)
         else {
             return None;
         };
-        Some(Self {
-            x1: cx1,
-            y1: cy1,
-            error,
-            end: clip::kuzmin::exit::<FX, FY, SWAP>((x1, y1), (x2, y2), (dx, dy), (dx2, dy2), clip),
-            dx2,
-            dy2,
-        })
+        let end = clip::kuzmin::exit::<FX, FY, SWAP>(start, end, (dx, dy), (dx2, dy2), clip);
+        Some(Self { x1: cx1, y1: cy1, error, dx2, dy2, end })
     }
 
     /// Returns an iterator over a directed line segment,
@@ -180,13 +209,11 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     /// or if the line segment does not intersect the clipping region.
     #[inline]
     #[must_use]
-    pub const fn clip((x1, y1): Point<i8>, (dx, dy): Offset<i8>, clip: Clip<i8>) -> Option<Self> {
-        if !FX && dx == 0 || !FY && dy == 0 || !SWAP && dx <= dy || SWAP && dy < dx {
+    pub const fn clip(start: Point<i8>, end: Point<i8>, clip: Clip<i8>) -> Option<Self> {
+        let Some(delta) = Self::covers(start, end) else {
             return None;
-        }
-        let x2 = if !FX { x1 + dx } else { x1 - dx };
-        let y2 = if !FY { y1 + dy } else { y1 - dy };
-        Self::clip_unchecked((x1, y1), (x2, y2), (dx, dy), clip)
+        };
+        Self::clip_unchecked(start, end, delta, clip)
     }
 
     /// Returns `true` if the iterator has terminated.
@@ -205,10 +232,10 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     pub const fn length(&self) -> u8 {
         #[allow(clippy::cast_sign_loss)]
         match (SWAP, FX, FY) {
-            (false, false, _) => u8::wrapping_sub(self.end as u8, self.x1 as u8),
-            (false, true, _) => u8::wrapping_sub(self.x1 as u8, self.end as u8),
-            (true, _, false) => u8::wrapping_sub(self.end as u8, self.y1 as u8),
-            (true, _, true) => u8::wrapping_sub(self.y1 as u8, self.end as u8),
+            (false, false, _) => u8::wrapping_sub(self.end as _, self.x1 as _),
+            (false, true, _) => u8::wrapping_sub(self.x1 as _, self.end as _),
+            (true, _, false) => u8::wrapping_sub(self.end as _, self.y1 as _),
+            (true, _, true) => u8::wrapping_sub(self.y1 as _, self.end as _),
         }
     }
 }
@@ -222,18 +249,29 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Iterator for Octant<i8, F
             return None;
         }
         let (x, y) = (self.x1, self.y1);
+        // none of these operations will actually wrap
         if 0 <= self.error {
-            match SWAP {
-                false => self.y1 += if !FY { 1 } else { -1 },
-                true => self.x1 += if !FX { 1 } else { -1 },
+            match (SWAP, FX, FY) {
+                (false, _, false) => self.y1 = self.y1.wrapping_add(1),
+                (false, _, true) => self.y1 = self.y1.wrapping_sub(1),
+                (true, false, _) => self.x1 = self.x1.wrapping_add(1),
+                (true, true, _) => self.x1 = self.x1.wrapping_sub(1),
             }
-            self.error -= if !SWAP { self.dx2 } else { self.dy2 };
+            self.error = match SWAP {
+                false => self.error.wrapping_sub_unsigned(self.dx2),
+                true => self.error.wrapping_sub_unsigned(self.dy2),
+            };
         }
-        match SWAP {
-            false => self.x1 += if !FX { 1 } else { -1 },
-            true => self.y1 += if !FY { 1 } else { -1 },
+        match (SWAP, FX, FY) {
+            (false, false, _) => self.x1 = self.x1.wrapping_add(1),
+            (false, true, _) => self.x1 = self.x1.wrapping_sub(1),
+            (true, _, false) => self.y1 = self.y1.wrapping_add(1),
+            (true, _, true) => self.y1 = self.y1.wrapping_sub(1),
         }
-        self.error += if !SWAP { self.dy2 } else { self.dx2 };
+        self.error = match SWAP {
+            false => self.error.wrapping_add_unsigned(self.dy2),
+            true => self.error.wrapping_add_unsigned(self.dx2),
+        };
         Some((x, y))
     }
 
@@ -276,8 +314,9 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> core::iter::FusedIterator
 /// the underlying iterator only once instead of on every call to [`Iterator::next`].
 ///
 /// [1]: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
+#[allow(private_bounds)]
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub enum Bresenham<T> {
+pub enum Bresenham<T: Coord> {
     /// Horizontal line segment at `0°`, see [`PositiveHorizontal`](crate::PositiveHorizontal).
     SignedAxis0(orthogonal::PositiveHorizontal<T>),
     /// Horizontal line segment at `180°`, see [`NegativeHorizontal`](crate::NegativeHorizontal).
@@ -286,21 +325,21 @@ pub enum Bresenham<T> {
     SignedAxis2(orthogonal::PositiveVertical<T>),
     /// Vertical line segment at `270°`, see [`NegativeVertical`](crate::NegativeVertical).
     SignedAxis3(orthogonal::NegativeVertical<T>),
-    /// Gently-sloped line segment in `(0°, 45°)`, see [`Octant0`].
+    /// Gently-sloped line segment in `(0°, 45°]`, see [`Octant0`].
     Octant0(Octant0<T>),
-    /// Steeply-sloped line segment in `[45°, 90°)`, see [`Octant1`].
+    /// Steeply-sloped line segment in `(45°, 90°)`, see [`Octant1`].
     Octant1(Octant1<T>),
-    /// Gently-sloped line segment in `(315°, 360°)`, see [`Octant2`].
+    /// Gently-sloped line segment in `[315°, 360°)`, see [`Octant2`].
     Octant2(Octant2<T>),
-    /// Steeply-sloped line segment in `(270°, 315°]`, see [`Octant3`].
+    /// Steeply-sloped line segment in `(270°, 315°)`, see [`Octant3`].
     Octant3(Octant3<T>),
-    /// Gently-sloped line segment in `(135°, 180°)`, see [`Octant4`].
+    /// Gently-sloped line segment in `[135°, 180°)`, see [`Octant4`].
     Octant4(Octant4<T>),
-    /// Steeply-sloped line segment in `(90°, 135°]`, see [`Octant5`].
+    /// Steeply-sloped line segment in `(90°, 135°)`, see [`Octant5`].
     Octant5(Octant5<T>),
-    /// Gently-sloped line segment in `(180°, 225°)`, see [`Octant6`].
+    /// Gently-sloped line segment in `(180°, 225°]`, see [`Octant6`].
     Octant6(Octant6<T>),
-    /// Steeply-sloped line segment in `[225°, 270°)`, see [`Octant7`].
+    /// Steeply-sloped line segment in `(225°, 270°)`, see [`Octant7`].
     Octant7(Octant7<T>),
 }
 
@@ -342,32 +381,37 @@ impl Bresenham<i8> {
                 Vertical::Negative(me) => Self::SignedAxis3(me),
             };
         }
-        let (dx, dy) = (x2 - x1, y2 - y1);
-        if 0 < dx {
-            if 0 < dy {
-                if dy < dx {
-                    return Self::Octant0(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)));
+        #[allow(clippy::cast_sign_loss)]
+        {
+            if x1 < x2 {
+                let dx = u8::wrapping_sub(x2 as _, x1 as _);
+                if y1 < y2 {
+                    let dy = u8::wrapping_sub(y2 as _, y1 as _);
+                    if dy <= dx {
+                        return Self::Octant0(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)));
+                    }
+                    return Self::Octant1(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)));
                 }
-                return Self::Octant1(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)));
+                let dy = u8::wrapping_sub(y1 as _, y2 as _);
+                if dy <= dx {
+                    return Self::Octant2(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)));
+                }
+                return Self::Octant3(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)));
             }
-            let dy = -dy;
-            if dy < dx {
-                return Self::Octant2(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)));
+            let dx = u8::wrapping_sub(x1 as _, x2 as _);
+            if y1 < y2 {
+                let dy = u8::wrapping_sub(y2 as _, y1 as _);
+                if dy <= dx {
+                    return Self::Octant4(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)));
+                }
+                return Self::Octant5(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)));
             }
-            return Self::Octant3(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)));
-        }
-        let dx = -dx;
-        if 0 < dy {
-            if dy < dx {
-                return Self::Octant4(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)));
+            let dy = u8::wrapping_sub(y1 as _, y2 as _);
+            if dy <= dx {
+                return Self::Octant6(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)));
             }
-            return Self::Octant5(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)));
+            Self::Octant7(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)))
         }
-        let dy = -dy;
-        if dy < dx {
-            return Self::Octant6(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)));
-        }
-        Self::Octant7(Octant::new_unchecked((x1, y1), (x2, y2), (dx, dy)))
     }
 
     /// Returns a [Bresenham] iterator over an arbitrary directed line segment
@@ -396,56 +440,61 @@ impl Bresenham<i8> {
                 }
             );
         }
-        let (dx, dy) = (x2 - x1, y2 - y1);
-        if 0 < dx {
-            if 0 < dy {
-                if dy < dx {
+        #[allow(clippy::cast_sign_loss)]
+        {
+            if x1 < x2 {
+                let dx = u8::wrapping_sub(x2 as _, x1 as _);
+                if y1 < y2 {
+                    let dy = u8::wrapping_sub(y2 as _, y1 as _);
+                    if dy <= dx {
+                        return clip::map_option!(
+                            Octant::clip_unchecked((x1, y1), (x2, y2), (dx, dy), clip),
+                            me => Self::Octant0(me)
+                        );
+                    }
                     return clip::map_option!(
                         Octant::clip_unchecked((x1, y1), (x2, y2), (dx, dy), clip),
-                        me => Self::Octant0(me)
+                        me => Self::Octant1(me)
+                    );
+                }
+                let dy = u8::wrapping_sub(y1 as _, y2 as _);
+                if dy <= dx {
+                    return clip::map_option!(
+                        Octant::clip_unchecked((x1, y1), (x2, y2), (dx, dy), clip),
+                        me => Self::Octant2(me)
                     );
                 }
                 return clip::map_option!(
                     Octant::clip_unchecked((x1, y1), (x2, y2), (dx, dy), clip),
-                    me => Self::Octant1(me)
+                    me => Self::Octant3(me)
                 );
             }
-            let dy = -dy;
-            if dy < dx {
+            let dx = u8::wrapping_sub(x1 as _, x2 as _);
+            if y1 < y2 {
+                let dy = u8::wrapping_sub(y2 as _, y1 as _);
+                if dy <= dx {
+                    return clip::map_option!(
+                        Octant::clip_unchecked((x1, y1), (x2, y2), (dx, dy), clip),
+                        me => Self::Octant4(me)
+                    );
+                }
                 return clip::map_option!(
                     Octant::clip_unchecked((x1, y1), (x2, y2), (dx, dy), clip),
-                    me => Self::Octant2(me)
+                    me => Self::Octant5(me)
                 );
             }
-            return clip::map_option!(
-                Octant::clip_unchecked((x1, y1), (x2, y2), (dx, dy), clip),
-                me => Self::Octant3(me)
-            );
-        }
-        let dx = -dx;
-        if 0 < dy {
-            if dy < dx {
+            let dy = u8::wrapping_sub(y1 as _, y2 as _);
+            if dy <= dx {
                 return clip::map_option!(
                     Octant::clip_unchecked((x1, y1), (x2, y2), (dx, dy), clip),
-                    me => Self::Octant4(me)
+                    me => Self::Octant6(me)
                 );
             }
-            return clip::map_option!(
+            clip::map_option!(
                 Octant::clip_unchecked((x1, y1), (x2, y2), (dx, dy), clip),
-                me => Self::Octant5(me)
-            );
+                me => Self::Octant7(me)
+            )
         }
-        let dy = -dy;
-        if dy < dx {
-            return clip::map_option!(
-                Octant::clip_unchecked((x1, y1), (x2, y2), (dx, dy), clip),
-                me => Self::Octant6(me)
-            );
-        }
-        clip::map_option!(
-            Octant::clip_unchecked((x1, y1), (x2, y2), (dx, dy), clip),
-            me => Self::Octant7(me)
-        )
     }
 
     /// Returns `true` if the iterator has terminated.

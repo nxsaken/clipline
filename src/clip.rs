@@ -19,11 +19,11 @@ pub struct Clip<T> {
 }
 
 impl Clip<i8> {
-    /// Returns a new [`Clip`] if `x1 <= x2 && y1 <= y2`, otherwise returns [`None`].
+    /// Returns a new [`Clip`] if `x1 < x2 && y1 < y2`, otherwise returns [`None`].
     #[must_use]
     #[inline]
     pub const fn new((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Option<Self> {
-        if x2 < x1 || y2 < y1 {
+        if x2 <= x1 || y2 <= y1 {
             return None;
         }
         Some(Self { x1, y1, x2, y2 })

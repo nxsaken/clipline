@@ -19,7 +19,7 @@ use crate::{clip, Clip, Point};
 // Signed-axis-aligned iterators
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Iterator over a directed line segment aligned to the given *signed axis*.
+/// Iterator over a directed line segment covered by the given *signed axis*.
 ///
 /// A signed axis is defined by the *orientation* and *direction* of the line segments it covers:
 /// - [vertical](SignedVertical) if `VERT`, [horizontal](SignedHorizontal) otherwise.
@@ -32,37 +32,37 @@ pub struct SignedAxisAligned<T, const VERT: bool, const FLIP: bool> {
 }
 
 /// Iterator over a directed line segment
-/// aligned to the given *positive* [signed axis](SignedAxisAligned).
+/// covered by the given *positive* [signed axis](SignedAxisAligned).
 pub type PositiveAxisAligned<T, const VERT: bool> = SignedAxisAligned<T, VERT, false>;
 /// Iterator over a directed line segment
-/// aligned to the given *negative* [signed axis](SignedAxisAligned).
+/// covered by the given *negative* [signed axis](SignedAxisAligned).
 pub type NegativeAxisAligned<T, const VERT: bool> = SignedAxisAligned<T, VERT, true>;
 
 /// Iterator over a directed line segment
-/// aligned to the given *horizontal* [signed axis](SignedAxisAligned).
+/// covered by the given *horizontal* [signed axis](SignedAxisAligned).
 pub type SignedHorizontal<T, const FLIP: bool> = SignedAxisAligned<T, false, FLIP>;
 /// Iterator over a directed line segment
-/// aligned to the given *vertical* [signed axis](SignedAxisAligned).
+/// covered by the given *vertical* [signed axis](SignedAxisAligned).
 pub type SignedVertical<T, const FLIP: bool> = SignedAxisAligned<T, true, FLIP>;
 
 /// Iterator over a directed line segment
-/// aligned to the *positive horizontal* [signed axis](SignedAxisAligned).
+/// covered by the *positive horizontal* [signed axis](SignedAxisAligned).
 pub type PositiveHorizontal<T> = SignedHorizontal<T, false>;
 /// Iterator over a directed line segment
-/// aligned to the *negative horizontal* [signed axis](SignedAxisAligned).
+/// covered by the *negative horizontal* [signed axis](SignedAxisAligned).
 pub type NegativeHorizontal<T> = SignedHorizontal<T, true>;
 /// Iterator over a directed line segment
-/// aligned to the *positive vertical* [signed axis](SignedAxisAligned).
+/// covered by the *positive vertical* [signed axis](SignedAxisAligned).
 pub type PositiveVertical<T> = SignedVertical<T, false>;
 /// Iterator over a directed line segment
-/// aligned to the *negative vertical* [signed axis](SignedAxisAligned).
+/// covered by the *negative vertical* [signed axis](SignedAxisAligned).
 pub type NegativeVertical<T> = SignedVertical<T, true>;
 
 impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     /// Creates an iterator over an axis-aligned directed line segment
-    /// aligned to the given [signed axis](SignedAxisAligned).
+    /// covered by the given [signed axis](SignedAxisAligned).
     ///
-    /// *Assumes that the line segment is aligned to the given signed axis.*
+    /// *Assumes that the line segment is covered by the given signed axis.*
     #[inline(always)]
     #[must_use]
     const fn new_unchecked(u: i8, v1: i8, v2: i8) -> Self {
@@ -70,21 +70,25 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     }
 
     /// Creates an iterator over a directed line segment
-    /// aligned to the given [signed axis](AxisAligned).
+    /// covered by the given [signed axis](AxisAligned).
     ///
     /// The line segment is defined by its starting point and its length.
     ///
     /// - A [vertical](Vertical) line segment has endpoints `(u, v1)` and `(u, v2)`.
     /// - A [horizontal](Horizontal) line segment has endpoints `(v1, u)` and `(v2, u)`.
+    ///
+    /// Returns [`None`] if the line segment is empty or not covered by the signed axis.
     #[inline]
     #[must_use]
-    pub const fn new(u: i8, v1: i8, length: i8) -> Self {
-        let v2 = if !FLIP { v1 + length } else { v1 - length };
-        Self::new_unchecked(u, v1, v2)
+    pub const fn new(u: i8, v1: i8, v2: i8) -> Option<Self> {
+        if !FLIP && v2 <= v1 || FLIP && v1 <= v2 {
+            return None;
+        }
+        Some(Self::new_unchecked(u, v1, v2))
     }
 
     /// Creates an iterator over a directed line segment
-    /// aligned to the given [signed axis](AxisAligned),
+    /// covered by the given [signed axis](AxisAligned),
     /// clipped to a [rectangular region](Clip).
     ///
     /// - A [vertical](Vertical) line segment has endpoints `(u, v1)` and `(u, v2)`.
@@ -92,7 +96,7 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     ///
     /// Returns [`None`] if it does not intersect the clipping region.
     ///
-    /// *Assumes that the line segment is aligned to the given signed axis.*
+    /// *Assumes that the line segment is covered by the given signed axis.*
     #[inline(always)]
     #[must_use]
     const fn clip_unchecked(u: i8, v1: i8, v2: i8, clip: Clip<i8>) -> Option<Self> {
@@ -107,7 +111,7 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     }
 
     /// Creates an iterator over a directed line segment
-    /// aligned to the given [signed axis](AxisAligned),
+    /// covered by the given [signed axis](AxisAligned),
     /// clipped to a [rectangular region](Clip).
     ///
     /// The line segment is defined by its starting point and its length.
@@ -115,11 +119,14 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     /// - A [vertical](Vertical) line segment has endpoints `(u, v1)` and `(u, v2)`.
     /// - A [horizontal](Horizontal) line segment has endpoints `(v1, u)` and `(v2, u)`.
     ///
-    /// Returns [`None`] if the line segment does not intersect the clipping region.
+    /// Returns [`None`] if the line segment is empty, not covered by the signed axis,
+    /// or does not intersect the clipping region.
     #[inline]
     #[must_use]
-    pub const fn clip(u: i8, v1: i8, length: i8, clip: Clip<i8>) -> Option<Self> {
-        let v2 = if !FLIP { v1 + length } else { v1 - length };
+    pub const fn clip(u: i8, v1: i8, v2: i8, clip: Clip<i8>) -> Option<Self> {
+        if !FLIP && v2 <= v1 || FLIP && v1 <= v2 {
+            return None;
+        }
         Self::clip_unchecked(u, v1, v2, clip)
     }
 
@@ -138,8 +145,8 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     pub const fn length(&self) -> u8 {
         #[allow(clippy::cast_sign_loss)]
         match FLIP {
-            false => u8::wrapping_sub(self.v2 as u8, self.v1 as u8),
-            true => u8::wrapping_sub(self.v1 as u8, self.v2 as u8),
+            false => u8::wrapping_sub(self.v2 as _, self.v1 as _),
+            true => u8::wrapping_sub(self.v1 as _, self.v2 as _),
         }
     }
 }
@@ -153,7 +160,10 @@ impl<const VERT: bool, const FLIP: bool> Iterator for SignedAxisAligned<i8, VERT
             return None;
         }
         let (x, y) = if !VERT { (self.v1, self.u) } else { (self.u, self.v1) };
-        self.v1 += if !FLIP { 1 } else { -1 };
+        self.v1 = match FLIP {
+            false => self.v1.wrapping_add(1),
+            true => self.v1.wrapping_sub(1),
+        };
         Some((x, y))
     }
 
@@ -170,7 +180,10 @@ impl<const VERT: bool, const FLIP: bool> DoubleEndedIterator for SignedAxisAlign
         if self.is_done() {
             return None;
         }
-        self.v2 -= if !FLIP { 1 } else { -1 };
+        self.v2 = match FLIP {
+            false => self.v2.wrapping_sub(1),
+            true => self.v2.wrapping_add(1),
+        };
         let (x, y) = if !VERT { (self.v2, self.u) } else { (self.u, self.v2) };
         Some((x, y))
     }
@@ -193,7 +206,7 @@ impl<const VERT: bool, const FLIP: bool> core::iter::FusedIterator
 // Axis-aligned iterators
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Iterator over a directed line segment aligned to the given *axis*,
+/// Iterator over a directed line segment covered by the given *axis*,
 /// with the direction of iteration determined at runtime.
 ///
 /// An axis is defined by the *orientation* of the line segments it covers:
@@ -213,7 +226,7 @@ pub enum AxisAligned<T, const VERT: bool> {
     Negative(NegativeAxisAligned<T, VERT>),
 }
 
-/// Iterator over a directed line segment aligned to the *horizontal axis*,
+/// Iterator over a directed line segment covered by the *horizontal axis*,
 /// with the direction of iteration determined at runtime.
 ///
 /// If you know the direction of the line segment beforehand, consider the more
@@ -224,7 +237,7 @@ pub enum AxisAligned<T, const VERT: bool> {
 /// the direction of iteration only once instead of on every call to [`Iterator::next`].
 pub type Horizontal<T> = AxisAligned<T, false>;
 
-/// Iterator over a directed line segment aligned to the *vertical axis*,
+/// Iterator over a directed line segment covered by the *vertical axis*,
 /// with the direction of iteration determined at runtime.
 ///
 /// If you know the direction of the line segment beforehand, consider the more
