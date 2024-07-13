@@ -5,9 +5,9 @@ mod general {
     fn length_is_correct() {
         for v1 in -2..4 {
             for v2 in -2..4 {
-                let length = isize::abs_diff(v1, v2);
-                assert_eq!(clipline::Horizontal::new(0, v1, v2).len(), length);
-                assert_eq!(clipline::Vertical::new(0, v1, v2).len(), length);
+                let length = i8::abs_diff(v1, v2);
+                assert_eq!(clipline::Horizontal::new(0, v1, v2).length(), length);
+                assert_eq!(clipline::Vertical::new(0, v1, v2).length(), length);
             }
         }
     }

@@ -105,17 +105,13 @@ pub type Octant6<T> = Octant<T, true, true, false>;
 /// Can be obtained from [`Octant0`] by flipping and swapping the `x` and `y` coordinates.
 pub type Octant7<T> = Octant<T, true, true, true>;
 
-impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<isize, FX, FY, SWAP> {
+impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> {
     /// Returns an iterator over a directed line segment covered by the given [octant](Octant).
     ///
     /// *Assumes that the line segment is covered by the given octant.*
     #[inline(always)]
     #[must_use]
-    const fn new_unchecked(
-        (x1, y1): Point<isize>,
-        (x2, y2): Point<isize>,
-        (dx, dy): Offset<isize>,
-    ) -> Self {
+    const fn new_unchecked((x1, y1): Point<i8>, (x2, y2): Point<i8>, (dx, dy): Offset<i8>) -> Self {
         let (dx2, dy2) = (dx << 1, dy << 1);
         let error = if !SWAP { dy2 - dx } else { dx2 - dy };
         let end = if !SWAP { x2 } else { y2 };
@@ -131,7 +127,7 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<isize, FX, FY, SWA
     /// Returns [`None`] if the offsets don't match the steepness of the octant.
     #[inline]
     #[must_use]
-    pub const fn new((x1, y1): Point<isize>, (dx, dy): Offset<isize>) -> Option<Self> {
+    pub const fn new((x1, y1): Point<i8>, (dx, dy): Offset<i8>) -> Option<Self> {
         if !FX && dx == 0 || !FY && dy == 0 || !SWAP && dx <= dy || SWAP && dy < dx {
             return None;
         }
@@ -149,10 +145,10 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<isize, FX, FY, SWA
     #[must_use]
     #[inline(always)]
     const fn clip_unchecked(
-        (x1, y1): Point<isize>,
-        (x2, y2): Point<isize>,
-        (dx, dy): Offset<isize>, // absolute value
-        clip: &Clip<isize>,
+        (x1, y1): Point<i8>,
+        (x2, y2): Point<i8>,
+        (dx, dy): Offset<i8>, // absolute value
+        clip: Clip<i8>,
     ) -> Option<Self> {
         if clip::diagonal::out_of_bounds::<FX, FY>((x1, y1), (x2, y2), clip) {
             return None;
@@ -184,11 +180,7 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<isize, FX, FY, SWA
     /// or if the line segment does not intersect the clipping region.
     #[inline]
     #[must_use]
-    pub const fn clip(
-        (x1, y1): Point<isize>,
-        (dx, dy): Offset<isize>,
-        clip: &Clip<isize>,
-    ) -> Option<Self> {
+    pub const fn clip((x1, y1): Point<i8>, (dx, dy): Offset<i8>, clip: Clip<i8>) -> Option<Self> {
         if !FX && dx == 0 || !FY && dy == 0 || !SWAP && dx <= dy || SWAP && dy < dx {
             return None;
         }
@@ -204,10 +196,25 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<isize, FX, FY, SWA
         !SWAP && (!FX && self.end <= self.x1 || FX && self.x1 <= self.end)
             || SWAP && (!FY && self.end <= self.y1 || FY && self.y1 <= self.end)
     }
+
+    /// Returns the remaining length of this iterator.
+    ///
+    /// Optimized over [`i8::abs_diff`].
+    #[inline]
+    #[must_use]
+    pub const fn length(&self) -> u8 {
+        #[allow(clippy::cast_sign_loss)]
+        match (SWAP, FX, FY) {
+            (false, false, _) => u8::wrapping_sub(self.end as u8, self.x1 as u8),
+            (false, true, _) => u8::wrapping_sub(self.x1 as u8, self.end as u8),
+            (true, _, false) => u8::wrapping_sub(self.end as u8, self.y1 as u8),
+            (true, _, true) => u8::wrapping_sub(self.y1 as u8, self.end as u8),
+        }
+    }
 }
 
-impl<const FX: bool, const FY: bool, const SWAP: bool> Iterator for Octant<isize, FX, FY, SWAP> {
-    type Item = Point<isize>;
+impl<const FX: bool, const FY: bool, const SWAP: bool> Iterator for Octant<i8, FX, FY, SWAP> {
+    type Item = Point<i8>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -232,21 +239,13 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Iterator for Octant<isize
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // slightly optimized over `isize::abs_diff`,
-        // see its implementation for the proof that the `isize` -> `usize` cast is legal
-        #[allow(clippy::cast_sign_loss)]
-        let length = match (SWAP, FX, FY) {
-            (false, false, _) => usize::wrapping_sub(self.end as usize, self.x1 as usize),
-            (false, true, _) => usize::wrapping_sub(self.x1 as usize, self.end as usize),
-            (true, _, false) => usize::wrapping_sub(self.end as usize, self.y1 as usize),
-            (true, _, true) => usize::wrapping_sub(self.y1 as usize, self.end as usize),
-        };
+        let length = self.length() as usize;
         (length, Some(length))
     }
 }
 
 impl<const FX: bool, const FY: bool, const SWAP: bool> ExactSizeIterator
-    for Octant<isize, FX, FY, SWAP>
+    for Octant<i8, FX, FY, SWAP>
 {
     #[cfg(feature = "is_empty")]
     #[inline]
@@ -256,7 +255,7 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> ExactSizeIterator
 }
 
 impl<const FX: bool, const FY: bool, const SWAP: bool> core::iter::FusedIterator
-    for Octant<isize, FX, FY, SWAP>
+    for Octant<i8, FX, FY, SWAP>
 {
 }
 
@@ -325,10 +324,10 @@ macro_rules! delegate {
     };
 }
 
-impl Bresenham<isize> {
+impl Bresenham<i8> {
     /// Returns a [Bresenham] iterator over an arbitrary directed line segment.
     #[must_use]
-    pub const fn new((x1, y1): Point<isize>, (x2, y2): Point<isize>) -> Self {
+    pub const fn new((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Self {
         if y1 == y2 {
             use orthogonal::Horizontal;
             return match Horizontal::new(y1, x1, x2) {
@@ -376,11 +375,7 @@ impl Bresenham<isize> {
     ///
     /// Returns [`None`] if the line segment does not intersect the [clipping region](Clip).
     #[must_use]
-    pub const fn clip(
-        (x1, y1): Point<isize>,
-        (x2, y2): Point<isize>,
-        clip: &Clip<isize>,
-    ) -> Option<Self> {
+    pub const fn clip((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
         if y1 == y2 {
             use orthogonal::Horizontal;
             return clip::map_option!(
@@ -459,10 +454,17 @@ impl Bresenham<isize> {
     pub const fn is_done(&self) -> bool {
         delegate!(self, me => me.is_done())
     }
+
+    /// Returns the remaining length of this iterator.
+    #[inline]
+    #[must_use]
+    pub const fn length(&self) -> u8 {
+        delegate!(self, me => me.length())
+    }
 }
 
-impl Iterator for Bresenham<isize> {
-    type Item = Point<isize>;
+impl Iterator for Bresenham<i8> {
+    type Item = Point<i8>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -495,7 +497,7 @@ impl Iterator for Bresenham<isize> {
     }
 }
 
-impl ExactSizeIterator for Bresenham<isize> {
+impl ExactSizeIterator for Bresenham<i8> {
     #[cfg(feature = "is_empty")]
     #[inline]
     fn is_empty(&self) -> bool {
@@ -503,4 +505,4 @@ impl ExactSizeIterator for Bresenham<isize> {
     }
 }
 
-impl core::iter::FusedIterator for Bresenham<isize> {}
+impl core::iter::FusedIterator for Bresenham<i8> {}

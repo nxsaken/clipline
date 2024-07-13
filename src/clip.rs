@@ -18,11 +18,11 @@ pub struct Clip<T> {
     y2: T,
 }
 
-impl Clip<isize> {
+impl Clip<i8> {
     /// Returns a new [`Clip`] if `x1 <= x2 && y1 <= y2`, otherwise returns [`None`].
     #[must_use]
     #[inline]
-    pub const fn new((x1, y1): Point<isize>, (x2, y2): Point<isize>) -> Option<Self> {
+    pub const fn new((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Option<Self> {
         if x2 < x1 || y2 < y1 {
             return None;
         }
@@ -35,10 +35,10 @@ impl Clip<isize> {
     #[must_use]
     #[inline]
     pub const fn bresenham(
-        &self,
-        (x1, y1): Point<isize>,
-        (x2, y2): Point<isize>,
-    ) -> Option<Bresenham<isize>> {
+        self,
+        (x1, y1): Point<i8>,
+        (x2, y2): Point<i8>,
+    ) -> Option<Bresenham<i8>> {
         Bresenham::clip((x1, y1), (x2, y2), self)
     }
 }

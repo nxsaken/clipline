@@ -58,14 +58,14 @@ pub type PositiveVertical<T> = SignedVertical<T, false>;
 /// aligned to the *negative vertical* [signed axis](SignedAxisAligned).
 pub type NegativeVertical<T> = SignedVertical<T, true>;
 
-impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<isize, VERT, FLIP> {
+impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     /// Creates an iterator over an axis-aligned directed line segment
     /// aligned to the given [signed axis](SignedAxisAligned).
     ///
     /// *Assumes that the line segment is aligned to the given signed axis.*
     #[inline(always)]
     #[must_use]
-    const fn new_unchecked(u: isize, v1: isize, v2: isize) -> Self {
+    const fn new_unchecked(u: i8, v1: i8, v2: i8) -> Self {
         Self { u, v1, v2 }
     }
 
@@ -78,7 +78,7 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<isize, VERT, FLIP> {
     /// - A [horizontal](Horizontal) line segment has endpoints `(v1, u)` and `(v2, u)`.
     #[inline]
     #[must_use]
-    pub const fn new(u: isize, v1: isize, length: isize) -> Self {
+    pub const fn new(u: i8, v1: i8, length: i8) -> Self {
         let v2 = if !FLIP { v1 + length } else { v1 - length };
         Self::new_unchecked(u, v1, v2)
     }
@@ -95,7 +95,7 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<isize, VERT, FLIP> {
     /// *Assumes that the line segment is aligned to the given signed axis.*
     #[inline(always)]
     #[must_use]
-    const fn clip_unchecked(u: isize, v1: isize, v2: isize, clip: &Clip<isize>) -> Option<Self> {
+    const fn clip_unchecked(u: i8, v1: i8, v2: i8, clip: Clip<i8>) -> Option<Self> {
         if clip::signed_axis::out_of_bounds::<VERT, FLIP>(u, v1, v2, clip) {
             return None;
         }
@@ -118,7 +118,7 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<isize, VERT, FLIP> {
     /// Returns [`None`] if the line segment does not intersect the clipping region.
     #[inline]
     #[must_use]
-    pub const fn clip(u: isize, v1: isize, length: isize, clip: &Clip<isize>) -> Option<Self> {
+    pub const fn clip(u: i8, v1: i8, length: i8, clip: Clip<i8>) -> Option<Self> {
         let v2 = if !FLIP { v1 + length } else { v1 - length };
         Self::clip_unchecked(u, v1, v2, clip)
     }
@@ -129,10 +129,23 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<isize, VERT, FLIP> {
     pub const fn is_done(&self) -> bool {
         !FLIP && self.v2 <= self.v1 || FLIP && self.v1 <= self.v2
     }
+
+    /// Returns the remaining length of this iterator.
+    ///
+    /// Optimized over [`i8::abs_diff`].
+    #[inline]
+    #[must_use]
+    pub const fn length(&self) -> u8 {
+        #[allow(clippy::cast_sign_loss)]
+        match FLIP {
+            false => u8::wrapping_sub(self.v2 as u8, self.v1 as u8),
+            true => u8::wrapping_sub(self.v1 as u8, self.v2 as u8),
+        }
+    }
 }
 
-impl<const VERT: bool, const FLIP: bool> Iterator for SignedAxisAligned<isize, VERT, FLIP> {
-    type Item = Point<isize>;
+impl<const VERT: bool, const FLIP: bool> Iterator for SignedAxisAligned<i8, VERT, FLIP> {
+    type Item = Point<i8>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -146,20 +159,12 @@ impl<const VERT: bool, const FLIP: bool> Iterator for SignedAxisAligned<isize, V
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // slightly optimized over `isize::abs_diff`,
-        // see its implementation for the proof that this cast is legal
-        #[allow(clippy::cast_sign_loss)]
-        let length = match FLIP {
-            false => usize::wrapping_sub(self.v2 as usize, self.v1 as usize),
-            true => usize::wrapping_sub(self.v1 as usize, self.v2 as usize),
-        };
+        let length = self.length() as usize;
         (length, Some(length))
     }
 }
 
-impl<const VERT: bool, const FLIP: bool> DoubleEndedIterator
-    for SignedAxisAligned<isize, VERT, FLIP>
-{
+impl<const VERT: bool, const FLIP: bool> DoubleEndedIterator for SignedAxisAligned<i8, VERT, FLIP> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         if self.is_done() {
@@ -171,9 +176,7 @@ impl<const VERT: bool, const FLIP: bool> DoubleEndedIterator
     }
 }
 
-impl<const VERT: bool, const FLIP: bool> ExactSizeIterator
-    for SignedAxisAligned<isize, VERT, FLIP>
-{
+impl<const VERT: bool, const FLIP: bool> ExactSizeIterator for SignedAxisAligned<i8, VERT, FLIP> {
     #[cfg(feature = "is_empty")]
     #[inline]
     fn is_empty(&self) -> bool {
@@ -182,7 +185,7 @@ impl<const VERT: bool, const FLIP: bool> ExactSizeIterator
 }
 
 impl<const VERT: bool, const FLIP: bool> core::iter::FusedIterator
-    for SignedAxisAligned<isize, VERT, FLIP>
+    for SignedAxisAligned<i8, VERT, FLIP>
 {
 }
 
@@ -242,14 +245,14 @@ macro_rules! delegate {
     };
 }
 
-impl<const VERT: bool> AxisAligned<isize, VERT> {
+impl<const VERT: bool> AxisAligned<i8, VERT> {
     /// Returns an iterator over an [axis-aligned](AxisAligned) directed line segment.
     ///
     /// - A [vertical](Vertical) line segment has endpoints `(u, v1)` and `(u, v2)`.
     /// - A [horizontal](Horizontal) line segment has endpoints `(v1, u)` and `(v2, u)`.
     #[inline]
     #[must_use]
-    pub const fn new(u: isize, v1: isize, v2: isize) -> Self {
+    pub const fn new(u: i8, v1: i8, v2: i8) -> Self {
         if v1 <= v2 {
             Self::Positive(SignedAxisAligned::new_unchecked(u, v1, v2))
         } else {
@@ -257,15 +260,6 @@ impl<const VERT: bool> AxisAligned<isize, VERT> {
         }
     }
 
-    /// Returns `true` if the iterator has terminated.
-    #[inline]
-    #[must_use]
-    pub const fn is_done(&self) -> bool {
-        delegate!(self, me => me.is_done())
-    }
-}
-
-impl<const VERT: bool> AxisAligned<isize, VERT> {
     /// Returns an iterator over an [axis-aligned](AxisAligned) directed line segment
     /// clipped to a [rectangular region](Clip).
     ///
@@ -275,7 +269,7 @@ impl<const VERT: bool> AxisAligned<isize, VERT> {
     /// Returns [`None`] if the line segment does not intersect the clipping region.
     #[inline]
     #[must_use]
-    pub const fn clip(u: isize, v1: isize, v2: isize, clip: &Clip<isize>) -> Option<Self> {
+    pub const fn clip(u: i8, v1: i8, v2: i8, clip: Clip<i8>) -> Option<Self> {
         if v1 <= v2 {
             clip::map_option!(
                 SignedAxisAligned::clip_unchecked(u, v1, v2, clip),
@@ -288,10 +282,24 @@ impl<const VERT: bool> AxisAligned<isize, VERT> {
             )
         }
     }
+
+    /// Returns `true` if the iterator has terminated.
+    #[inline]
+    #[must_use]
+    pub const fn is_done(&self) -> bool {
+        delegate!(self, me => me.is_done())
+    }
+
+    /// Returns the remaining length of this iterator.
+    #[inline]
+    #[must_use]
+    pub const fn length(&self) -> u8 {
+        delegate!(self, me => me.length())
+    }
 }
 
-impl<const VERT: bool> Iterator for AxisAligned<isize, VERT> {
-    type Item = Point<isize>;
+impl<const VERT: bool> Iterator for AxisAligned<i8, VERT> {
+    type Item = Point<i8>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -324,7 +332,7 @@ impl<const VERT: bool> Iterator for AxisAligned<isize, VERT> {
     }
 }
 
-impl<const VERT: bool> DoubleEndedIterator for AxisAligned<isize, VERT> {
+impl<const VERT: bool> DoubleEndedIterator for AxisAligned<i8, VERT> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         delegate!(self, me => me.next_back())
@@ -351,7 +359,7 @@ impl<const VERT: bool> DoubleEndedIterator for AxisAligned<isize, VERT> {
     }
 }
 
-impl<const VERT: bool> ExactSizeIterator for AxisAligned<isize, VERT> {
+impl<const VERT: bool> ExactSizeIterator for AxisAligned<i8, VERT> {
     #[cfg(feature = "is_empty")]
     #[inline]
     fn is_empty(&self) -> bool {
@@ -359,7 +367,7 @@ impl<const VERT: bool> ExactSizeIterator for AxisAligned<isize, VERT> {
     }
 }
 
-impl<const VERT: bool> core::iter::FusedIterator for AxisAligned<isize, VERT> {}
+impl<const VERT: bool> core::iter::FusedIterator for AxisAligned<i8, VERT> {}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Orthogonal iterator
@@ -398,12 +406,12 @@ macro_rules! delegate {
     };
 }
 
-impl Orthogonal<isize> {
+impl Orthogonal<i8> {
     /// Returns an iterator over a directed line segment
     /// if it is [orthogonal](Orthogonal), otherwise returns [`None`].
     #[inline]
     #[must_use]
-    pub const fn new((x1, y1): Point<isize>, (x2, y2): Point<isize>) -> Option<Self> {
+    pub const fn new((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Option<Self> {
         if y1 == y2 {
             return match Horizontal::new(x1, y1, y2) {
                 AxisAligned::Positive(me) => Some(Self::SignedAxis0(me)),
@@ -419,15 +427,6 @@ impl Orthogonal<isize> {
         None
     }
 
-    /// Returns `true` if the iterator has terminated.
-    #[inline]
-    #[must_use]
-    pub const fn is_done(&self) -> bool {
-        delegate!(self, me => me.is_done())
-    }
-}
-
-impl Orthogonal<isize> {
     /// Returns an iterator over a directed line segment,
     /// if it is [orthogonal](Orthogonal), clipped to the [rectangular region](Clip).
     ///
@@ -435,11 +434,7 @@ impl Orthogonal<isize> {
     /// or if it does not intersect the clipping region.
     #[inline]
     #[must_use]
-    pub const fn clip(
-        (x1, y1): Point<isize>,
-        (x2, y2): Point<isize>,
-        clip: &Clip<isize>,
-    ) -> Option<Self> {
+    pub const fn clip((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
         if y1 == y2 {
             return clip::map_option!(
                 Horizontal::clip(x1, y1, y2, clip),
@@ -460,10 +455,24 @@ impl Orthogonal<isize> {
         }
         None
     }
+
+    /// Returns `true` if the iterator has terminated.
+    #[inline]
+    #[must_use]
+    pub const fn is_done(&self) -> bool {
+        delegate!(self, me => me.is_done())
+    }
+
+    /// Returns the remaining length of this iterator.
+    #[inline]
+    #[must_use]
+    pub const fn length(&self) -> u8 {
+        delegate!(self, me => me.length())
+    }
 }
 
-impl Iterator for Orthogonal<isize> {
-    type Item = Point<isize>;
+impl Iterator for Orthogonal<i8> {
+    type Item = Point<i8>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -496,7 +505,7 @@ impl Iterator for Orthogonal<isize> {
     }
 }
 
-impl DoubleEndedIterator for Orthogonal<isize> {
+impl DoubleEndedIterator for Orthogonal<i8> {
     #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         delegate!(self, me => me.next_back())
@@ -523,7 +532,7 @@ impl DoubleEndedIterator for Orthogonal<isize> {
     }
 }
 
-impl ExactSizeIterator for Orthogonal<isize> {
+impl ExactSizeIterator for Orthogonal<i8> {
     #[cfg(feature = "is_empty")]
     #[inline]
     fn is_empty(&self) -> bool {
@@ -531,4 +540,4 @@ impl ExactSizeIterator for Orthogonal<isize> {
     }
 }
 
-impl core::iter::FusedIterator for Orthogonal<isize> {}
+impl core::iter::FusedIterator for Orthogonal<i8> {}

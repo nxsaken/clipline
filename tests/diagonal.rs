@@ -23,8 +23,8 @@ mod general {
     fn length_is_correct() {
         for v1 in -2..4 {
             for v2 in -2..4 {
-                let length = isize::abs_diff(v1, v2);
-                assert_eq!(clipline::Diagonal::new((v1, v1), (v2, v2)).unwrap().count(), length);
+                let length = i8::abs_diff(v1, v2);
+                assert_eq!(clipline::Diagonal::new((v1, v1), (v2, v2)).unwrap().length(), length);
             }
         }
     }

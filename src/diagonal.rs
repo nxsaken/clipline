@@ -37,14 +37,14 @@ pub type Quadrant2<T> = Quadrant<T, true, false>;
 /// by the [quadrant](Quadrant) where `x` and `y` both decrease.
 pub type Quadrant3<T> = Quadrant<T, true, true>;
 
-impl<const FX: bool, const FY: bool> Quadrant<isize, FX, FY> {
+impl<const FX: bool, const FY: bool> Quadrant<i8, FX, FY> {
     /// Creates an iterator over a diagonal directed line segment
     /// covered by the given [quadrant](Quadrant).
     ///
     /// *Assumes that the line segment is covered by the given quadrant.*
     #[inline(always)]
     #[must_use]
-    pub(crate) const fn new_unchecked((x1, y1): Point<isize>, x2: isize) -> Self {
+    pub(crate) const fn new_unchecked((x1, y1): Point<i8>, x2: i8) -> Self {
         Self { x1, y1, x2 }
     }
 
@@ -56,7 +56,7 @@ impl<const FX: bool, const FY: bool> Quadrant<isize, FX, FY> {
     /// which is equivalent to the absolute offset along the `x` or `y` coordinate.
     #[inline]
     #[must_use]
-    pub const fn new((x1, y1): Point<isize>, length: isize) -> Self {
+    pub const fn new((x1, y1): Point<i8>, length: i8) -> Self {
         let x2 = if !FX { x1 + length } else { x1 - length };
         Self::new_unchecked((x1, y1), x2)
     }
@@ -71,9 +71,9 @@ impl<const FX: bool, const FY: bool> Quadrant<isize, FX, FY> {
     #[must_use]
     #[inline(always)]
     const fn clip_unchecked(
-        (x1, y1): Point<isize>,
-        (x2, y2): Point<isize>,
-        clip: &Clip<isize>,
+        (x1, y1): Point<i8>,
+        (x2, y2): Point<i8>,
+        clip: Clip<i8>,
     ) -> Option<Self> {
         if clip::diagonal::out_of_bounds::<FX, FY>((x1, y1), (x2, y2), clip) {
             return None;
@@ -95,7 +95,7 @@ impl<const FX: bool, const FY: bool> Quadrant<isize, FX, FY> {
     /// Returns [`None`] if the line segment does not intersect the clipping region.
     #[inline]
     #[must_use]
-    pub const fn clip((x1, y1): Point<isize>, length: isize, clip: &Clip<isize>) -> Option<Self> {
+    pub const fn clip((x1, y1): Point<i8>, length: i8, clip: Clip<i8>) -> Option<Self> {
         let x2 = if !FX { x1 + length } else { x1 - length };
         let y2 = if !FY { y1 + length } else { y1 - length };
         Self::clip_unchecked((x1, y1), (x2, y2), clip)
@@ -107,10 +107,23 @@ impl<const FX: bool, const FY: bool> Quadrant<isize, FX, FY> {
     pub const fn is_done(&self) -> bool {
         !FX && self.x2 <= self.x1 || FX && self.x1 <= self.x2
     }
+
+    /// Returns the remaining length of this iterator.
+    ///
+    /// Optimized over [`i8::abs_diff`].
+    #[inline]
+    #[must_use]
+    pub const fn length(&self) -> u8 {
+        #[allow(clippy::cast_sign_loss)]
+        match FX {
+            false => u8::wrapping_sub(self.x2 as u8, self.x1 as u8),
+            true => u8::wrapping_sub(self.x1 as u8, self.x2 as u8),
+        }
+    }
 }
 
-impl<const FX: bool, const FY: bool> Iterator for Quadrant<isize, FX, FY> {
-    type Item = Point<isize>;
+impl<const FX: bool, const FY: bool> Iterator for Quadrant<i8, FX, FY> {
+    type Item = Point<i8>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -125,18 +138,12 @@ impl<const FX: bool, const FY: bool> Iterator for Quadrant<isize, FX, FY> {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // slightly optimized over `isize::abs_diff`,
-        // see its implementation for the proof that this cast is legal
-        #[allow(clippy::cast_sign_loss)]
-        let length = match FX {
-            false => usize::wrapping_sub(self.x2 as usize, self.x1 as usize),
-            true => usize::wrapping_sub(self.x1 as usize, self.x2 as usize),
-        };
+        let length = self.length() as usize;
         (length, Some(length))
     }
 }
 
-impl<const FX: bool, const FY: bool> ExactSizeIterator for Quadrant<isize, FX, FY> {
+impl<const FX: bool, const FY: bool> ExactSizeIterator for Quadrant<i8, FX, FY> {
     #[cfg(feature = "is_empty")]
     #[inline]
     fn is_empty(&self) -> bool {
@@ -144,7 +151,7 @@ impl<const FX: bool, const FY: bool> ExactSizeIterator for Quadrant<isize, FX, F
     }
 }
 
-impl<const FX: bool, const FY: bool> core::iter::FusedIterator for Quadrant<isize, FX, FY> {}
+impl<const FX: bool, const FY: bool> core::iter::FusedIterator for Quadrant<i8, FX, FY> {}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Arbitrary diagonal iterator
@@ -183,12 +190,12 @@ macro_rules! delegate {
     };
 }
 
-impl Diagonal<isize> {
+impl Diagonal<i8> {
     /// Creates an iterator over a directed line segment if it is [diagonal](Diagonal).
     ///
     /// Returns [`None`] if the given line segment is not diagonal.
     #[must_use]
-    pub const fn new((x1, y1): Point<isize>, (x2, y2): Point<isize>) -> Option<Self> {
+    pub const fn new((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Option<Self> {
         let (dx, dy) = (x2 - x1, y2 - y1);
         if 0 < dx {
             if 0 < dy {
@@ -220,11 +227,7 @@ impl Diagonal<isize> {
     /// Returns [`None`] if the given line segment is not diagonal,
     /// or if it does not intersect the clipping region.
     #[must_use]
-    pub const fn clip(
-        (x1, y1): Point<isize>,
-        (x2, y2): Point<isize>,
-        clip: &Clip<isize>,
-    ) -> Option<Self> {
+    pub const fn clip((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
         let (dx, dy) = (x2 - x1, y2 - y1);
         if 0 < dx {
             if 0 < dy {
@@ -268,10 +271,17 @@ impl Diagonal<isize> {
     pub const fn is_done(&self) -> bool {
         delegate!(self, me => me.is_done())
     }
+
+    /// Returns the remaining length of this iterator.
+    #[inline]
+    #[must_use]
+    pub const fn length(&self) -> u8 {
+        delegate!(self, me => me.length())
+    }
 }
 
-impl Iterator for Diagonal<isize> {
-    type Item = Point<isize>;
+impl Iterator for Diagonal<i8> {
+    type Item = Point<i8>;
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -304,7 +314,7 @@ impl Iterator for Diagonal<isize> {
     }
 }
 
-impl ExactSizeIterator for Diagonal<isize> {
+impl ExactSizeIterator for Diagonal<i8> {
     #[cfg(feature = "is_empty")]
     #[inline]
     fn is_empty(&self) -> bool {
@@ -312,4 +322,4 @@ impl ExactSizeIterator for Diagonal<isize> {
     }
 }
 
-impl core::iter::FusedIterator for Diagonal<isize> {}
+impl core::iter::FusedIterator for Diagonal<i8> {}

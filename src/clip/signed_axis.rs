@@ -10,10 +10,10 @@ use crate::Clip;
 #[must_use]
 #[inline(always)]
 pub const fn out_of_bounds<const VERT: bool, const FLIP: bool>(
-    u: isize,
-    v1: isize,
-    v2: isize,
-    &Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: &Clip<isize>,
+    u: i8,
+    v1: i8,
+    v2: i8,
+    Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: Clip<i8>,
 ) -> bool {
     !VERT
         && ((u < wy1 || wy2 < u)
@@ -28,9 +28,9 @@ pub const fn out_of_bounds<const VERT: bool, const FLIP: bool>(
 #[must_use]
 #[inline(always)]
 pub const fn enter<const VERT: bool, const FLIP: bool>(
-    v1: isize,
-    &Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: &Clip<isize>,
-) -> isize {
+    v1: i8,
+    Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: Clip<i8>,
+) -> i8 {
     match (VERT, FLIP) {
         (false, false) if v1 < wx1 => wx1,
         (false, true) if wx2 < v1 => wx2,
@@ -45,9 +45,9 @@ pub const fn enter<const VERT: bool, const FLIP: bool>(
 #[must_use]
 #[inline(always)]
 pub const fn exit<const VERT: bool, const FLIP: bool>(
-    v2: isize,
-    &Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: &Clip<isize>,
-) -> isize {
+    v2: i8,
+    Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: Clip<i8>,
+) -> i8 {
     match (VERT, FLIP) {
         (false, false) if wx2 < v2 => wx2,
         (false, true) if v2 < wx1 => wx1,

@@ -105,9 +105,9 @@ mod rasterization {
         let clip = Clip::new((-2, -2), (2, 2)).unwrap();
         for x in -2..=2 {
             for y in -2..=2 {
-                let length = isize::abs_diff(0, x).max(isize::abs_diff(0, y));
-                assert_eq!(Bresenham::new((0, 0), (x, y)).len(), length);
-                assert_eq!(Bresenham::clip((0, 0), (x, y), &clip).unwrap().len(), length);
+                let length = i8::abs_diff(0, x).max(i8::abs_diff(0, y));
+                assert_eq!(Bresenham::new((0, 0), (x, y)).length(), length);
+                assert_eq!(Bresenham::clip((0, 0), (x, y), clip).unwrap().length(), length);
             }
         }
     }
@@ -125,7 +125,7 @@ mod rasterization {
             points
         );
         assert_eq!(
-            BresenhamOctant0::clip((0, 0), (5, 2), &Clip::new((1, 0), (4, 1)).unwrap())
+            BresenhamOctant0::clip((0, 0), (5, 2), Clip::new((1, 0), (4, 1)).unwrap())
                 .unwrap()
                 .collect::<Vec<_>>(),
             points[1..3]

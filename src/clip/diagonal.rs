@@ -9,9 +9,9 @@ use crate::{Clip, Point};
 #[must_use]
 #[inline(always)]
 pub const fn out_of_bounds<const FX: bool, const FY: bool>(
-    (x1, y1): Point<isize>,
-    (x2, y2): Point<isize>,
-    &Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: &Clip<isize>,
+    (x1, y1): Point<i8>,
+    (x2, y2): Point<i8>,
+    Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: Clip<i8>,
 ) -> bool {
     !FX && (x2 < wx1 || wx2 < x1)
         || FX && (x1 < wx1 || wx2 < x2)
@@ -29,9 +29,9 @@ pub const fn out_of_bounds<const FX: bool, const FY: bool>(
 #[must_use]
 #[inline(always)]
 pub const fn enter<const FX: bool, const FY: bool>(
-    (x1, y1): Point<isize>,
-    &Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: &Clip<isize>,
-) -> Option<Point<isize>> {
+    (x1, y1): Point<i8>,
+    Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: Clip<i8>,
+) -> Option<Point<i8>> {
     let (mut cx1, mut cy1) = (x1, y1);
     if !FX && x1 < wx1 || FX && wx2 < x1 {
         let diff = if !FX { wx1 - x1 } else { x1 - wx2 };
@@ -70,10 +70,10 @@ pub const fn enter<const FX: bool, const FY: bool>(
 #[must_use]
 #[inline(always)]
 pub const fn exit<const FX: bool, const FY: bool>(
-    (x1, y1): Point<isize>,
-    (x2, y2): Point<isize>,
-    &Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: &Clip<isize>,
-) -> isize {
+    (x1, y1): Point<i8>,
+    (x2, y2): Point<i8>,
+    Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: Clip<i8>,
+) -> i8 {
     let cx2 = if !FY && wy2 < y2 || FY && y2 < wy1 {
         let diff = if !FY { wy2 - y1 } else { y1 - wy1 };
         match FX {

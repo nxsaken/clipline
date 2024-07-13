@@ -18,11 +18,11 @@ use crate::{Clip, Offset, Point};
 #[must_use]
 #[inline(always)]
 pub const fn enter<const FX: bool, const FY: bool, const SWAP: bool>(
-    (x1, y1): Point<isize>,
-    (dx, dy): Offset<isize>,   // absolute value
-    (dx2, dy2): Offset<isize>, // absolute value
-    &Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: &Clip<isize>,
-) -> Option<(Point<isize>, isize)> {
+    (x1, y1): Point<i8>,
+    (dx, dy): Offset<i8>,   // absolute value
+    (dx2, dy2): Offset<i8>, // absolute value
+    Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: Clip<i8>,
+) -> Option<(Point<i8>, i8)> {
     let (mut cx1, mut cy1) = (x1, y1);
     let mut error = if !SWAP { dy2 - dx } else { dx2 - dy };
     // horizontal entry (from below or above)
@@ -117,12 +117,12 @@ pub const fn enter<const FX: bool, const FY: bool, const SWAP: bool>(
 #[must_use]
 #[inline(always)]
 pub const fn exit<const FX: bool, const FY: bool, const SWAP: bool>(
-    (x1, y1): Point<isize>,
-    (x2, y2): Point<isize>,
-    (dx, dy): Offset<isize>,   // absolute value
-    (dx2, dy2): Offset<isize>, // absolute value
-    &Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: &Clip<isize>,
-) -> isize {
+    (x1, y1): Point<i8>,
+    (x2, y2): Point<i8>,
+    (dx, dy): Offset<i8>,   // absolute value
+    (dx2, dy2): Offset<i8>, // absolute value
+    Clip { x1: wx1, y1: wy1, x2: wx2, y2: wy2 }: Clip<i8>,
+) -> i8 {
     let mut end = if !SWAP { x2 } else { y2 };
     if !SWAP && (!FY && wy2 < y2 || FY && y2 < wy1) || SWAP && (!FX && wx2 < x2 || FX && x2 < wx1) {
         let tmp = match SWAP {
