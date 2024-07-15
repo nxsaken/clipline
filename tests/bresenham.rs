@@ -73,13 +73,15 @@ mod rasterization {
     use super::*;
 
     #[test]
-    fn length_is_correct() {
-        let clip = Clip::new((-2, -2), (2, 2)).unwrap();
-        for x in -2..=2 {
-            for y in -2..=2 {
-                let length = i8::abs_diff(0, x).max(i8::abs_diff(0, y));
-                assert_eq!(Bresenham::new((0, 0), (x, y)).length(), length);
-                assert_eq!(Bresenham::clip((0, 0), (x, y), clip).unwrap().length(), length);
+    fn covers_all_domain() {
+        for x1 in i8::MIN..=i8::MAX {
+            for y1 in i8::MIN..=i8::MAX {
+                for x2 in i8::MIN..=i8::MAX {
+                    for y2 in i8::MIN..=i8::MAX {
+                        let length = u8::max(x1.abs_diff(x2), y1.abs_diff(y2));
+                        assert_eq!(Bresenham::new((x1, y1), (x2, y2)).length(), length);
+                    }
+                }
             }
         }
     }
@@ -95,20 +97,6 @@ mod rasterization {
                 .unwrap()
                 .collect::<Vec<_>>(),
             points
-        );
-        assert_eq!(
-            BresenhamOctant0::clip((0, 0), (5, 2), Clip::new((1, 0), (4, 1)).unwrap())
-                .unwrap()
-                .collect::<Vec<_>>(),
-            points[1..3]
-        );
-        assert_eq!(
-            Clip::new((0, 1), (3, 2))
-                .unwrap()
-                .bresenham((0, 0), (5, 2))
-                .unwrap()
-                .collect::<Vec<_>>(),
-            points[2..3]
         );
     }
 
@@ -129,9 +117,7 @@ mod rasterization {
     #[test]
     fn octant_2_produces_correct_points() {
         assert_eq!(
-            BresenhamOctant2::new((0, 0), (5, -2))
-                .expect("octant should be correct")
-                .collect::<Vec<_>>(),
+            BresenhamOctant2::new((0, 0), (5, -2)).unwrap().collect::<Vec<_>>(),
             vec![(0, 0), (1, 0), (2, -1), (3, -1), (4, -2)]
         );
     }
@@ -139,9 +125,7 @@ mod rasterization {
     #[test]
     fn octant_3_produces_correct_points() {
         assert_eq!(
-            BresenhamOctant3::new((0, 0), (2, -5))
-                .expect("octant should be correct")
-                .collect::<Vec<_>>(),
+            BresenhamOctant3::new((0, 0), (2, -5)).unwrap().collect::<Vec<_>>(),
             vec![(0, 0), (0, -1), (1, -2), (1, -3), (2, -4)]
         );
     }
@@ -149,9 +133,7 @@ mod rasterization {
     #[test]
     fn octant_4_produces_correct_points() {
         assert_eq!(
-            BresenhamOctant4::new((0, 0), (-5, 2))
-                .expect("octant should be correct")
-                .collect::<Vec<_>>(),
+            BresenhamOctant4::new((0, 0), (-5, 2)).unwrap().collect::<Vec<_>>(),
             vec![(0, 0), (-1, 0), (-2, 1), (-3, 1), (-4, 2)]
         );
     }
@@ -159,9 +141,7 @@ mod rasterization {
     #[test]
     fn octant_5_produces_correct_points() {
         assert_eq!(
-            BresenhamOctant5::new((0, 0), (-2, 5))
-                .expect("octant should be correct")
-                .collect::<Vec<_>>(),
+            BresenhamOctant5::new((0, 0), (-2, 5)).unwrap().collect::<Vec<_>>(),
             vec![(0, 0), (0, 1), (-1, 2), (-1, 3), (-2, 4)]
         );
     }
@@ -169,9 +149,7 @@ mod rasterization {
     #[test]
     fn octant_6_produces_correct_points() {
         assert_eq!(
-            BresenhamOctant6::new((0, 0), (-5, -2))
-                .expect("octant should be correct")
-                .collect::<Vec<_>>(),
+            BresenhamOctant6::new((0, 0), (-5, -2)).unwrap().collect::<Vec<_>>(),
             vec![(0, 0), (-1, -0), (-2, -1), (-3, -1), (-4, -2)]
         );
     }
@@ -179,9 +157,7 @@ mod rasterization {
     #[test]
     fn octant_7_produces_correct_points() {
         assert_eq!(
-            BresenhamOctant7::new((0, 0), (-2, -5))
-                .expect("octant should be correct")
-                .collect::<Vec<_>>(),
+            BresenhamOctant7::new((0, 0), (-2, -5)).unwrap().collect::<Vec<_>>(),
             vec![(0, 0), (0, -1), (-1, -2), (-1, -3), (-2, -4)]
         );
     }

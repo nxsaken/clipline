@@ -43,14 +43,20 @@ impl Clip<i8> {
     }
 }
 
-/// Macro that maps over an [`Option`], for use in const contexts.
-macro_rules! map_option_inner {
+/// Macro that maps over an [`Option`].
+macro_rules! map_opt_inner {
     ($option:expr, $some:pat => $mapped:expr) => {
         match $option {
             None => None,
             Some($some) => Some($mapped),
         }
     };
+    ($option:expr, $func:expr) => {
+        match $option {
+            None => None,
+            Some(me) => Some($func(me)),
+        }
+    };
 }
 
-pub(crate) use map_option_inner as map_option;
+pub(crate) use map_opt_inner as map_opt;

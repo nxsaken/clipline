@@ -59,7 +59,7 @@ pub type PositiveVertical<T> = SignedVertical<T, false>;
 pub type NegativeVertical<T> = SignedVertical<T, true>;
 
 impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
-    /// Creates an iterator over an axis-aligned directed line segment
+    /// Returns an iterator over an axis-aligned directed line segment
     /// covered by the given [signed axis](SignedAxisAligned).
     ///
     /// *Assumes that the line segment is covered by the given signed axis.*
@@ -69,7 +69,7 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
         Self { u, v1, v2 }
     }
 
-    /// Creates an iterator over a directed line segment
+    /// Returns an iterator over a directed line segment
     /// covered by the given [signed axis](AxisAligned).
     ///
     /// The line segment is defined by its starting point and its length.
@@ -77,17 +77,17 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     /// - A [vertical](Vertical) line segment has endpoints `(u, v1)` and `(u, v2)`.
     /// - A [horizontal](Horizontal) line segment has endpoints `(v1, u)` and `(v2, u)`.
     ///
-    /// Returns [`None`] if the line segment is empty or not covered by the signed axis.
+    /// Returns [`None`] if the line segment is not covered by the signed axis.
     #[inline]
     #[must_use]
     pub const fn new(u: i8, v1: i8, v2: i8) -> Option<Self> {
-        if !FLIP && v2 <= v1 || FLIP && v1 <= v2 {
+        if !FLIP && v2 < v1 || FLIP && v1 <= v2 {
             return None;
         }
         Some(Self::new_unchecked(u, v1, v2))
     }
 
-    /// Creates an iterator over a directed line segment
+    /// Returns an iterator over a directed line segment
     /// covered by the given [signed axis](AxisAligned),
     /// clipped to a [rectangular region](Clip).
     ///
@@ -110,7 +110,7 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
         ))
     }
 
-    /// Creates an iterator over a directed line segment
+    /// Returns an iterator over a directed line segment
     /// covered by the given [signed axis](AxisAligned),
     /// clipped to a [rectangular region](Clip).
     ///
@@ -119,12 +119,12 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     /// - A [vertical](Vertical) line segment has endpoints `(u, v1)` and `(u, v2)`.
     /// - A [horizontal](Horizontal) line segment has endpoints `(v1, u)` and `(v2, u)`.
     ///
-    /// Returns [`None`] if the line segment is empty, not covered by the signed axis,
+    /// Returns [`None`] if the line segment is not covered by the signed axis,
     /// or does not intersect the clipping region.
     #[inline]
     #[must_use]
     pub const fn clip(u: i8, v1: i8, v2: i8, clip: Clip<i8>) -> Option<Self> {
-        if !FLIP && v2 <= v1 || FLIP && v1 <= v2 {
+        if !FLIP && v2 < v1 || FLIP && v1 <= v2 {
             return None;
         }
         Self::clip_unchecked(u, v1, v2, clip)
@@ -284,15 +284,9 @@ impl<const VERT: bool> AxisAligned<i8, VERT> {
     #[must_use]
     pub const fn clip(u: i8, v1: i8, v2: i8, clip: Clip<i8>) -> Option<Self> {
         if v1 <= v2 {
-            clip::map_option!(
-                SignedAxisAligned::clip_unchecked(u, v1, v2, clip),
-                me => Self::Positive(me)
-            )
+            clip::map_opt!(SignedAxisAligned::clip_unchecked(u, v1, v2, clip), Self::Positive)
         } else {
-            clip::map_option!(
-                SignedAxisAligned::clip_unchecked(u, v1, v2, clip),
-                me => Self::Negative(me)
-            )
+            clip::map_opt!(SignedAxisAligned::clip_unchecked(u, v1, v2, clip), Self::Negative)
         }
     }
 
@@ -449,7 +443,7 @@ impl Orthogonal<i8> {
     #[must_use]
     pub const fn clip((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
         if y1 == y2 {
-            return clip::map_option!(
+            return clip::map_opt!(
                 Horizontal::clip(x1, y1, y2, clip),
                 me => match me {
                     AxisAligned::Positive(me) => Self::SignedAxis0(me),
@@ -458,7 +452,7 @@ impl Orthogonal<i8> {
             );
         }
         if x1 == x2 {
-            return clip::map_option!(
+            return clip::map_opt!(
                 Vertical::clip(x1, y1, y2, clip),
                 me => match me {
                     AxisAligned::Positive(me) => Self::SignedAxis2(me),

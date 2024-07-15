@@ -38,17 +38,12 @@ pub type Quadrant2<T> = Quadrant<T, true, false>;
 pub type Quadrant3<T> = Quadrant<T, true, true>;
 
 impl<const FX: bool, const FY: bool> Quadrant<i8, FX, FY> {
-    /// Creates an iterator over a diagonal directed line segment
-    /// covered by the given [quadrant](Quadrant).
-    ///
-    /// *Assumes that the line segment is covered by the given quadrant.*
     #[inline(always)]
     #[must_use]
-    pub(crate) const fn new_unchecked((x1, y1): Point<i8>, x2: i8) -> Self {
+    const fn new_inner((x1, y1): Point<i8>, x2: i8) -> Self {
         Self { x1, y1, x2 }
     }
 
-    /// Checks that the given [quadrant](Quadrant) covers a directed line segment.
     #[inline(always)]
     #[must_use]
     const fn covers((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> bool {
@@ -67,35 +62,9 @@ impl<const FX: bool, const FY: bool> Quadrant<i8, FX, FY> {
         dx == dy
     }
 
-    /// Creates an iterator over a diagonal directed line segment
-    /// covered by the given [quadrant](Quadrant).
-    ///
-    /// The line segment is defined by its starting point and its
-    /// [Chebyshev length](https://en.wikipedia.org/wiki/Chebyshev_distance),
-    /// which is equivalent to the absolute offset along the `x` or `y` coordinate.
-    #[inline]
-    #[must_use]
-    pub const fn new((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Option<Self> {
-        if !Self::covers((x1, y1), (x2, y2)) {
-            return None;
-        }
-        Some(Self::new_unchecked((x1, y1), x2))
-    }
-
-    /// Clips a diagonal directed line segment covered by the given
-    /// [quadrant](DiagonalQuadrant) against a [rectangular region](Clip).
-    ///
-    /// Returns a [`DiagonalQuadrant`] iterator over the clipped line segment,
-    /// or [`None`] if it does not intersect the clipping region.
-    ///
-    /// *Assumes that the line segment is covered by the given quadrant.*
     #[must_use]
     #[inline(always)]
-    const fn clip_unchecked(
-        (x1, y1): Point<i8>,
-        (x2, y2): Point<i8>,
-        clip: Clip<i8>,
-    ) -> Option<Self> {
+    const fn clip_inner((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
         if clip::diagonal::out_of_bounds::<FX, FY>((x1, y1), (x2, y2), clip) {
             return None;
         }
@@ -103,24 +72,35 @@ impl<const FX: bool, const FY: bool> Quadrant<i8, FX, FY> {
             return None;
         };
         let cx2 = clip::diagonal::exit::<FX, FY>((x1, y1), (x2, y2), clip);
-        Some(Self::new_unchecked((cx1, cy1), cx2))
+        Some(Self::new_inner((cx1, cy1), cx2))
     }
 
-    /// Creates an iterator over a diagonal directed line segment
+    /// Returns an iterator over a directed line segment
+    /// if it is diagonal and covered by the given [quadrant](Quadrant).
+    ///
+    /// Returns [`None`] if the line segment is not diagonal,
+    /// or is not covered by the quadrant.
+    #[inline]
+    #[must_use]
+    pub const fn new((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Option<Self> {
+        if !Self::covers((x1, y1), (x2, y2)) {
+            return None;
+        }
+        Some(Self::new_inner((x1, y1), x2))
+    }
+
+    /// Returns an iterator over a directed line segment, if it is diagonal and
     /// covered by the given [quadrant](Quadrant), clipped to a [rectangular region](Clip).
     ///
-    /// The line segment is defined by its starting point and its
-    /// [Chebyshev length](https://en.wikipedia.org/wiki/Chebyshev_distance),
-    /// which is equivalent to the absolute change in the `x` or `y` coordinate.
-    ///
-    /// Returns [`None`] if the line segment does not intersect the clipping region.
+    /// Returns [`None`] if the line segment is not diagonal,
+    /// is not covered by the quadrant, or does not intersect the clipping region.
     #[inline]
     #[must_use]
     pub const fn clip((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
         if !Self::covers((x1, y1), (x2, y2)) {
             return None;
         }
-        Self::clip_unchecked((x1, y1), (x2, y2), clip)
+        Self::clip_inner((x1, y1), (x2, y2), clip)
     }
 
     /// Returns `true` if the iterator has terminated.
@@ -218,95 +198,79 @@ macro_rules! delegate {
     };
 }
 
+macro_rules! quadrants {
+    (
+        ($x1:ident, $y1:ident), ($x2:ident, $y2:ident),
+        $quadrant_0:expr,
+        $quadrant_1:expr,
+        $quadrant_2:expr,
+        $quadrant_3:expr
+    ) => {
+        #[allow(clippy::cast_sign_loss)]
+        {
+            if $x1 < $x2 {
+                let dx = u8::wrapping_sub($x2 as _, $x1 as _);
+                if $y1 < $y2 {
+                    let dy = u8::wrapping_sub($y2 as _, $y1 as _);
+                    if dx != dy {
+                        return None;
+                    }
+                    return $quadrant_0;
+                }
+                let dy = u8::wrapping_sub($y1 as _, $y2 as _);
+                if dx != dy {
+                    return None;
+                }
+                return $quadrant_1;
+            }
+            let dx = u8::wrapping_sub($x1 as _, $x2 as _);
+            if $y1 < $y2 {
+                let dy = u8::wrapping_sub($y2 as _, $y1 as _);
+                if dx != dy {
+                    return None;
+                }
+                return $quadrant_2;
+            }
+            let dy = u8::wrapping_sub($y1 as _, $y2 as _);
+            if dx != dy {
+                return None;
+            }
+            return $quadrant_3;
+        }
+    };
+}
+
 impl Diagonal<i8> {
-    /// Creates an iterator over a directed line segment if it is [diagonal](Diagonal).
+    /// Returns an iterator over a directed line segment if it is [diagonal](Diagonal).
     ///
     /// Returns [`None`] if the given line segment is not diagonal.
     #[must_use]
     pub const fn new((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Option<Self> {
-        #[allow(clippy::cast_sign_loss)]
-        {
-            if x1 < x2 {
-                let dx = u8::wrapping_sub(x2 as _, x1 as _);
-                if y1 < y2 {
-                    let dy = u8::wrapping_sub(y2 as _, y1 as _);
-                    if dx != dy {
-                        return None;
-                    }
-                    return Some(Self::Quadrant0(Quadrant::new_unchecked((x1, y1), x2)));
-                }
-                let dy = u8::wrapping_sub(y1 as _, y2 as _);
-                if dx != dy {
-                    return None;
-                }
-                return Some(Self::Quadrant1(Quadrant::new_unchecked((x1, y1), x2)));
-            }
-            let dx = u8::wrapping_sub(x1 as _, x2 as _);
-            if y1 < y2 {
-                let dy = u8::wrapping_sub(y2 as _, y1 as _);
-                if dx != dy {
-                    return None;
-                }
-                return Some(Self::Quadrant2(Quadrant::new_unchecked((x1, y1), x2)));
-            }
-            let dy = u8::wrapping_sub(y1 as _, y2 as _);
-            if dx != dy {
-                return None;
-            }
-            Some(Self::Quadrant3(Quadrant::new_unchecked((x1, y1), x2)))
-        }
+        quadrants!(
+            (x1, y1),
+            (x2, y2),
+            Some(Self::Quadrant0(Quadrant::new_inner((x1, y1), x2))),
+            Some(Self::Quadrant1(Quadrant::new_inner((x1, y1), x2))),
+            Some(Self::Quadrant2(Quadrant::new_inner((x1, y1), x2))),
+            Some(Self::Quadrant3(Quadrant::new_inner((x1, y1), x2)))
+        );
     }
 
-    /// Creates an iterator over a directed line segment,
+    /// Returns an iterator over a directed line segment,
     /// if it is [diagonal](Diagonal), clipped to a [rectangular region](Clip).
     ///
     /// Returns [`None`] if the given line segment is not diagonal,
     /// or if it does not intersect the clipping region.
     #[must_use]
     pub const fn clip((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
-        #[allow(clippy::cast_sign_loss)]
-        {
-            if x1 < x2 {
-                let dx = u8::wrapping_sub(x2 as _, x1 as _);
-                if y1 < y2 {
-                    let dy = u8::wrapping_sub(y2 as _, y1 as _);
-                    if dx != dy {
-                        return None;
-                    }
-                    return clip::map_option!(
-                        Quadrant::clip_unchecked((x1, y1), (x2, y2), clip),
-                        me => Self::Quadrant0(me)
-                    );
-                }
-                let dy = u8::wrapping_sub(y1 as _, y2 as _);
-                if dx != dy {
-                    return None;
-                }
-                return clip::map_option!(
-                    Quadrant::clip_unchecked((x1, y1), (x2, y2), clip),
-                    me => Self::Quadrant1(me)
-                );
-            }
-            let dx = u8::wrapping_sub(x1 as _, x2 as _);
-            if y1 < y2 {
-                let dy = u8::wrapping_sub(y2 as _, y1 as _);
-                if dx != dy {
-                    return None;
-                }
-                return clip::map_option!(
-                    Quadrant::clip_unchecked((x1, y1), (x2, y2), clip),
-                    me => Self::Quadrant2(me)
-                );
-            }
-            let dy = u8::wrapping_sub(y1 as _, y2 as _);
-            if dx != dy {
-                return None;
-            }
-            clip::map_option!(
-                Quadrant::clip_unchecked((x1, y1), (x2, y2), clip),
-                me => Self::Quadrant3(me)
-            )
-        }
+        quadrants!(
+            (x1, y1),
+            (x2, y2),
+            clip::map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant0),
+            clip::map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant1),
+            clip::map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant2),
+            clip::map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant3)
+        );
     }
 
     /// Returns `true` if the iterator has terminated.
