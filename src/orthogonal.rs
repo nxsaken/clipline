@@ -13,7 +13,12 @@
 //! [positive vertical](PositiveVertical) and [negative vertical](NegativeVertical)
 //! type aliases are available for convenience.
 
-use crate::{clip, Clip, Point};
+use crate::clip::Clip;
+use crate::math::{Math, Point};
+use crate::symmetry::{f, vh};
+use crate::utils::map_opt;
+
+mod clip;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Signed-axis-aligned iterators
@@ -81,7 +86,7 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     #[inline]
     #[must_use]
     pub const fn new(u: i8, v1: i8, v2: i8) -> Option<Self> {
-        if !FLIP && v2 < v1 || FLIP && v1 <= v2 {
+        if f!(v2 <= v1, v1 <= v2) {
             return None;
         }
         Some(Self::new_unchecked(u, v1, v2))
@@ -100,13 +105,13 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     #[inline(always)]
     #[must_use]
     const fn clip_unchecked(u: i8, v1: i8, v2: i8, clip: Clip<i8>) -> Option<Self> {
-        if clip::signed_axis::out_of_bounds::<VERT, FLIP>(u, v1, v2, clip) {
+        if clip::out_of_bounds::<VERT, FLIP>(u, v1, v2, clip) {
             return None;
         }
         Some(Self::new_unchecked(
             u,
-            clip::signed_axis::enter::<VERT, FLIP>(v1, clip),
-            clip::signed_axis::exit::<VERT, FLIP>(v2, clip),
+            clip::enter::<VERT, FLIP>(v1, clip),
+            clip::exit::<VERT, FLIP>(v2, clip),
         ))
     }
 
@@ -124,7 +129,7 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     #[inline]
     #[must_use]
     pub const fn clip(u: i8, v1: i8, v2: i8, clip: Clip<i8>) -> Option<Self> {
-        if !FLIP && v2 < v1 || FLIP && v1 <= v2 {
+        if f!(v2 <= v1, v1 <= v2) {
             return None;
         }
         Self::clip_unchecked(u, v1, v2, clip)
@@ -134,7 +139,7 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     #[inline]
     #[must_use]
     pub const fn is_done(&self) -> bool {
-        !FLIP && self.v2 <= self.v1 || FLIP && self.v1 <= self.v2
+        f!(self.v2 <= self.v1, self.v1 <= self.v2)
     }
 
     /// Returns the remaining length of this iterator.
@@ -143,11 +148,7 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     #[inline]
     #[must_use]
     pub const fn length(&self) -> u8 {
-        #[allow(clippy::cast_sign_loss)]
-        match FLIP {
-            false => u8::wrapping_sub(self.v2 as _, self.v1 as _),
-            true => u8::wrapping_sub(self.v1 as _, self.v2 as _),
-        }
+        Math::delta(f!(self.v2, self.v1), f!(self.v1, self.v2))
     }
 }
 
@@ -159,11 +160,8 @@ impl<const VERT: bool, const FLIP: bool> Iterator for SignedAxisAligned<i8, VERT
         if self.is_done() {
             return None;
         }
-        let (x, y) = if !VERT { (self.v1, self.u) } else { (self.u, self.v1) };
-        self.v1 = match FLIP {
-            false => self.v1.wrapping_add(1),
-            true => self.v1.wrapping_sub(1),
-        };
+        let (x, y) = vh!((self.v1, self.u), (self.u, self.v1));
+        self.v1 = f!(self.v1.wrapping_add(1), self.v1.wrapping_sub(1));
         Some((x, y))
     }
 
@@ -180,11 +178,8 @@ impl<const VERT: bool, const FLIP: bool> DoubleEndedIterator for SignedAxisAlign
         if self.is_done() {
             return None;
         }
-        self.v2 = match FLIP {
-            false => self.v2.wrapping_sub(1),
-            true => self.v2.wrapping_add(1),
-        };
-        let (x, y) = if !VERT { (self.v2, self.u) } else { (self.u, self.v2) };
+        self.v2 = f!(self.v2.wrapping_sub(1), self.v2.wrapping_add(1));
+        let (x, y) = vh!((self.v2, self.u), (self.u, self.v2));
         Some((x, y))
     }
 }
@@ -284,9 +279,9 @@ impl<const VERT: bool> AxisAligned<i8, VERT> {
     #[must_use]
     pub const fn clip(u: i8, v1: i8, v2: i8, clip: Clip<i8>) -> Option<Self> {
         if v1 <= v2 {
-            clip::map_opt!(SignedAxisAligned::clip_unchecked(u, v1, v2, clip), Self::Positive)
+            map_opt!(SignedAxisAligned::clip_unchecked(u, v1, v2, clip), Self::Positive)
         } else {
-            clip::map_opt!(SignedAxisAligned::clip_unchecked(u, v1, v2, clip), Self::Negative)
+            map_opt!(SignedAxisAligned::clip_unchecked(u, v1, v2, clip), Self::Negative)
         }
     }
 
@@ -443,7 +438,7 @@ impl Orthogonal<i8> {
     #[must_use]
     pub const fn clip((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
         if y1 == y2 {
-            return clip::map_opt!(
+            return map_opt!(
                 Horizontal::clip(x1, y1, y2, clip),
                 me => match me {
                     AxisAligned::Positive(me) => Self::SignedAxis0(me),
@@ -452,7 +447,7 @@ impl Orthogonal<i8> {
             );
         }
         if x1 == x2 {
-            return clip::map_opt!(
+            return map_opt!(
                 Vertical::clip(x1, y1, y2, clip),
                 me => match me {
                     AxisAligned::Positive(me) => Self::SignedAxis2(me),

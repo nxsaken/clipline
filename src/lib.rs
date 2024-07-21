@@ -25,7 +25,8 @@
     clippy::module_name_repetitions,
     clippy::inline_always,
     clippy::similar_names,
-    clippy::if_not_else
+    clippy::if_not_else,
+    clippy::cast_lossless
 )]
 
 mod bresenham;
@@ -33,10 +34,11 @@ mod clip;
 mod diagonal;
 mod math;
 mod orthogonal;
-
-use math::{Coord, Delta, Delta2, Point};
+mod symmetry;
+mod utils;
 
 pub use clip::Clip;
+pub use math::Point;
 
 pub use bresenham::{
     Bresenham, Octant as BresenhamOctant, Octant0 as BresenhamOctant0, Octant1 as BresenhamOctant1,
@@ -58,4 +60,6 @@ pub use orthogonal::{
 /// ### Optimized internal iterators:
 /// - Run-slice Bresenham's algorithm
 /// - Scanline on a generic slice
+/// - Do not recalculate the array index of the point from scratch
+///   - I<i8/u8> -> u16 index, etc.
 struct _Todo;

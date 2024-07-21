@@ -3,60 +3,36 @@
 //! This module provides the [`Clip`] type representing a rectangular clipping region, as well as
 //! methods for constructing iterators over clipped directed line segments of various types.
 
-use crate::{Bresenham, Point};
-
-pub mod diagonal;
-pub mod kuzmin;
-pub mod signed_axis;
+use crate::math::Point;
+use crate::Bresenham;
 
 /// A generic rectangular region defined by its minimum and maximum [corners](Point).
 #[derive(Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Debug, Default)]
 pub struct Clip<T> {
-    x1: T,
-    y1: T,
-    x2: T,
-    y2: T,
+    pub(crate) wx1: T,
+    pub(crate) wy1: T,
+    pub(crate) wx2: T,
+    pub(crate) wy2: T,
 }
 
 impl Clip<i8> {
-    /// Returns a new [`Clip`] if `x1 < x2 && y1 < y2`, otherwise returns [`None`].
-    #[must_use]
+    /// Returns a new [`Clip`] if `x1 <= x2 && y1 <= y2`, otherwise returns [`None`].
     #[inline]
-    pub const fn new((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Option<Self> {
-        if x2 <= x1 || y2 <= y1 {
+    #[must_use]
+    pub const fn new((wx1, wy1): Point<i8>, (wx2, wy2): Point<i8>) -> Option<Self> {
+        if wx2 < wx1 || wy2 < wy1 {
             return None;
         }
-        Some(Self { x1, y1, x2, y2 })
+        Some(Self { wx1, wy1, wx2, wy2 })
     }
 
-    /// Returns a [Bresenham] iterator over a directed line segment clipped to this region.
+    /// Returns a [Bresenham] iterator over an arbitrary directed line segment
+    /// clipped to this clipping region.
     ///
-    /// Returns [`None`] if the line segment does not intersect this region.
-    #[must_use]
+    /// Returns [`None`] if the line segment does not intersect this clipping region.
     #[inline]
-    pub const fn bresenham(
-        self,
-        (x1, y1): Point<i8>,
-        (x2, y2): Point<i8>,
-    ) -> Option<Bresenham<i8>> {
-        Bresenham::clip((x1, y1), (x2, y2), self)
+    #[must_use]
+    pub const fn bresenham(self, p1: Point<i8>, p2: Point<i8>) -> Option<Bresenham<i8>> {
+        Bresenham::clip(p1, p2, self)
     }
 }
-
-/// Macro that maps over an [`Option`].
-macro_rules! map_opt_inner {
-    ($option:expr, $some:pat => $mapped:expr) => {
-        match $option {
-            None => None,
-            Some($some) => Some($mapped),
-        }
-    };
-    ($option:expr, $func:expr) => {
-        match $option {
-            None => None,
-            Some(me) => Some($func(me)),
-        }
-    };
-}
-
-pub(crate) use map_opt_inner as map_opt;

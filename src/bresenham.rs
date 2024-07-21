@@ -9,16 +9,17 @@
 //!
 //! [1]: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 
-use crate::{clip, orthogonal, Clip, Coord, Delta, Point};
+use crate::clip::Clip;
+use crate::math::{Delta, Math, Num, Point};
+use crate::orthogonal;
+use crate::symmetry::{fx, fy, sorted, xy};
+use crate::utils::map_opt;
+
+mod clip;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Bresenham octant iterators
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// TODO: consider removing the Coord trait
-//  - add a type parameter for error, dx2/dy2
-//  - impl everything for different combinations
-//  - find a way to hide the extra type params (type aliases + modules?)
 
 /// Iterator over a directed line segment in the given octant of [Bresenham's algorithm][1].
 ///
@@ -29,12 +30,12 @@ use crate::{clip, orthogonal, Clip, Coord, Delta, Point};
 ///
 /// [1]: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub struct Octant<T: Coord, const FX: bool, const FY: bool, const SWAP: bool> {
-    x1: T,
-    y1: T,
-    error: T::Error,
-    dx2: T::Delta2,
-    dy2: T::Delta2,
+pub struct Octant<T: Num, const FX: bool, const FY: bool, const SWAP: bool> {
+    x: T,
+    y: T,
+    error: T::I2,
+    dx: T::U,
+    dy: T::U,
     end: T,
 }
 
@@ -114,34 +115,24 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     #[inline(always)]
     #[must_use]
     const fn new_inner((x1, y1): Point<i8>, (x2, y2): Point<i8>, (dx, dy): Delta<i8>) -> Self {
-        type D2 = <i8 as Coord>::Delta2;
-        let (dx2, dy2) = ((dx as D2).wrapping_shl(1), (dy as D2).wrapping_shl(1));
-        // dx2, dy2 have range [0, u8::MAX * 2], both fit into i16
         #[allow(clippy::cast_possible_wrap)]
-        let error = match SWAP {
-            false => i16::wrapping_sub(dy2 as _, dx as _),
-            true => i16::wrapping_sub(dx2 as _, dy as _),
-        };
-        let end = if !SWAP { x2 } else { y2 };
-        Self { x1, y1, error, dx2, dy2, end }
+        let error = Math::error(xy!(dy, dx), Math::half(xy!(dx, dy)));
+        let end = xy!(x2, y2);
+        Self { x: x1, y: y1, error, dx, dy, end }
     }
 
     #[inline(always)]
     #[must_use]
     const fn covers((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Option<Delta<i8>> {
-        #[allow(clippy::cast_sign_loss)]
-        let dx = match FX {
-            false if x1 < x2 => u8::wrapping_sub(x2 as _, x1 as _),
-            true if x2 < x1 => u8::wrapping_sub(x1 as _, x2 as _),
-            _ => return None,
+        let dx = {
+            let (a, b) = sorted!(FX, x1, x2, None);
+            Math::delta(b, a)
         };
-        #[allow(clippy::cast_sign_loss)]
-        let dy = match FY {
-            false if y1 < y2 => u8::wrapping_sub(y2 as _, y1 as _),
-            true if y2 < y1 => u8::wrapping_sub(y1 as _, y2 as _),
-            _ => return None,
+        let dy = {
+            let (a, b) = sorted!(FY, y1, y2, None);
+            Math::delta(b, a)
         };
-        if !SWAP && dx < dy || SWAP && dy <= dx {
+        if xy!(dx < dy, dy <= dx) {
             return None;
         }
         Some((dx, dy))
@@ -149,23 +140,16 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
 
     #[must_use]
     #[inline(always)]
-    const fn clip_inner(
-        start: Point<i8>,
-        end: Point<i8>,
+    const fn clip_covered(
+        p1: Point<i8>,
+        p2: Point<i8>,
         (dx, dy): Delta<i8>,
         clip: Clip<i8>,
     ) -> Option<Self> {
-        if clip::diagonal::out_of_bounds::<FX, FY>(start, end, clip) {
-            return None;
-        }
-        let (dx2, dy2) = ((dx as u16).wrapping_shl(1), (dy as u16).wrapping_shl(1));
-        let Some(((cx1, cy1), error)) =
-            clip::kuzmin::enter::<FX, FY, SWAP>(start, (dx, dy), (dx2, dy2), clip)
-        else {
+        let Some(((x, y), error, end)) = Self::clip_inner(p1, p2, (dx, dy), clip) else {
             return None;
         };
-        let end = clip::kuzmin::exit::<FX, FY, SWAP>(start, end, (dx, dy), (dx2, dy2), clip);
-        Some(Self { x1: cx1, y1: cy1, error, dx2, dy2, end })
+        Some(Self { x, y, error, dx, dy, end })
     }
 
     /// Returns an iterator over a directed line segment
@@ -174,7 +158,7 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     /// The line segment is defined by its starting point and
     /// the absolute offsets along the `x` and `y` coordinates.
     ///
-    /// Returns [`None`] if the offsets don't match the steepness of the octant.
+    /// Returns [`None`] if the line segment is not covered by the octant.
     #[inline]
     #[must_use]
     pub const fn new(start: Point<i8>, end: Point<i8>) -> Option<Self> {
@@ -191,7 +175,7 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     /// The line segment is defined by its starting point and
     /// the absolute offsets along the `x` and `y` coordinates.
     ///
-    /// Returns [`None`] if the offsets don't match the steepness of the octant,
+    /// Returns [`None`] if the line segment is not covered by the octant,
     /// or if the line segment does not intersect the clipping region.
     #[inline]
     #[must_use]
@@ -199,15 +183,18 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
         let Some(delta) = Self::covers(start, end) else {
             return None;
         };
-        Self::clip_inner(start, end, delta, clip)
+        Self::clip_covered(start, end, delta, clip)
     }
 
     /// Returns `true` if the iterator has terminated.
     #[inline]
     #[must_use]
     pub const fn is_done(&self) -> bool {
-        !SWAP && (!FX && self.end <= self.x1 || FX && self.x1 <= self.end)
-            || SWAP && (!FY && self.end <= self.y1 || FY && self.y1 <= self.end)
+        let (a, b) = xy!(
+            fx!((self.end, self.x), (self.x, self.end)),
+            fy!((self.end, self.y), (self.y, self.end))
+        );
+        a <= b
     }
 
     /// Returns the remaining length of this iterator.
@@ -216,13 +203,12 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     #[inline]
     #[must_use]
     pub const fn length(&self) -> u8 {
+        let (a, b) = xy!(
+            fx!((self.end, self.x), (self.x, self.end)),
+            fy!((self.end, self.y), (self.y, self.end))
+        );
         #[allow(clippy::cast_sign_loss)]
-        match (SWAP, FX, FY) {
-            (false, false, _) => u8::wrapping_sub(self.end as _, self.x1 as _),
-            (false, true, _) => u8::wrapping_sub(self.x1 as _, self.end as _),
-            (true, _, false) => u8::wrapping_sub(self.end as _, self.y1 as _),
-            (true, _, true) => u8::wrapping_sub(self.y1 as _, self.end as _),
-        }
+        u8::wrapping_sub(a as _, b as _)
     }
 }
 
@@ -234,30 +220,19 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Iterator for Octant<i8, F
         if self.is_done() {
             return None;
         }
-        let (x, y) = (self.x1, self.y1);
-        // none of these operations will actually wrap
+        let (x, y) = (self.x, self.y);
         if 0 <= self.error {
-            match (SWAP, FX, FY) {
-                (false, _, false) => self.y1 = self.y1.wrapping_add(1),
-                (false, _, true) => self.y1 = self.y1.wrapping_sub(1),
-                (true, false, _) => self.x1 = self.x1.wrapping_add(1),
-                (true, true, _) => self.x1 = self.x1.wrapping_sub(1),
-            }
-            self.error = match SWAP {
-                false => self.error.wrapping_sub_unsigned(self.dx2),
-                true => self.error.wrapping_sub_unsigned(self.dy2),
-            };
+            xy!(
+                self.y = fy!(self.y.wrapping_add(1), self.y.wrapping_sub(1)),
+                self.x = fx!(self.x.wrapping_add(1), self.x.wrapping_sub(1)),
+            );
+            self.error = self.error.wrapping_sub_unsigned(xy!(self.dx, self.dy) as _);
         }
-        match (SWAP, FX, FY) {
-            (false, false, _) => self.x1 = self.x1.wrapping_add(1),
-            (false, true, _) => self.x1 = self.x1.wrapping_sub(1),
-            (true, _, false) => self.y1 = self.y1.wrapping_add(1),
-            (true, _, true) => self.y1 = self.y1.wrapping_sub(1),
-        }
-        self.error = match SWAP {
-            false => self.error.wrapping_add_unsigned(self.dy2),
-            true => self.error.wrapping_add_unsigned(self.dx2),
-        };
+        xy!(
+            self.x = fx!(self.x.wrapping_add(1), self.x.wrapping_sub(1)),
+            self.y = fy!(self.y.wrapping_add(1), self.y.wrapping_sub(1)),
+        );
+        self.error = self.error.wrapping_add_unsigned(xy!(self.dy, self.dx) as _);
         Some((x, y))
     }
 
@@ -300,8 +275,8 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> core::iter::FusedIterator
 /// the underlying iterator only once instead of on every call to [`Iterator::next`].
 ///
 /// [1]: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub enum Bresenham<T: Coord> {
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum Bresenham<T: Num> {
     /// Horizontal line segment at `0°`, see [`PositiveHorizontal`](crate::PositiveHorizontal).
     SignedAxis0(orthogonal::PositiveHorizontal<T>),
     /// Horizontal line segment at `180°`, see [`NegativeHorizontal`](crate::NegativeHorizontal).
@@ -375,29 +350,29 @@ macro_rules! octants {
         #[allow(clippy::cast_sign_loss)]
         {
             if $x1 < $x2 {
-                let $dx = u8::wrapping_sub($x2 as _, $x1 as _);
+                let $dx = Math::delta($x2, $x1);
                 if $y1 < $y2 {
-                    let $dy = u8::wrapping_sub($y2 as _, $y1 as _);
+                    let $dy = Math::delta($y2, $y1);
                     if $dy <= $dx {
                         return $octant_0;
                     }
                     return $octant_1;
                 }
-                let $dy = u8::wrapping_sub($y1 as _, $y2 as _);
+                let $dy = Math::delta($y1, $y2);
                 if $dy <= $dx {
                     return $octant_2;
                 }
                 return $octant_3;
             }
-            let $dx = u8::wrapping_sub($x1 as _, $x2 as _);
+            let $dx = Math::delta($x1, $x2);
             if $y1 < $y2 {
-                let $dy = u8::wrapping_sub($y2 as _, $y1 as _);
+                let $dy = Math::delta($y2, $y1);
                 if $dy <= $dx {
                     return $octant_4;
                 }
                 return $octant_5;
             }
-            let $dy = u8::wrapping_sub($y1 as _, $y2 as _);
+            let $dy = Math::delta($y1, $y2);
             if $dy <= $dx {
                 return $octant_6;
             }
@@ -408,6 +383,7 @@ macro_rules! octants {
 
 impl Bresenham<i8> {
     /// Returns a [Bresenham] iterator over an arbitrary directed line segment.
+    #[inline]
     #[must_use]
     pub const fn new((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Self {
         octants!(
@@ -437,28 +413,29 @@ impl Bresenham<i8> {
     /// clipped to a [rectangular region](Clip).
     ///
     /// Returns [`None`] if the line segment does not intersect the [clipping region](Clip).
+    #[inline]
     #[must_use]
     pub const fn clip((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
         octants!(
             (x1, y1),
             (x2, y2),
             (dx, dy),
-            clip::map_opt!(Horizontal::clip(y1, x1, x2, clip), me => match me {
+            map_opt!(Horizontal::clip(y1, x1, x2, clip), me => match me {
                 Horizontal::Positive(me) => Self::SignedAxis0(me),
                 Horizontal::Negative(me) => Self::SignedAxis1(me),
             }),
-            clip::map_opt!(Vertical::clip(x1, y1, y2, clip), me => match me {
+            map_opt!(Vertical::clip(x1, y1, y2, clip), me => match me {
                 Vertical::Positive(me) => Self::SignedAxis2(me),
                 Vertical::Negative(me) => Self::SignedAxis3(me),
             }),
-            clip::map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant0),
-            clip::map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant1),
-            clip::map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant2),
-            clip::map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant3),
-            clip::map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant4),
-            clip::map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant5),
-            clip::map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant6),
-            clip::map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant7)
+            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant0),
+            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant1),
+            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant2),
+            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant3),
+            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant4),
+            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant5),
+            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant6),
+            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant7)
         );
     }
 

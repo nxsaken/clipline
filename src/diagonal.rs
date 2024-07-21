@@ -6,7 +6,12 @@
 //! If you know the direction and length of the diagonal line segment, use
 //! one of the [diagonal quadrant](Quadrant) iterators instead.
 
-use crate::{clip, Clip, Point};
+use crate::clip::Clip;
+use crate::math::{Math, Num, Point};
+use crate::symmetry::{fx, sorted};
+use crate::utils::map_opt;
+
+pub mod clip;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Diagonal quadrant iterators
@@ -47,17 +52,13 @@ impl<const FX: bool, const FY: bool> Quadrant<i8, FX, FY> {
     #[inline(always)]
     #[must_use]
     const fn covers((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> bool {
-        #[allow(clippy::cast_sign_loss)]
-        let dx = match FX {
-            false if x1 < x2 => u8::wrapping_sub(x2 as _, x1 as _),
-            true if x2 < x1 => u8::wrapping_sub(x1 as _, x2 as _),
-            _ => return false,
+        let dx = {
+            let (a, b) = sorted!(FX, x1, x2, false);
+            Math::delta(b, a)
         };
-        #[allow(clippy::cast_sign_loss)]
-        let dy = match FY {
-            false if y1 < y2 => u8::wrapping_sub(y2 as _, y1 as _),
-            true if y2 < y1 => u8::wrapping_sub(y1 as _, y2 as _),
-            _ => return false,
+        let dy = {
+            let (a, b) = sorted!(FY, y1, y2, false);
+            Math::delta(b, a)
         };
         dx == dy
     }
@@ -65,13 +66,13 @@ impl<const FX: bool, const FY: bool> Quadrant<i8, FX, FY> {
     #[must_use]
     #[inline(always)]
     const fn clip_inner((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
-        if clip::diagonal::out_of_bounds::<FX, FY>((x1, y1), (x2, y2), clip) {
+        if clip::out_of_bounds::<FX, FY>((x1, y1), (x2, y2), clip) {
             return None;
         }
-        let Some((cx1, cy1)) = clip::diagonal::enter::<FX, FY>((x1, y1), clip) else {
+        let Some((cx1, cy1)) = clip::enter::<FX, FY>((x1, y1), clip) else {
             return None;
         };
-        let cx2 = clip::diagonal::exit::<FX, FY>((x1, y1), (x2, y2), clip);
+        let cx2 = clip::exit::<FX, FY>((x1, y1), (x2, y2), clip);
         Some(Self::new_inner((cx1, cy1), cx2))
     }
 
@@ -107,7 +108,7 @@ impl<const FX: bool, const FY: bool> Quadrant<i8, FX, FY> {
     #[inline]
     #[must_use]
     pub const fn is_done(&self) -> bool {
-        !FX && self.x2 <= self.x1 || FX && self.x1 <= self.x2
+        fx!(self.x2 <= self.x1, self.x1 <= self.x2)
     }
 
     /// Returns the remaining length of this iterator.
@@ -115,12 +116,8 @@ impl<const FX: bool, const FY: bool> Quadrant<i8, FX, FY> {
     /// Optimized over [`i8::abs_diff`].
     #[inline]
     #[must_use]
-    pub const fn length(&self) -> u8 {
-        #[allow(clippy::cast_sign_loss)]
-        match FX {
-            false => u8::wrapping_sub(self.x2 as _, self.x1 as _),
-            true => u8::wrapping_sub(self.x1 as _, self.x2 as _),
-        }
+    pub const fn length(&self) -> <i8 as Num>::U {
+        Math::delta(fx!(self.x2, self.x1), fx!(self.x1, self.x2))
     }
 }
 
@@ -133,14 +130,8 @@ impl<const FX: bool, const FY: bool> Iterator for Quadrant<i8, FX, FY> {
             return None;
         }
         let (x, y) = (self.x1, self.y1);
-        self.x1 = match FX {
-            false => self.x1.wrapping_add(1),
-            true => self.x1.wrapping_sub(1),
-        };
-        self.y1 = match FY {
-            false => self.y1.wrapping_add(1),
-            true => self.y1.wrapping_sub(1),
-        };
+        self.x1 = fx!(self.x1.wrapping_add(1), self.x1.wrapping_sub(1));
+        self.y1 = fx!(self.y1.wrapping_add(1), self.y1.wrapping_sub(1));
         Some((x, y))
     }
 
@@ -209,29 +200,29 @@ macro_rules! quadrants {
         #[allow(clippy::cast_sign_loss)]
         {
             if $x1 < $x2 {
-                let dx = u8::wrapping_sub($x2 as _, $x1 as _);
+                let dx = Math::delta($x2, $x1);
                 if $y1 < $y2 {
-                    let dy = u8::wrapping_sub($y2 as _, $y1 as _);
+                    let dy = Math::delta($y2, $y1);
                     if dx != dy {
                         return None;
                     }
                     return $quadrant_0;
                 }
-                let dy = u8::wrapping_sub($y1 as _, $y2 as _);
+                let dy = Math::delta($y1, $y2);
                 if dx != dy {
                     return None;
                 }
                 return $quadrant_1;
             }
-            let dx = u8::wrapping_sub($x1 as _, $x2 as _);
+            let dx = Math::delta($x1, $x2);
             if $y1 < $y2 {
-                let dy = u8::wrapping_sub($y2 as _, $y1 as _);
+                let dy = Math::delta($y2, $y1);
                 if dx != dy {
                     return None;
                 }
                 return $quadrant_2;
             }
-            let dy = u8::wrapping_sub($y1 as _, $y2 as _);
+            let dy = Math::delta($y1, $y2);
             if dx != dy {
                 return None;
             }
@@ -266,10 +257,10 @@ impl Diagonal<i8> {
         quadrants!(
             (x1, y1),
             (x2, y2),
-            clip::map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant0),
-            clip::map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant1),
-            clip::map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant2),
-            clip::map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant3)
+            map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant0),
+            map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant1),
+            map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant2),
+            map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant3)
         );
     }
 

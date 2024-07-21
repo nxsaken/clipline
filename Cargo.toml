@@ -25,3 +25,6 @@ try_fold = ["nightly"]
 # Enable optimized `is_empty` implementations.
 # Requires the unstable `exact_size_is_empty` feature.
 is_empty = ["nightly"]
+
+[dev-dependencies]
+minifb = "0.27.0"
