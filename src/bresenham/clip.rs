@@ -5,12 +5,16 @@
 
 use super::Octant;
 use crate::clip::Clip;
-use crate::math::{Delta, Math, Num, Point};
+use crate::math::{Delta, Delta2, Math, Num, Point};
 use crate::symmetry::{fx, fy, xy};
 
-pub type Clipped<T> = (Point<T>, <T as Num>::I2, T);
+const O: bool = false;
+const I: bool = true;
+
+type Clipped<T> = (Point<T>, <T as Num>::I2, T);
 
 impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> {
+    #[inline(always)]
     const fn trivial_reject(
         (x1, y1): Point<i8>,
         (x2, y2): Point<i8>,
@@ -21,26 +25,31 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     }
 
     /// Checks if the line segment enters the clipping region through a vertical side.
+    #[inline(always)]
     const fn enters_u(u1: i8, Clip { wx1, wy1, wx2, wy2 }: Clip<i8>) -> bool {
         xy!(fx!(u1 < wx1, wx2 < u1), fy!(u1 < wy1, wy2 < u1))
     }
 
     /// Checks if the line segment enters the clipping region through a horizontal side.
+    #[inline(always)]
     const fn enters_v(v1: i8, Clip { wx1, wy1, wx2, wy2 }: Clip<i8>) -> bool {
         xy!(fy!(v1 < wy1, wy2 < v1), fx!(v1 < wx1, wx2 < v1))
     }
 
     /// Checks if the line segment exits the clipping region through a vertical side.
+    #[inline(always)]
     const fn exits_u(u2: i8, Clip { wx1, wy1, wx2, wy2 }: Clip<i8>) -> bool {
         xy!(fx!(wx2 < u2, u2 < wx1), fy!(wy2 < u2, u2 < wy1))
     }
 
     /// Checks if the line segment exits the clipping region through a horizontal side.
+    #[inline(always)]
     const fn exits_v(v2: i8, Clip { wx1, wy1, wx2, wy2 }: Clip<i8>) -> bool {
         xy!(fy!(wy2 < v2, v2 < wy1), fx!(wx2 < v2, v2 < wx1))
     }
 
     #[allow(non_snake_case)]
+    #[inline(always)]
     const fn tu1(
         u1: i8,
         dv: <i8 as Num>::U,
@@ -54,6 +63,7 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     }
 
     #[allow(non_snake_case)]
+    #[inline(always)]
     const fn tu2(
         u1: i8,
         dv: <i8 as Num>::U,
@@ -67,6 +77,7 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     }
 
     #[allow(non_snake_case)]
+    #[inline(always)]
     const fn tv1(
         v1: i8,
         du: <i8 as Num>::U,
@@ -81,6 +92,7 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     }
 
     #[allow(non_snake_case)]
+    #[inline(always)]
     const fn tv2_naive(
         v1: i8,
         du: <i8 as Num>::U,
@@ -93,19 +105,12 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
         Math::wide_mul(Dv2, du)
     }
 
-    #[allow(non_snake_case)]
+    #[inline(always)]
     const fn tv2(naive: <i8 as Num>::U2, half_du: <i8 as Num>::U) -> <i8 as Num>::U2 {
         naive.wrapping_add(half_du as _)
     }
 
-    const fn cu1_naive(Clip { wx1, wy1, wx2, wy2 }: Clip<i8>) -> i8 {
-        xy!(fx!(wx1, wx2), fy!(wy1, wy2))
-    }
-
-    const fn cv1_naive(Clip { wx1, wy1, wx2, wy2 }: Clip<i8>) -> i8 {
-        xy!(fy!(wy1, wy2), fx!(wx1, wx2))
-    }
-
+    #[inline(always)]
     const fn cu1(
         u1: i8,
         half_du: <i8 as Num>::U,
@@ -117,8 +122,8 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
         error = error.wrapping_sub(half_du as _).wrapping_sub_unsigned(r as _);
         if 0 < r {
             q = xy!(
-                fx!(q.wrapping_add(1), q.wrapping_sub(1)),
-                fy!(q.wrapping_add(1), q.wrapping_sub(1))
+                fx!(q.wrapping_add(1), q.wrapping_add(1)),
+                fy!(q.wrapping_add(1), q.wrapping_add(1))
             );
             error = error.wrapping_add_unsigned(dv as _);
         };
@@ -129,6 +134,7 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
         (cu1, error)
     }
 
+    #[inline(always)]
     const fn cv1(
         v1: i8,
         du: <i8 as Num>::U,
@@ -140,10 +146,7 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
         let du = du as <i8 as Num>::U2;
         let r2 = Math::double(r);
         if du <= r2 {
-            q = xy!(
-                fx!(q.wrapping_add(1), q.wrapping_sub(1)),
-                fy!(q.wrapping_add(1), q.wrapping_sub(1))
-            );
+            q = q.wrapping_add(1);
             error = error.wrapping_sub_unsigned(du as _);
         };
         let cv1 = xy!(
@@ -153,17 +156,16 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
         (cv1, error)
     }
 
-    const fn end_naive(Clip { wx1, wy1, wx2, wy2 }: Clip<i8>) -> i8 {
+    #[inline(always)]
+    const fn cu2(Clip { wx1, wy1, wx2, wy2 }: Clip<i8>) -> i8 {
         xy!(fx!(wx2, wx1), fy!(wy2, wy1))
     }
 
-    const fn end(u1: i8, dv: <i8 as Num>::U, tv2: <i8 as Num>::U2) -> i8 {
+    #[inline(always)]
+    const fn cv2(u1: i8, dv: <i8 as Num>::U, tv2: <i8 as Num>::U2) -> i8 {
         let (mut q, r) = Math::div_rem(tv2, dv);
         if 0 == r {
-            q = xy!(
-                fx!(q.wrapping_sub(1), q.wrapping_add(1)),
-                fy!(q.wrapping_sub(1), q.wrapping_add(1))
-            );
+            q = q.wrapping_sub(1);
         }
         xy!(
             fx!(u1.wrapping_add_unsigned(q), u1.wrapping_sub_unsigned(q)),
@@ -171,15 +173,95 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
         )
     }
 
-    #[allow(clippy::cognitive_complexity)]
+    /// Clips at vertical entry.
+    #[inline(always)]
+    const fn c1_u(
+        (u1, v1): Point<i8>,
+        (du, dv): Delta<i8>,
+        error: <i8 as Num>::I2,
+        clip: Clip<i8>,
+    ) -> (Point<i8>, <i8 as Num>::I2) {
+        let tu1 = Self::tu1(u1, dv, clip);
+        let Clip { wx1, wy1, wx2, wy2 } = clip;
+        let cu1 = xy!(fx!(wx1, wx2), fy!(wy1, wy2));
+        let (cv1, error) = Self::cv1(v1, du, tu1, error);
+        ((cu1, cv1), error)
+    }
+
+    /// Clips at horizontal entry.
+    #[inline(always)]
+    const fn c1_v(
+        u1: i8,
+        (half_du, dv): Delta<i8>,
+        tv1: <i8 as Num>::U2,
+        error: <i8 as Num>::I2,
+        Clip { wx1, wy1, wx2, wy2 }: Clip<i8>,
+    ) -> (Point<i8>, <i8 as Num>::I2) {
+        let (cu1, error) = Self::cu1(u1, half_du, dv, tv1, error);
+        let cv1 = xy!(fy!(wy1, wy2), fx!(wx1, wx2));
+        ((cu1, cv1), error)
+    }
+
+    #[inline(always)]
+    const fn c1(
+        (u1, v1): Point<i8>,
+        (du, dv): Delta<i8>,
+        half_du: <i8 as Num>::U,
+        (tu1, tv1): Delta2<i8>,
+        error: <i8 as Num>::I2,
+        clip: Clip<i8>,
+    ) -> (Point<i8>, <i8 as Num>::I2) {
+        if tv1 < tu1 {
+            // vertical entry
+            Self::c1_u((u1, v1), (du, dv), error, clip)
+        } else {
+            // horizontal entry
+            Self::c1_v(u1, (half_du, dv), tv1, error, clip)
+        }
+    }
+
+    /// Clips at vertical exit.
+    #[inline(always)]
+    const fn c2_u(clip: Clip<i8>) -> i8 {
+        Self::cu2(clip)
+    }
+
+    /// Clips at horizontal exit.
+    #[inline(always)]
+    const fn c2_v(
+        (u1, v1): Point<i8>,
+        (du, dv): Delta<i8>,
+        half_du: <i8 as Num>::U,
+        clip: Clip<i8>,
+    ) -> i8 {
+        let tv2_naive = Self::tv2_naive(v1, du, clip);
+        let tv2 = Self::tv2(tv2_naive, half_du);
+        Self::cv2(u1, dv, tv2)
+    }
+
+    #[inline(always)]
+    const fn c2(
+        u1: i8,
+        (half_du, dv): Delta<i8>,
+        (tu2, tv2_naive): Delta2<i8>,
+        clip: Clip<i8>,
+    ) -> i8 {
+        let tv2 = Self::tv2(tv2_naive, half_du);
+        if tu2 < tv2 {
+            Self::c2_u(clip)
+        } else {
+            Self::cv2(u1, dv, tv2)
+        }
+    }
+
+    #[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
+    #[inline(always)]
     pub(super) const fn clip_inner(
         (x1, y1): Point<i8>,
         (x2, y2): Point<i8>,
         (dx, dy): Delta<i8>,
         clip: Clip<i8>,
     ) -> Option<Clipped<i8>> {
-        const O: bool = false;
-        const I: bool = true;
         if Self::trivial_reject((x1, y1), (x2, y2), clip) {
             return None;
         }
@@ -188,27 +270,87 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
         let (du, dv) = xy!((dx, dy), (dy, dx));
         let half_du = Math::half(du);
         let error = Math::error(dv, Math::half(du));
-        let (c1, error, end) = match (
+        let (((cu1, cv1), error), end) = match (
             Self::enters_u(u1, clip),
             Self::enters_v(v1, clip),
             Self::exits_u(u2, clip),
             Self::exits_v(v2, clip),
         ) {
-            (O, O, O, O) => ((x1, y1), error, xy!(x2, y2)),
-            (O, O, O, I) => unimplemented!(),
-            (O, O, I, O) => unimplemented!(),
-            (O, O, I, I) => unimplemented!(),
-            (O, I, O, O) => unimplemented!(),
-            (O, I, O, I) => unimplemented!(),
-            (O, I, I, O) => unimplemented!(),
-            (O, I, I, I) => unimplemented!(),
-            (I, O, O, O) => unimplemented!(),
-            (I, O, O, I) => unimplemented!(),
-            (I, O, I, O) => unimplemented!(),
-            (I, O, I, I) => unimplemented!(),
-            (I, I, O, O) => unimplemented!(),
-            (I, I, O, I) => unimplemented!(),
-            (I, I, I, O) => unimplemented!(),
+            (O, O, O, O) => (((u1, v1), error), u2),
+            (O, O, O, I) => (((u1, v1), error), Self::c2_v((u1, v1), (du, dv), half_du, clip)),
+            (O, O, I, O) => (((u1, v1), error), Self::c2_u(clip)),
+            (O, O, I, I) => {
+                let tu2 = Self::tu2(u1, dv, clip);
+                let tv2_naive = Self::tv2_naive(v1, du, clip);
+                (((u1, v1), error), Self::c2(u1, (half_du, dv), (tu2, tv2_naive), clip))
+            }
+            (O, I, O, O) => {
+                let tv1 = Self::tv1(v1, du, half_du, clip);
+                (Self::c1_v(u1, (half_du, dv), tv1, error, clip), u2)
+            }
+            (O, I, O, I) => {
+                let tv1 = Self::tv1(v1, du, half_du, clip);
+                (
+                    Self::c1_v(u1, (half_du, dv), tv1, error, clip),
+                    Self::c2_v((u1, v1), (du, dv), half_du, clip),
+                )
+            }
+            (O, I, I, O) => {
+                let tv1 = Self::tv1(v1, du, half_du, clip);
+                let tu2 = Self::tu2(u1, dv, clip);
+                if tu2 < tv1 {
+                    return None;
+                }
+                (Self::c1_v(u1, (half_du, dv), tv1, error, clip), Self::c2_u(clip))
+            }
+            (O, I, I, I) => {
+                let tv1 = Self::tv1(v1, du, half_du, clip);
+                let tu2 = Self::tu2(u1, dv, clip);
+                if tu2 < tv1 {
+                    return None;
+                }
+                let tv2_naive = Self::tv2_naive(v1, du, clip);
+                (
+                    Self::c1_v(u1, (half_du, dv), tv1, error, clip),
+                    Self::c2(u1, (half_du, dv), (tu2, tv2_naive), clip),
+                )
+            }
+            (I, O, O, O) => (Self::c1_u((u1, v1), (du, dv), error, clip), u2),
+            (I, O, O, I) => (
+                Self::c1_u((u1, v1), (du, dv), error, clip),
+                Self::c2_v((u1, v1), (du, dv), half_du, clip),
+            ),
+            (I, O, I, O) => (Self::c1_u((u1, v1), (du, dv), error, clip), Self::c2_u(clip)),
+            (I, O, I, I) => {
+                let tu1 = Self::tu1(u1, dv, clip);
+                let tv2_naive = Self::tv2_naive(v1, du, clip);
+                if tv2_naive < tu1 {
+                    return None;
+                }
+                let tu2 = Self::tu2(u1, dv, clip);
+                (
+                    Self::c1_u((u1, v1), (du, dv), error, clip),
+                    Self::c2(u1, (half_du, dv), (tu2, tv2_naive), clip),
+                )
+            }
+            (I, I, O, O) => {
+                let tu1 = Self::tu1(u1, dv, clip);
+                let tv1 = Self::tv1(v1, du, half_du, clip);
+                (Self::c1((u1, v1), (du, dv), half_du, (tu1, tv1), error, clip), u2)
+            }
+            (I, I, O, I) => {
+                let tu1 = Self::tu1(u1, dv, clip);
+                let tv1 = Self::tv1(v1, du, half_du, clip);
+                (
+                    Self::c1((u1, v1), (du, dv), half_du, (tu1, tv1), error, clip),
+                    Self::c2_v((u1, v1), (du, dv), half_du, clip),
+                )
+            }
+            (I, I, I, O) => {
+                let tu1 = Self::tu1(u1, dv, clip);
+                let tv1 = Self::tv1(v1, du, half_du, clip);
+                (Self::c1((u1, v1), (du, dv), half_du, (tu1, tv1), error, clip), Self::c2_u(clip))
+            }
             (I, I, I, I) => {
                 let tv1 = Self::tv1(v1, du, half_du, clip);
                 let tu2 = Self::tu2(u1, dv, clip);
@@ -220,26 +362,13 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
                 if tv2_naive < tu1 {
                     return None;
                 }
-                let (c1, error) = if tv1 < tu1 {
-                    // enter through vertical side
-                    let (cv1, error) = Self::cv1(v1, du, tu1, error);
-                    ((Self::cu1_naive(clip), cv1), error)
-                } else {
-                    // enter through horizontal side
-                    let (cu1, error) = Self::cu1(u1, half_du, dv, tv1, error);
-                    ((cu1, Self::cv1_naive(clip)), error)
-                };
-                let tv2 = Self::tv2(tv2_naive, half_du);
-                let end = if tu2 < tv2 {
-                    // exit through vertical side
-                    Self::end_naive(clip)
-                } else {
-                    // exit through horizontal side
-                    Self::end(u1, dv, tv2)
-                };
-                (c1, error, end)
+                (
+                    Self::c1((u1, v1), (du, dv), half_du, (tu1, tv1), error, clip),
+                    Self::c2(u1, (half_du, dv), (tu2, tv2_naive), clip),
+                )
             }
         };
+        let c1 = xy!((cu1, cv1), (cv1, cu1));
         Some((c1, error, end))
     }
 }

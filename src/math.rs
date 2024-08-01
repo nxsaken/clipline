@@ -14,6 +14,9 @@ pub type Point<T> = (T, T);
 /// Absolute offset between two [points](Point).
 pub type Delta<T> = (<T as Num>::U, <T as Num>::U);
 
+/// Quadratic offset between two [points](Point).
+pub type Delta2<T> = (<T as Num>::U2, <T as Num>::U2);
+
 macro_rules! num_impl {
     ($([$i:ty, $i2:ty, $u:ty, $u2:ty]$(,)?)+) => {
         $(
