@@ -45,7 +45,7 @@ pub type Quadrant3<T> = Quadrant<T, true, true>;
 impl<const FX: bool, const FY: bool> Quadrant<i8, FX, FY> {
     #[inline(always)]
     #[must_use]
-    const fn new_inner((x1, y1): Point<i8>, x2: i8) -> Self {
+    pub(crate) const fn new_inner((x1, y1): Point<i8>, x2: i8) -> Self {
         Self { x1, y1, x2 }
     }
 
@@ -54,26 +54,13 @@ impl<const FX: bool, const FY: bool> Quadrant<i8, FX, FY> {
     const fn covers((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> bool {
         let dx = {
             let (a, b) = sorted!(FX, x1, x2, false);
-            Math::delta(b, a)
+            Math::<i8>::delta(b, a)
         };
         let dy = {
             let (a, b) = sorted!(FY, y1, y2, false);
-            Math::delta(b, a)
+            Math::<i8>::delta(b, a)
         };
         dx == dy
-    }
-
-    #[must_use]
-    #[inline(always)]
-    const fn clip_inner((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
-        if clip::out_of_bounds::<FX, FY>((x1, y1), (x2, y2), clip) {
-            return None;
-        }
-        let Some((cx1, cy1)) = clip::enter::<FX, FY>((x1, y1), clip) else {
-            return None;
-        };
-        let cx2 = clip::exit::<FX, FY>((x1, y1), (x2, y2), clip);
-        Some(Self::new_inner((cx1, cy1), cx2))
     }
 
     /// Returns an iterator over a directed line segment
@@ -117,7 +104,7 @@ impl<const FX: bool, const FY: bool> Quadrant<i8, FX, FY> {
     #[inline]
     #[must_use]
     pub const fn length(&self) -> <i8 as Num>::U {
-        Math::delta(fx!(self.x2, self.x1), fx!(self.x1, self.x2))
+        Math::<i8>::delta(fx!(self.x2, self.x1), fx!(self.x1, self.x2))
     }
 }
 
@@ -191,38 +178,39 @@ macro_rules! delegate {
 
 macro_rules! quadrants {
     (
+        $num:ty,
         ($x1:ident, $y1:ident), ($x2:ident, $y2:ident),
         $quadrant_0:expr,
         $quadrant_1:expr,
         $quadrant_2:expr,
-        $quadrant_3:expr
+        $quadrant_3:expr$(,)?
     ) => {
         #[allow(clippy::cast_sign_loss)]
         {
             if $x1 < $x2 {
-                let dx = Math::delta($x2, $x1);
+                let dx = Math::<$num>::delta($x2, $x1);
                 if $y1 < $y2 {
-                    let dy = Math::delta($y2, $y1);
+                    let dy = Math::<$num>::delta($y2, $y1);
                     if dx != dy {
                         return None;
                     }
                     return $quadrant_0;
                 }
-                let dy = Math::delta($y1, $y2);
+                let dy = Math::<$num>::delta($y1, $y2);
                 if dx != dy {
                     return None;
                 }
                 return $quadrant_1;
             }
-            let dx = Math::delta($x1, $x2);
+            let dx = Math::<$num>::delta($x1, $x2);
             if $y1 < $y2 {
-                let dy = Math::delta($y2, $y1);
+                let dy = Math::<$num>::delta($y2, $y1);
                 if dx != dy {
                     return None;
                 }
                 return $quadrant_2;
             }
-            let dy = Math::delta($y1, $y2);
+            let dy = Math::<$num>::delta($y1, $y2);
             if dx != dy {
                 return None;
             }
@@ -238,12 +226,13 @@ impl Diagonal<i8> {
     #[must_use]
     pub const fn new((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Option<Self> {
         quadrants!(
+            i8,
             (x1, y1),
             (x2, y2),
             Some(Self::Quadrant0(Quadrant::new_inner((x1, y1), x2))),
             Some(Self::Quadrant1(Quadrant::new_inner((x1, y1), x2))),
             Some(Self::Quadrant2(Quadrant::new_inner((x1, y1), x2))),
-            Some(Self::Quadrant3(Quadrant::new_inner((x1, y1), x2)))
+            Some(Self::Quadrant3(Quadrant::new_inner((x1, y1), x2))),
         );
     }
 
@@ -255,12 +244,13 @@ impl Diagonal<i8> {
     #[must_use]
     pub const fn clip((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
         quadrants!(
+            i8,
             (x1, y1),
             (x2, y2),
             map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant0),
             map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant1),
             map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant2),
-            map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant3)
+            map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant3),
         );
     }
 
@@ -274,7 +264,7 @@ impl Diagonal<i8> {
     /// Returns the remaining length of this iterator.
     #[inline]
     #[must_use]
-    pub const fn length(&self) -> u8 {
+    pub const fn length(&self) -> <i8 as Num>::U {
         delegate!(self, me => me.length())
     }
 }

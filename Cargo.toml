@@ -8,7 +8,7 @@ readme = "README.md"
 repository = "https://github.com/nxsaken/clipline/"
 license = "MIT OR Apache-2.0"
 keywords = ["graphics", "clipping", "line", "bresenham", "rasterization"]
-categories = ["graphics", "rendering", "algorithms", "game-development", "rendering"]
+categories = ["graphics", "rendering", "algorithms", "game-development"]
 include = [
     "**/*.rs",
     "Cargo.toml",

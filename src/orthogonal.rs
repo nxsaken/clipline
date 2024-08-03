@@ -14,7 +14,7 @@
 //! type aliases are available for convenience.
 
 use crate::clip::Clip;
-use crate::math::{Math, Point};
+use crate::math::{Math, Num, Point};
 use crate::symmetry::{f, vh};
 use crate::utils::map_opt;
 
@@ -96,29 +96,6 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     /// covered by the given [signed axis](AxisAligned),
     /// clipped to a [rectangular region](Clip).
     ///
-    /// - A [vertical](Vertical) line segment has endpoints `(u, v1)` and `(u, v2)`.
-    /// - A [horizontal](Horizontal) line segment has endpoints `(v1, u)` and `(v2, u)`.
-    ///
-    /// Returns [`None`] if it does not intersect the clipping region.
-    ///
-    /// *Assumes that the line segment is covered by the given signed axis.*
-    #[inline(always)]
-    #[must_use]
-    const fn clip_unchecked(u: i8, v1: i8, v2: i8, clip: Clip<i8>) -> Option<Self> {
-        if clip::out_of_bounds::<VERT, FLIP>(u, v1, v2, clip) {
-            return None;
-        }
-        Some(Self::new_unchecked(
-            u,
-            clip::enter::<VERT, FLIP>(v1, clip),
-            clip::exit::<VERT, FLIP>(v2, clip),
-        ))
-    }
-
-    /// Returns an iterator over a directed line segment
-    /// covered by the given [signed axis](AxisAligned),
-    /// clipped to a [rectangular region](Clip).
-    ///
     /// The line segment is defined by its starting point and its length.
     ///
     /// - A [vertical](Vertical) line segment has endpoints `(u, v1)` and `(u, v2)`.
@@ -132,7 +109,7 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
         if f!(v2 <= v1, v1 <= v2) {
             return None;
         }
-        Self::clip_unchecked(u, v1, v2, clip)
+        Self::clip_inner(u, v1, v2, clip)
     }
 
     /// Returns `true` if the iterator has terminated.
@@ -147,8 +124,8 @@ impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<i8, VERT, FLIP> {
     /// Optimized over [`i8::abs_diff`].
     #[inline]
     #[must_use]
-    pub const fn length(&self) -> u8 {
-        Math::delta(f!(self.v2, self.v1), f!(self.v1, self.v2))
+    pub const fn length(&self) -> <i8 as Num>::U {
+        Math::<i8>::delta(f!(self.v2, self.v1), f!(self.v1, self.v2))
     }
 }
 
@@ -279,9 +256,9 @@ impl<const VERT: bool> AxisAligned<i8, VERT> {
     #[must_use]
     pub const fn clip(u: i8, v1: i8, v2: i8, clip: Clip<i8>) -> Option<Self> {
         if v1 <= v2 {
-            map_opt!(SignedAxisAligned::clip_unchecked(u, v1, v2, clip), Self::Positive)
+            map_opt!(SignedAxisAligned::clip_inner(u, v1, v2, clip), Self::Positive)
         } else {
-            map_opt!(SignedAxisAligned::clip_unchecked(u, v1, v2, clip), Self::Negative)
+            map_opt!(SignedAxisAligned::clip_inner(u, v1, v2, clip), Self::Negative)
         }
     }
 
@@ -295,7 +272,7 @@ impl<const VERT: bool> AxisAligned<i8, VERT> {
     /// Returns the remaining length of this iterator.
     #[inline]
     #[must_use]
-    pub const fn length(&self) -> u8 {
+    pub const fn length(&self) -> <i8 as Num>::U {
         delegate!(self, me => me.length())
     }
 }
@@ -415,7 +392,7 @@ impl Orthogonal<i8> {
     #[must_use]
     pub const fn new((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Option<Self> {
         if y1 == y2 {
-            return match Horizontal::new(x1, y1, y2) {
+            return match Horizontal::new(y1, x1, x2) {
                 AxisAligned::Positive(me) => Some(Self::SignedAxis0(me)),
                 AxisAligned::Negative(me) => Some(Self::SignedAxis1(me)),
             };
@@ -439,7 +416,7 @@ impl Orthogonal<i8> {
     pub const fn clip((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
         if y1 == y2 {
             return map_opt!(
-                Horizontal::clip(x1, y1, y2, clip),
+                Horizontal::clip(y1, x1, x2, clip),
                 me => match me {
                     AxisAligned::Positive(me) => Self::SignedAxis0(me),
                     AxisAligned::Negative(me) => Self::SignedAxis1(me),
@@ -468,7 +445,7 @@ impl Orthogonal<i8> {
     /// Returns the remaining length of this iterator.
     #[inline]
     #[must_use]
-    pub const fn length(&self) -> u8 {
+    pub const fn length(&self) -> <i8 as Num>::U {
         delegate!(self, me => me.length())
     }
 }

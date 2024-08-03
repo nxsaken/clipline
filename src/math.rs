@@ -2,9 +2,13 @@
 //!
 //! Contains the math types and helper macros.
 
+/// Numeric type representing a coordinate.
 pub trait Num {
+    /// Wide signed type for differences of [`Self::U`] values.
     type I2: Copy + Eq + Ord + core::fmt::Debug + core::fmt::Display;
+    /// Unsigned type for absolute offsets.
     type U: Copy + Eq + Ord + core::fmt::Debug + core::fmt::Display;
+    /// Wide unsigned type for multiplying offsets.
     type U2: Copy + Eq + Ord + core::fmt::Debug + core::fmt::Display;
 }
 
@@ -51,57 +55,73 @@ num_impl!([isize, i128, usize, u128]);
 /// Generic math functions.
 pub struct Math<T>(T);
 
-impl Math<i8> {
-    /// Subtracts two signed integers, returning the unsigned difference.
-    ///
-    /// *`min` must be less or equal to `max`.*
-    pub const fn delta(max: i8, min: i8) -> <i8 as Num>::U {
-        debug_assert!(min <= max);
-        #[allow(clippy::cast_sign_loss)]
-        <i8 as Num>::U::wrapping_sub(max as _, min as _)
-    }
+macro_rules! math_impl {
+    ($num:ty) => {
+        impl Math<$num> {
+            /// Subtracts two signed integers, returning the unsigned difference.
+            ///
+            /// *`min` must be less or equal to `max`.*
+            pub const fn delta(max: $num, min: $num) -> <$num as Num>::U {
+                debug_assert!(min <= max);
+                #[allow(clippy::cast_sign_loss)]
+                <$num as Num>::U::wrapping_sub(max as _, min as _)
+            }
 
-    /// Subtracts two unsigned integers, returning the wide signed difference.
-    pub const fn error(a: <i8 as Num>::U, b: <i8 as Num>::U) -> <i8 as Num>::I2 {
-        <i8 as Num>::I2::wrapping_sub(a as _, b as _)
-    }
+            /// Subtracts two unsigned integers, returning the wide signed difference.
+            pub const fn error(a: <$num as Num>::U, b: <$num as Num>::U) -> <$num as Num>::I2 {
+                <$num as Num>::I2::wrapping_sub(a as _, b as _)
+            }
 
-    /// Multiplies two narrow unsigned integers, widening the result.
-    pub const fn wide_mul(a: <i8 as Num>::U, b: <i8 as Num>::U) -> <i8 as Num>::U2 {
-        <i8 as Num>::U2::wrapping_mul(a as _, b as _)
-    }
+            /// Multiplies two narrow unsigned integers, widening the result.
+            pub const fn wide_mul(a: <$num as Num>::U, b: <$num as Num>::U) -> <$num as Num>::U2 {
+                <$num as Num>::U2::wrapping_mul(a as _, b as _)
+            }
 
-    /// Doubles a narrow unsigned integer, widening the result.
-    pub const fn double(a: <i8 as Num>::U) -> <i8 as Num>::U2 {
-        <i8 as Num>::U2::wrapping_shl(a as _, 1)
-    }
+            /// Doubles a narrow unsigned integer, widening the result.
+            pub const fn double(a: <$num as Num>::U) -> <$num as Num>::U2 {
+                <$num as Num>::U2::wrapping_shl(a as _, 1)
+            }
 
-    /// Divides an unsigned integer by 2 with rounding.
-    pub const fn half(a: <i8 as Num>::U) -> <i8 as Num>::U {
-        let half = <i8 as Num>::U2::wrapping_add(a as _, 1).wrapping_shr(1);
-        debug_assert!(half <= <i8 as Num>::U::MAX as _);
-        #[allow(clippy::cast_possible_truncation)]
-        return half as _;
-    }
+            /// Divides an unsigned integer by 2 with rounding.
+            pub const fn half(a: <$num as Num>::U) -> <$num as Num>::U {
+                let half = <$num as Num>::U2::wrapping_add(a as _, 1).wrapping_shr(1);
+                debug_assert!(half <= <$num as Num>::U::MAX as _);
+                #[allow(clippy::cast_possible_truncation)]
+                return half as _;
+            }
 
-    /// Divides a wide unsigned integer by a non-zero narrow unsigned integer,
-    /// returning the narrow quotient and remainder.
-    ///
-    /// *The divisor must be non-zero for this to be sound,
-    /// and the quotient must fit into the narrow type.*
-    pub const fn div_rem(
-        a: <i8 as Num>::U2,
-        b: <i8 as Num>::U,
-    ) -> (<i8 as Num>::U, <i8 as Num>::U) {
-        debug_assert!(b != 0);
-        let (Some(q), Some(r)) =
-            (<i8 as Num>::U2::checked_div(a, b as _), <i8 as Num>::U2::checked_rem(a, b as _))
-        else {
-            // SAFETY: the dividend is non-zero.
-            unsafe { core::hint::unreachable_unchecked() }
-        };
-        debug_assert!(q <= u8::MAX as _);
-        #[allow(clippy::cast_possible_truncation)]
-        (q as _, r as _)
-    }
+            /// Divides a wide unsigned integer by a non-zero narrow unsigned integer,
+            /// returning the narrow quotient and remainder.
+            ///
+            /// ### Safety
+            /// The divisor must be non-zero for this to be sound,
+            /// and the quotient must fit into the narrow type.
+            pub const unsafe fn div_rem(
+                a: <$num as Num>::U2,
+                b: <$num as Num>::U,
+            ) -> (<$num as Num>::U, <$num as Num>::U) {
+                debug_assert!(b != 0);
+                let (Some(q), Some(r)) = (
+                    <$num as Num>::U2::checked_div(a, b as _),
+                    <$num as Num>::U2::checked_rem(a, b as _),
+                ) else {
+                    core::hint::unreachable_unchecked()
+                };
+                debug_assert!(q <= u8::MAX as _);
+                #[allow(clippy::cast_possible_truncation)]
+                (q as _, r as _)
+            }
+        }
+    };
 }
+
+math_impl!(i8);
+math_impl!(u8);
+math_impl!(i16);
+math_impl!(u16);
+math_impl!(i32);
+math_impl!(u32);
+math_impl!(i64);
+math_impl!(u64);
+math_impl!(isize);
+math_impl!(usize);

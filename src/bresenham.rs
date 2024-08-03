@@ -11,9 +11,9 @@
 
 use crate::clip::Clip;
 use crate::math::{Delta, Math, Num, Point};
-use crate::orthogonal;
 use crate::symmetry::{fx, fy, sorted, xy};
 use crate::utils::map_opt;
+use crate::{diagonal, orthogonal};
 
 mod clip;
 
@@ -116,7 +116,7 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     #[must_use]
     const fn new_inner((x1, y1): Point<i8>, (x2, y2): Point<i8>, (dx, dy): Delta<i8>) -> Self {
         #[allow(clippy::cast_possible_wrap)]
-        let error = Math::error(xy!(dy, dx), Math::half(xy!(dx, dy)));
+        let error = Math::<i8>::error(xy!(dy, dx), Math::<i8>::half(xy!(dx, dy)));
         let end = xy!(x2, y2);
         Self { x: x1, y: y1, error, dx, dy, end }
     }
@@ -126,30 +126,16 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     const fn covers((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Option<Delta<i8>> {
         let dx = {
             let (a, b) = sorted!(FX, x1, x2, None);
-            Math::delta(b, a)
+            Math::<i8>::delta(b, a)
         };
         let dy = {
             let (a, b) = sorted!(FY, y1, y2, None);
-            Math::delta(b, a)
+            Math::<i8>::delta(b, a)
         };
         if xy!(dx < dy, dy <= dx) {
             return None;
         }
         Some((dx, dy))
-    }
-
-    #[must_use]
-    #[inline(always)]
-    const fn clip_covered(
-        p1: Point<i8>,
-        p2: Point<i8>,
-        (dx, dy): Delta<i8>,
-        clip: Clip<i8>,
-    ) -> Option<Self> {
-        let Some(((x, y), error, end)) = Self::clip_inner(p1, p2, (dx, dy), clip) else {
-            return None;
-        };
-        Some(Self { x, y, error, dx, dy, end })
     }
 
     /// Returns an iterator over a directed line segment
@@ -183,7 +169,7 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
         let Some(delta) = Self::covers(start, end) else {
             return None;
         };
-        Self::clip_covered(start, end, delta, clip)
+        Self::clip_inner(start, end, delta, clip)
     }
 
     /// Returns `true` if the iterator has terminated.
@@ -202,13 +188,13 @@ impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<i8, FX, FY, SWAP> 
     /// Optimized over [`i8::abs_diff`].
     #[inline]
     #[must_use]
-    pub const fn length(&self) -> u8 {
+    pub const fn length(&self) -> <i8 as Num>::U {
         let (a, b) = xy!(
             fx!((self.end, self.x), (self.x, self.end)),
             fy!((self.end, self.y), (self.y, self.end))
         );
         #[allow(clippy::cast_sign_loss)]
-        u8::wrapping_sub(a as _, b as _)
+        <i8 as Num>::U::wrapping_sub(a as _, b as _)
     }
 }
 
@@ -285,19 +271,27 @@ pub enum Bresenham<T: Num> {
     SignedAxis2(orthogonal::PositiveVertical<T>),
     /// Vertical line segment at `270°`, see [`NegativeVertical`](crate::NegativeVertical).
     SignedAxis3(orthogonal::NegativeVertical<T>),
-    /// Gently-sloped line segment in `(0°, 45°]`, see [`Octant0`].
+    /// Diagonal line segment at `45°`, see [`Quadrant0`](diagonal::Quadrant0).
+    Quadrant0(diagonal::Quadrant0<T>),
+    /// Diagonal line segment at `315°`, see [`Quadrant1`](diagonal::Quadrant1).
+    Quadrant1(diagonal::Quadrant1<T>),
+    /// Diagonal line segment at `135°`, see [`Quadrant2`](diagonal::Quadrant2).
+    Quadrant2(diagonal::Quadrant2<T>),
+    /// Diagonal line segment at `225°`, see [`Quadrant3`](diagonal::Quadrant3).
+    Quadrant3(diagonal::Quadrant3<T>),
+    /// Gently-sloped line segment in `(0°, 45°)`, see [`Octant0`].
     Octant0(Octant0<T>),
     /// Steeply-sloped line segment in `(45°, 90°)`, see [`Octant1`].
     Octant1(Octant1<T>),
-    /// Gently-sloped line segment in `[315°, 360°)`, see [`Octant2`].
+    /// Gently-sloped line segment in `(315°, 360°)`, see [`Octant2`].
     Octant2(Octant2<T>),
     /// Steeply-sloped line segment in `(270°, 315°)`, see [`Octant3`].
     Octant3(Octant3<T>),
-    /// Gently-sloped line segment in `[135°, 180°)`, see [`Octant4`].
+    /// Gently-sloped line segment in `(135°, 180°)`, see [`Octant4`].
     Octant4(Octant4<T>),
     /// Steeply-sloped line segment in `(90°, 135°)`, see [`Octant5`].
     Octant5(Octant5<T>),
-    /// Gently-sloped line segment in `(180°, 225°]`, see [`Octant6`].
+    /// Gently-sloped line segment in `(180°, 225°)`, see [`Octant6`].
     Octant6(Octant6<T>),
     /// Steeply-sloped line segment in `(225°, 270°)`, see [`Octant7`].
     Octant7(Octant7<T>),
@@ -311,6 +305,10 @@ macro_rules! delegate {
             Self::SignedAxis1($me) => $call,
             Self::SignedAxis2($me) => $call,
             Self::SignedAxis3($me) => $call,
+            Self::Quadrant0($me) => $call,
+            Self::Quadrant1($me) => $call,
+            Self::Quadrant2($me) => $call,
+            Self::Quadrant3($me) => $call,
             Self::Octant0($me) => $call,
             Self::Octant1($me) => $call,
             Self::Octant2($me) => $call,
@@ -325,11 +323,16 @@ macro_rules! delegate {
 
 macro_rules! octants {
     (
+        $num:ty,
         ($x1:ident, $y1:ident),
         ($x2:ident, $y2:ident),
         ($dx:ident, $dy:ident),
         $horizontal:expr,
         $vertical:expr,
+        $diagonal_0:expr,
+        $diagonal_1:expr,
+        $diagonal_2:expr,
+        $diagonal_3:expr,
         $octant_0:expr,
         $octant_1:expr,
         $octant_2:expr,
@@ -337,7 +340,7 @@ macro_rules! octants {
         $octant_4:expr,
         $octant_5:expr,
         $octant_6:expr,
-        $octant_7:expr
+        $octant_7:expr$(,)?
     ) => {
         if $y1 == $y2 {
             use orthogonal::Horizontal;
@@ -349,34 +352,47 @@ macro_rules! octants {
         }
         #[allow(clippy::cast_sign_loss)]
         {
+            use diagonal::Quadrant;
             if $x1 < $x2 {
-                let $dx = Math::delta($x2, $x1);
+                let $dx = Math::<$num>::delta($x2, $x1);
                 if $y1 < $y2 {
-                    let $dy = Math::delta($y2, $y1);
-                    if $dy <= $dx {
+                    let $dy = Math::<$num>::delta($y2, $y1);
+                    if $dy < $dx {
                         return $octant_0;
                     }
-                    return $octant_1;
+                    if $dx < $dy {
+                        return $octant_1;
+                    }
+                    return $diagonal_0;
                 }
-                let $dy = Math::delta($y1, $y2);
-                if $dy <= $dx {
+                let $dy = Math::<$num>::delta($y1, $y2);
+                if $dy < $dx {
                     return $octant_2;
                 }
-                return $octant_3;
+                if $dx < $dy {
+                    return $octant_3;
+                }
+                return $diagonal_1;
             }
-            let $dx = Math::delta($x1, $x2);
+            let $dx = Math::<$num>::delta($x1, $x2);
             if $y1 < $y2 {
-                let $dy = Math::delta($y2, $y1);
-                if $dy <= $dx {
+                let $dy = Math::<$num>::delta($y2, $y1);
+                if $dy < $dx {
                     return $octant_4;
                 }
-                return $octant_5;
+                if $dx < $dy {
+                    return $octant_5;
+                }
+                return $diagonal_2;
             }
-            let $dy = Math::delta($y1, $y2);
-            if $dy <= $dx {
+            let $dy = Math::<$num>::delta($y1, $y2);
+            if $dy < $dx {
                 return $octant_6;
             }
-            return $octant_7;
+            if $dx < $dy {
+                return $octant_7;
+            }
+            return $diagonal_3;
         }
     };
 }
@@ -387,6 +403,7 @@ impl Bresenham<i8> {
     #[must_use]
     pub const fn new((x1, y1): Point<i8>, (x2, y2): Point<i8>) -> Self {
         octants!(
+            i8,
             (x1, y1),
             (x2, y2),
             (dx, dy),
@@ -398,6 +415,10 @@ impl Bresenham<i8> {
                 Vertical::Positive(me) => Self::SignedAxis2(me),
                 Vertical::Negative(me) => Self::SignedAxis3(me),
             },
+            Self::Quadrant0(Quadrant::new_inner((x1, y1), x2)),
+            Self::Quadrant1(Quadrant::new_inner((x1, y1), x2)),
+            Self::Quadrant2(Quadrant::new_inner((x1, y1), x2)),
+            Self::Quadrant3(Quadrant::new_inner((x1, y1), x2)),
             Self::Octant0(Octant::new_inner((x1, y1), (x2, y2), (dx, dy))),
             Self::Octant1(Octant::new_inner((x1, y1), (x2, y2), (dx, dy))),
             Self::Octant2(Octant::new_inner((x1, y1), (x2, y2), (dx, dy))),
@@ -417,6 +438,7 @@ impl Bresenham<i8> {
     #[must_use]
     pub const fn clip((x1, y1): Point<i8>, (x2, y2): Point<i8>, clip: Clip<i8>) -> Option<Self> {
         octants!(
+            i8,
             (x1, y1),
             (x2, y2),
             (dx, dy),
@@ -428,14 +450,18 @@ impl Bresenham<i8> {
                 Vertical::Positive(me) => Self::SignedAxis2(me),
                 Vertical::Negative(me) => Self::SignedAxis3(me),
             }),
-            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant0),
-            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant1),
-            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant2),
-            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant3),
-            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant4),
-            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant5),
-            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant6),
-            map_opt!(Octant::clip_covered((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant7)
+            map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant0),
+            map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant1),
+            map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant2),
+            map_opt!(Quadrant::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant3),
+            map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant0),
+            map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant1),
+            map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant2),
+            map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant3),
+            map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant4),
+            map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant5),
+            map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant6),
+            map_opt!(Octant::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant7),
         );
     }
 
@@ -449,7 +475,7 @@ impl Bresenham<i8> {
     /// Returns the remaining length of this iterator.
     #[inline]
     #[must_use]
-    pub const fn length(&self) -> u8 {
+    pub const fn length(&self) -> <i8 as Num>::U {
         delegate!(self, me => me.length())
     }
 }

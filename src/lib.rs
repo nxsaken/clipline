@@ -54,12 +54,3 @@ pub use orthogonal::{
     PositiveAxisAligned, PositiveHorizontal, PositiveVertical, SignedAxisAligned, SignedHorizontal,
     SignedVertical, Vertical,
 };
-
-/// ## Project TO-DOs
-///
-/// ### Optimized internal iterators:
-/// - Run-slice Bresenham's algorithm
-/// - Scanline on a generic slice
-/// - Do not recalculate the array index of the point from scratch
-///   - I<i8/u8> -> u16 index, etc.
-struct _Todo;

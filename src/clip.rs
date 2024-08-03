@@ -7,7 +7,7 @@ use crate::math::Point;
 use crate::Bresenham;
 
 /// A generic rectangular region defined by its minimum and maximum [corners](Point).
-#[derive(Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Hash, Debug, Default)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Default)]
 pub struct Clip<T> {
     pub(crate) wx1: T,
     pub(crate) wy1: T,
