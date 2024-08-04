@@ -67,7 +67,7 @@ macro_rules! fy {
 
 /// Ensures `v1` and `v2` are sorted based on `$f`,
 /// otherwise short-circuits with `$sc`.
-macro_rules! sorted {
+macro_rules! assert_sorted {
     ($f:ident, $v1:ident, $v2:ident, $sc:expr) => {{
         match $f {
             false if $v1 < $v2 => ($v1, $v2),
@@ -77,4 +77,4 @@ macro_rules! sorted {
     }};
 }
 
-pub(crate) use {f, fx, fy, sorted, vh, xy};
+pub(crate) use {assert_sorted, f, fx, fy, vh, xy};

@@ -5,12 +5,15 @@
 /// Numeric type representing a coordinate.
 pub trait Num {
     /// Wide signed type for differences of [`Self::U`] values.
-    type I2: Copy + Eq + Ord + core::fmt::Debug + core::fmt::Display;
+    type I2: Copy + Eq + Ord + core::fmt::Debug;
     /// Unsigned type for absolute offsets.
-    type U: Copy + Eq + Ord + core::fmt::Debug + core::fmt::Display;
+    type U: Copy + Eq + Ord + core::fmt::Debug;
     /// Wide unsigned type for multiplying offsets.
-    type U2: Copy + Eq + Ord + core::fmt::Debug + core::fmt::Display;
+    type U2: Copy + Eq + Ord + core::fmt::Debug;
 }
+
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
+pub enum Void {}
 
 /// A generic point on a Cartesian plane.
 pub type Point<T> = (T, T);
@@ -38,54 +41,56 @@ macro_rules! num_impl {
     };
 }
 
-num_impl!(
-    [i8, i16, u8, u16],
-    [i16, i32, u16, u32],
-    [i32, i64, u32, u64],
-    // FIXME: possible footgun?
-    [i64, i128, u64, u128],
-);
+num_impl!([i8, i16, u8, u16], [i16, i32, u16, u32], [i32, i64, u32, u64], [i64, Void, u64, Void]);
 #[cfg(target_pointer_width = "16")]
 num_impl!([isize, i32, usize, u32]);
 #[cfg(target_pointer_width = "32")]
 num_impl!([isize, i64, usize, u64]);
 #[cfg(target_pointer_width = "64")]
-num_impl!([isize, i128, usize, u128]);
+num_impl!([isize, Void, usize, Void]);
 
 /// Generic math functions.
 pub struct Math<T>(T);
 
-macro_rules! math_impl {
-    ($num:ty) => {
-        impl Math<$num> {
+macro_rules! min_math_impl {
+    ($T:ty) => {
+        impl Math<$T> {
             /// Subtracts two signed integers, returning the unsigned difference.
             ///
             /// *`min` must be less or equal to `max`.*
-            pub const fn delta(max: $num, min: $num) -> <$num as Num>::U {
+            pub const fn delta(max: $T, min: $T) -> <$T as Num>::U {
                 debug_assert!(min <= max);
                 #[allow(clippy::cast_sign_loss)]
-                <$num as Num>::U::wrapping_sub(max as _, min as _)
+                <$T as Num>::U::wrapping_sub(max as _, min as _)
             }
+        }
+    };
+}
 
+macro_rules! math_impl {
+    ($T:ty) => {
+        min_math_impl!($T);
+
+        impl Math<$T> {
             /// Subtracts two unsigned integers, returning the wide signed difference.
-            pub const fn error(a: <$num as Num>::U, b: <$num as Num>::U) -> <$num as Num>::I2 {
-                <$num as Num>::I2::wrapping_sub(a as _, b as _)
+            pub const fn error(a: <$T as Num>::U, b: <$T as Num>::U) -> <$T as Num>::I2 {
+                <$T as Num>::I2::wrapping_sub(a as _, b as _)
             }
 
             /// Multiplies two narrow unsigned integers, widening the result.
-            pub const fn wide_mul(a: <$num as Num>::U, b: <$num as Num>::U) -> <$num as Num>::U2 {
-                <$num as Num>::U2::wrapping_mul(a as _, b as _)
+            pub const fn wide_mul(a: <$T as Num>::U, b: <$T as Num>::U) -> <$T as Num>::U2 {
+                <$T as Num>::U2::wrapping_mul(a as _, b as _)
             }
 
             /// Doubles a narrow unsigned integer, widening the result.
-            pub const fn double(a: <$num as Num>::U) -> <$num as Num>::U2 {
-                <$num as Num>::U2::wrapping_shl(a as _, 1)
+            pub const fn double(a: <$T as Num>::U) -> <$T as Num>::U2 {
+                <$T as Num>::U2::wrapping_shl(a as _, 1)
             }
 
             /// Divides an unsigned integer by 2 with rounding.
-            pub const fn half(a: <$num as Num>::U) -> <$num as Num>::U {
-                let half = <$num as Num>::U2::wrapping_add(a as _, 1).wrapping_shr(1);
-                debug_assert!(half <= <$num as Num>::U::MAX as _);
+            pub const fn half(a: <$T as Num>::U) -> <$T as Num>::U {
+                let half = <$T as Num>::U2::wrapping_add(a as _, 1).wrapping_shr(1);
+                debug_assert!(half <= <$T as Num>::U::MAX as _);
                 #[allow(clippy::cast_possible_truncation)]
                 return half as _;
             }
@@ -94,20 +99,20 @@ macro_rules! math_impl {
             /// returning the narrow quotient and remainder.
             ///
             /// ### Safety
-            /// The divisor must be non-zero for this to be sound,
+            /// The divisor must be non-zero,
             /// and the quotient must fit into the narrow type.
             pub const unsafe fn div_rem(
-                a: <$num as Num>::U2,
-                b: <$num as Num>::U,
-            ) -> (<$num as Num>::U, <$num as Num>::U) {
+                a: <$T as Num>::U2,
+                b: <$T as Num>::U,
+            ) -> (<$T as Num>::U, <$T as Num>::U) {
                 debug_assert!(b != 0);
                 let (Some(q), Some(r)) = (
-                    <$num as Num>::U2::checked_div(a, b as _),
-                    <$num as Num>::U2::checked_rem(a, b as _),
+                    <$T as Num>::U2::checked_div(a, b as _),
+                    <$T as Num>::U2::checked_rem(a, b as _),
                 ) else {
                     core::hint::unreachable_unchecked()
                 };
-                debug_assert!(q <= u8::MAX as _);
+                debug_assert!(q <= <$T as Num>::U::MAX as _);
                 #[allow(clippy::cast_possible_truncation)]
                 (q as _, r as _)
             }
@@ -121,7 +126,42 @@ math_impl!(i16);
 math_impl!(u16);
 math_impl!(i32);
 math_impl!(u32);
-math_impl!(i64);
-math_impl!(u64);
+min_math_impl!(i64);
+min_math_impl!(u64);
+#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 math_impl!(isize);
+#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 math_impl!(usize);
+#[cfg(target_pointer_width = "64")]
+min_math_impl!(isize);
+#[cfg(target_pointer_width = "64")]
+min_math_impl!(usize);
+
+#[cfg(test)]
+mod static_tests {
+    use super::*;
+
+    #[cfg(target_pointer_width = "16")]
+    #[test]
+    const fn isize_16_bit_is_num() {
+        static_assertions::assert_impl_all!(isize: Num);
+        static_assertions::assert_type_eq_all!(<isize as Num>::I2, i32);
+        static_assertions::assert_type_eq_all!(<isize as Num>::U2, u32);
+    }
+
+    #[cfg(target_pointer_width = "32")]
+    #[test]
+    const fn isize_32_bit_is_num() {
+        static_assertions::assert_impl_all!(isize: Num);
+        static_assertions::assert_type_eq_all!(<isize as Num>::I2, i64);
+        static_assertions::assert_type_eq_all!(<isize as Num>::U2, u64);
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    #[test]
+    const fn isize_64_bit_is_not_num() {
+        static_assertions::assert_impl_all!(isize: Num);
+        static_assertions::assert_type_eq_all!(<isize as Num>::I2, Void);
+        static_assertions::assert_type_eq_all!(<isize as Num>::U2, Void);
+    }
+}
