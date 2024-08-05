@@ -11,8 +11,8 @@
 
 use crate::clip::Clip;
 use crate::math::{Delta, Math, Num, Point};
-use crate::symmetry::{assert_sorted, fx, fy, xy};
-use crate::utils::map;
+use crate::symmetry::{fx, fy, xy};
+use crate::utils::{map, reject_if};
 use crate::{diagonal, orthogonal};
 
 mod clip;
@@ -127,23 +127,6 @@ macro_rules! octant_impl {
                 Self { x: x1, y: y1, error, dx, dy, end }
             }
 
-            #[inline(always)]
-            #[must_use]
-            const fn covers((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Delta<$T>> {
-                let dx = {
-                    let (a, b) = assert_sorted!(FX, x1, x2, None);
-                    Math::<$T>::delta(b, a)
-                };
-                let dy = {
-                    let (a, b) = assert_sorted!(FY, y1, y2, None);
-                    Math::<$T>::delta(b, a)
-                };
-                if xy!(dx < dy, dy <= dx) {
-                    return None;
-                }
-                Some((dx, dy))
-            }
-
             /// Returns an iterator over a directed line segment
             /// if it is covered by the given [octant](Octant),
             /// otherwise returns [`None`].
@@ -152,10 +135,20 @@ macro_rules! octant_impl {
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Self> {
-                let Some(delta) = Self::covers((x1, y1), (x2, y2)) else {
+                let (u1, u2) = fx!((x1, x2), (x2, x1));
+                let dx = if u1 < u2 {
+                    Math::<$T>::delta(u2, u1)
+                } else {
                     return None;
                 };
-                Some(Self::new_inner((x1, y1), (x2, y2), delta))
+                let (v1, v2) = fx!((y1, y2), (y2, y1));
+                let dy = if v1 < v2 {
+                    Math::<$T>::delta(v2, v1)
+                } else {
+                    return None;
+                };
+                reject_if!(xy!(dx < dy, dy <= dx));
+                Some(Self::new_inner((x1, y1), (x2, y2), (dx, dy)))
             }
 
             /// Returns an iterator over a directed line segment,
@@ -173,10 +166,23 @@ macro_rules! octant_impl {
                 (x2, y2): Point<$T>,
                 clip: Clip<$T>,
             ) -> Option<Self> {
-                let Some(delta) = Self::covers((x1, y1), (x2, y2)) else {
+                let Clip { wx1, wy1, wx2, wy2 } = clip;
+                let (u1, u2) = fx!((x1, x2), (x2, x1));
+                reject_if!(u2 < wx1 || wx2 <= u1);
+                let dx = if u1 < u2 {
+                    Math::<$T>::delta(u2, u1)
+                } else {
                     return None;
                 };
-                Self::clip_inner((x1, y1), (x2, y2), delta, clip)
+                let (v1, v2) = fx!((y1, y2), (y2, y1));
+                reject_if!(v2 < wy1 || wy2 <= v1);
+                let dy = if v1 < v2 {
+                    Math::<$T>::delta(v2, v1)
+                } else {
+                    return None;
+                };
+                reject_if!(xy!(dx < dy, dy <= dx));
+                Self::clip_inner((x1, y1), (x2, y2), (dx, dy), clip)
             }
 
             /// Returns `true` if the iterator has terminated.
@@ -360,79 +366,12 @@ macro_rules! delegate {
     };
 }
 
-macro_rules! octants {
-    (
-        $T:ty,
-        ($x1:ident, $y1:ident),
-        ($x2:ident, $y2:ident),
-        ($dx:ident, $dy:ident),
-        $horizontal:expr,
-        $vertical:expr,
-        // $diagonal_0:expr,
-        // $diagonal_1:expr,
-        // $diagonal_2:expr,
-        // $diagonal_3:expr,
-        $octant_0:expr,
-        $octant_1:expr,
-        $octant_2:expr,
-        $octant_3:expr,
-        $octant_4:expr,
-        $octant_5:expr,
-        $octant_6:expr,
-        $octant_7:expr$(,)?
-    ) => {
-        if $y1 == $y2 {
-            use orthogonal::Horizontal;
-            return $horizontal;
-        }
-        if $x1 == $x2 {
-            use orthogonal::Vertical;
-            return $vertical;
-        }
-        #[allow(clippy::cast_sign_loss)]
-        {
-            // use diagonal::{Quadrant0, Quadrant1, Quadrant2, Quadrant3};
-            if $x1 < $x2 {
-                let $dx = Math::<$T>::delta($x2, $x1);
-                if $y1 < $y2 {
-                    let $dy = Math::<$T>::delta($y2, $y1);
-                    if $dy < $dx {
-                        return $octant_0;
-                    }
-                    // if $dx < $dy {
-                    return $octant_1;
-                    // }
-                    // return $diagonal_0;
-                }
-                let $dy = Math::<$T>::delta($y1, $y2);
-                if $dy < $dx {
-                    return $octant_2;
-                }
-                // if $dx < $dy {
-                return $octant_3;
-                // }
-                // return $diagonal_1;
-            }
-            let $dx = Math::<$T>::delta($x1, $x2);
-            if $y1 < $y2 {
-                let $dy = Math::<$T>::delta($y2, $y1);
-                if $dy < $dx {
-                    return $octant_4;
-                }
-                // if $dx < $dy {
-                return $octant_5;
-                // }
-                // return $diagonal_2;
-            }
-            let $dy = Math::<$T>::delta($y1, $y2);
-            if $dy < $dx {
-                return $octant_6;
-            }
-            // if $dx < $dy {
-            return $octant_7;
-            // }
-            // return $diagonal_3;
-        }
+macro_rules! octant {
+    ($Octant:ident, $T:ty, $p1:expr, $p2:expr, $delta:expr) => {
+        return Self::$Octant($Octant::<$T>::new_inner($p1, $p2, $delta));
+    };
+    ($Octant:ident, $T:ty, $p1:expr, $p2:expr, $delta:expr, $clip:expr) => {
+        return map!($Octant::<$T>::clip_inner($p1, $p2, $delta, $clip), Self::$Octant);
     };
 }
 
@@ -445,32 +384,48 @@ macro_rules! bresenham_impl {
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Self {
-                octants!(
-                    $T,
-                    (x1, y1),
-                    (x2, y2),
-                    (dx, dy),
-                    match Horizontal::<$T>::new(y1, x1, x2) {
+                if y1 == y2 {
+                    use orthogonal::Horizontal;
+                    return match Horizontal::<$T>::new(y1, x1, x2) {
                         Horizontal::Positive(me) => Self::SignedAxis0(me),
                         Horizontal::Negative(me) => Self::SignedAxis1(me),
-                    },
-                    match Vertical::<$T>::new(x1, y1, y2) {
+                    };
+                }
+                if x1 == x2 {
+                    use orthogonal::Vertical;
+                    return match Vertical::<$T>::new(x1, y1, y2) {
                         Vertical::Positive(me) => Self::SignedAxis2(me),
                         Vertical::Negative(me) => Self::SignedAxis3(me),
-                    },
-                    // Self::Quadrant0(Quadrant0::<$T>::new_inner((x1, y1), x2)),
-                    // Self::Quadrant1(Quadrant1::<$T>::new_inner((x1, y1), x2)),
-                    // Self::Quadrant2(Quadrant2::<$T>::new_inner((x1, y1), x2)),
-                    // Self::Quadrant3(Quadrant3::<$T>::new_inner((x1, y1), x2)),
-                    Self::Octant0(Octant0::<$T>::new_inner((x1, y1), (x2, y2), (dx, dy))),
-                    Self::Octant1(Octant1::<$T>::new_inner((x1, y1), (x2, y2), (dx, dy))),
-                    Self::Octant2(Octant2::<$T>::new_inner((x1, y1), (x2, y2), (dx, dy))),
-                    Self::Octant3(Octant3::<$T>::new_inner((x1, y1), (x2, y2), (dx, dy))),
-                    Self::Octant4(Octant4::<$T>::new_inner((x1, y1), (x2, y2), (dx, dy))),
-                    Self::Octant5(Octant5::<$T>::new_inner((x1, y1), (x2, y2), (dx, dy))),
-                    Self::Octant6(Octant6::<$T>::new_inner((x1, y1), (x2, y2), (dx, dy))),
-                    Self::Octant7(Octant7::<$T>::new_inner((x1, y1), (x2, y2), (dx, dy)))
-                );
+                    };
+                }
+                if x1 < x2 {
+                    let dx = Math::<$T>::delta(x2, x1);
+                    if y1 < y2 {
+                        let dy = Math::<$T>::delta(y2, y1);
+                        if dy < dx {
+                            octant!(Octant0, $T, (x1, y1), (x2, y2), (dx, dy));
+                        }
+                        octant!(Octant1, $T, (x1, y1), (x2, y2), (dx, dy));
+                    }
+                    let dy = Math::<$T>::delta(y1, y2);
+                    if dy < dx {
+                        octant!(Octant2, $T, (x1, y1), (x2, y2), (dx, dy));
+                    }
+                    octant!(Octant3, $T, (x1, y1), (x2, y2), (dx, dy));
+                }
+                let dx = Math::<$T>::delta(x1, x2);
+                if y1 < y2 {
+                    let dy = Math::<$T>::delta(y2, y1);
+                    if dy < dx {
+                        octant!(Octant4, $T, (x1, y1), (x2, y2), (dx, dy));
+                    }
+                    octant!(Octant5, $T, (x1, y1), (x2, y2), (dx, dy));
+                }
+                let dy = Math::<$T>::delta(y1, y2);
+                if dy < dx {
+                    octant!(Octant6, $T, (x1, y1), (x2, y2), (dx, dy));
+                }
+                octant!(Octant7, $T, (x1, y1), (x2, y2), (dx, dy));
             }
 
             /// Returns a [Bresenham] iterator over an arbitrary directed line segment
@@ -483,34 +438,63 @@ macro_rules! bresenham_impl {
             pub const fn clip(
                 (x1, y1): Point<$T>,
                 (x2, y2): Point<$T>,
-                clip: Clip<$T>
+                clip: Clip<$T>,
             ) -> Option<Self> {
-                octants!(
-                    $T,
-                    (x1, y1),
-                    (x2, y2),
-                    (dx, dy),
-                    map!(Horizontal::<$T>::clip(y1, x1, x2, clip), me => match me {
-                        Horizontal::Positive(me) => Self::SignedAxis0(me),
-                        Horizontal::Negative(me) => Self::SignedAxis1(me),
-                    }),
-                    map!(Vertical::<$T>::clip(x1, y1, y2, clip), me => match me {
-                        Vertical::Positive(me) => Self::SignedAxis2(me),
-                        Vertical::Negative(me) => Self::SignedAxis3(me),
-                    }),
-                    // map!(Quadrant0::<$T>::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant0),
-                    // map!(Quadrant1::<$T>::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant1),
-                    // map!(Quadrant2::<$T>::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant2),
-                    // map!(Quadrant3::<$T>::clip_inner((x1, y1), (x2, y2), clip), Self::Quadrant3),
-                    map!(Octant0::<$T>::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant0),
-                    map!(Octant1::<$T>::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant1),
-                    map!(Octant2::<$T>::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant2),
-                    map!(Octant3::<$T>::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant3),
-                    map!(Octant4::<$T>::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant4),
-                    map!(Octant5::<$T>::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant5),
-                    map!(Octant6::<$T>::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant6),
-                    map!(Octant7::<$T>::clip_inner((x1, y1), (x2, y2), (dx, dy), clip), Self::Octant7),
-                );
+                if y1 == y2 {
+                    use orthogonal::Horizontal;
+                    return map!(
+                        Horizontal::<$T>::clip(y1, x1, x2, clip),
+                        me => match me {
+                            Horizontal::Positive(me) => Self::SignedAxis0(me),
+                            Horizontal::Negative(me) => Self::SignedAxis1(me),
+                        }
+                    );
+                }
+                if x1 == x2 {
+                    use orthogonal::Vertical;
+                    return map!(
+                        Vertical::<$T>::clip(x1, y1, y2, clip),
+                        me => match me {
+                            Vertical::Positive(me) => Self::SignedAxis2(me),
+                            Vertical::Negative(me) => Self::SignedAxis3(me),
+                        }
+                    );
+                }
+                let Clip { wx1, wy1, wx2, wy2 } = clip;
+                if x1 < x2 {
+                    reject_if!(x2 < wx1 || wx2 <= x1);
+                    let dx = Math::<$T>::delta(x2, x1);
+                    if y1 < y2 {
+                        reject_if!(y2 < wy1 || wy2 <= y1);
+                        let dy = Math::<$T>::delta(y2, y1);
+                        if dy < dx {
+                            octant!(Octant0, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                        }
+                        octant!(Octant1, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                    }
+                    reject_if!(y1 < wy1 || wy2 <= y2);
+                    let dy = Math::<$T>::delta(y1, y2);
+                    if dy < dx {
+                        octant!(Octant2, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                    }
+                    octant!(Octant3, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                }
+                reject_if!(x1 < wx1 || wx2 <= x2);
+                let dx = Math::<$T>::delta(x1, x2);
+                if y1 < y2 {
+                    reject_if!(y2 < wy1 || wy2 <= y1);
+                    let dy = Math::<$T>::delta(y2, y1);
+                    if dy < dx {
+                        octant!(Octant4, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                    }
+                    octant!(Octant5, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                }
+                reject_if!(y1 < wy1 || wy2 <= y2);
+                let dy = Math::<$T>::delta(y1, y2);
+                if dy < dx {
+                    octant!(Octant6, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                }
+                octant!(Octant7, $T, (x1, y1), (x2, y2), (dx, dy), clip);
             }
 
             /// Returns `true` if the iterator has terminated.

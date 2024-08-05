@@ -1,6 +1,6 @@
 [package]
 name = "clipline"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Nurzhan Sakén <nurzhan.sakenov@gmail.com>"]
 edition = "2021"
 description = "Efficient rasterization of line segments with clipping."
@@ -35,5 +35,5 @@ line_drawing = "1.0.0"
 minifb = "0.27.0"
 
 [[bench]]
-name = "all"
+name = "comparison"
 harness = false

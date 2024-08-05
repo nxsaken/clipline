@@ -33,17 +33,6 @@ const UV_ENTRY_UV_EXIT: LineCode = (I, I, I, I);
 macro_rules! clip_impl {
     ($T:ty, $add:ident, $sub:ident) => {
         impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<FX, FY, SWAP, $T> {
-            #[inline(always)]
-            #[must_use]
-            const fn trivial_reject(
-                (x1, y1): Point<$T>,
-                (x2, y2): Point<$T>,
-                Clip { wx1, wy1, wx2, wy2 }: Clip<$T>,
-            ) -> bool {
-                fx!(x2 < wx1 || wx2 <= x1, x1 < wx1 || wx2 <= x2)
-                    || fy!(y2 < wy1 || wy2 <= y1, y1 < wy1 || wy2 <= y2)
-            }
-
             /// Checks if the line segment enters the clipping region through a vertical side.
             #[inline(always)]
             #[must_use]
@@ -225,10 +214,8 @@ macro_rules! clip_impl {
                 clip: Clip<$T>,
             ) -> (Point<$T>, <$T as Num>::I2) {
                 if tv1 < tu1 {
-                    // vertical entry
                     Self::c1_u(v1, du, tu1, error, clip)
                 } else {
-                    // horizontal entry
                     Self::c1_v(u1, (half_du, dv), tv1, error, clip)
                 }
             }
@@ -283,9 +270,6 @@ macro_rules! clip_impl {
                 (dx, dy): Delta<$T>,
                 clip: Clip<$T>,
             ) -> Option<Self> {
-                if Self::trivial_reject((x1, y1), (x2, y2), clip) {
-                    return None;
-                }
                 let (u1, v1) = xy!((x1, y1), (y1, x1));
                 let (u2, v2) = xy!((x2, y2), (y2, x2));
                 let (du, dv) = xy!((dx, dy), (dy, dx));

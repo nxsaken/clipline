@@ -36,17 +36,6 @@ macro_rules! clip_impl {
         impl<const FX: bool, const FY: bool> Quadrant<FX, FY, $T> {
             #[inline(always)]
             #[must_use]
-            const fn trivial_reject(
-                (x1, y1): Point<$T>,
-                (x2, y2): Point<$T>,
-                Clip { wx1, wy1, wx2, wy2 }: Clip<$T>,
-            ) -> bool {
-                fx!(x2 < wx1 || wx2 <= x1, x1 < wx1 || wx2 <= x2)
-                    || fy!(y2 < wy1 || wy2 <= y1, y1 < wy1 || wy2 <= y2)
-            }
-
-            #[inline(always)]
-            #[must_use]
             const fn enters_x(x1: $T, Clip { wx1, wx2, .. }: Clip<$T>) -> bool {
                 fx!(x1 < wx1, wx2 < x1)
             }
@@ -156,9 +145,6 @@ macro_rules! clip_impl {
                 (x2, y2): Point<$T>,
                 clip: Clip<$T>,
             ) -> Option<Self> {
-                if Self::trivial_reject((x1, y1), (x2, y2), clip) {
-                    return None;
-                }
                 let (c1, cx2) = match (
                     Self::enters_x(x1, clip),
                     Self::enters_y(y1, clip),

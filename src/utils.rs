@@ -18,4 +18,13 @@ macro_rules! map {
     };
 }
 
-pub(crate) use map;
+/// Short-circuits with [`None`] if the `condition` is true.
+macro_rules! reject_if {
+    ($condition:expr) => {
+        if $condition {
+            return None;
+        }
+    };
+}
+
+pub(crate) use {map, reject_if};
