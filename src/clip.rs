@@ -6,7 +6,7 @@
 use crate::math::Point;
 use crate::{Bresenham, Diagonal, Horizontal, Orthogonal, Vertical};
 
-/// A rectangular region defined by its minimum and maximum [corners](Point).
+/// A rectangular region defined by its minimum and maximum [corners](Point), both inclusive.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Default)]
 pub struct Clip<T> {
     pub(crate) wx1: T,

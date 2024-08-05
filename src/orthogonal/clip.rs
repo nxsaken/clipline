@@ -39,10 +39,10 @@ macro_rules! clip_impl {
             #[must_use]
             const fn cv2(v2: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> $T {
                 match (VERT, FLIP) {
-                    (false, false) if wx2 < v2 => wx2,
-                    (false, true) if v2 < wx1 => wx1,
-                    (true, false) if wy2 < v2 => wy2,
-                    (true, true) if v2 < wy1 => wy1,
+                    (false, false) if wx2 < v2 => wx2.wrapping_add(1),
+                    (false, true) if v2 < wx1 => wx1.wrapping_sub(1),
+                    (true, false) if wy2 < v2 => wy2.wrapping_add(1),
+                    (true, true) if v2 < wy1 => wx1.wrapping_sub(1),
                     _ => v2,
                 }
             }
