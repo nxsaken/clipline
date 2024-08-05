@@ -58,6 +58,7 @@ macro_rules! min_math_impl {
             /// Subtracts two signed integers, returning the unsigned difference.
             ///
             /// *`min` must be less or equal to `max`.*
+            #[inline(always)]
             pub const fn delta(max: $T, min: $T) -> <$T as Num>::U {
                 debug_assert!(min <= max);
                 #[allow(clippy::cast_sign_loss)]
@@ -73,21 +74,25 @@ macro_rules! math_impl {
 
         impl Math<$T> {
             /// Subtracts two unsigned integers, returning the wide signed difference.
+            #[inline(always)]
             pub const fn error(a: <$T as Num>::U, b: <$T as Num>::U) -> <$T as Num>::I2 {
                 <$T as Num>::I2::wrapping_sub(a as _, b as _)
             }
 
             /// Multiplies two narrow unsigned integers, widening the result.
+            #[inline(always)]
             pub const fn wide_mul(a: <$T as Num>::U, b: <$T as Num>::U) -> <$T as Num>::U2 {
                 <$T as Num>::U2::wrapping_mul(a as _, b as _)
             }
 
             /// Doubles a narrow unsigned integer, widening the result.
+            #[inline(always)]
             pub const fn double(a: <$T as Num>::U) -> <$T as Num>::U2 {
                 <$T as Num>::U2::wrapping_shl(a as _, 1)
             }
 
             /// Divides an unsigned integer by 2 with rounding.
+            #[inline(always)]
             pub const fn half(a: <$T as Num>::U) -> <$T as Num>::U {
                 let half = <$T as Num>::U2::wrapping_add(a as _, 1).wrapping_shr(1);
                 debug_assert!(half <= <$T as Num>::U::MAX as _);
@@ -101,6 +106,7 @@ macro_rules! math_impl {
             /// ### Safety
             /// The divisor must be non-zero,
             /// and the quotient must fit into the narrow type.
+            #[inline(always)]
             pub const unsafe fn div_rem(
                 a: <$T as Num>::U2,
                 b: <$T as Num>::U,
