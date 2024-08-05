@@ -1,23 +1,23 @@
 use clipline::{Clip, Point};
 use divan::black_box;
-use line_drawing::Bresenham as BresenhamB;
 use std::fmt::{Display, Formatter};
 
-const WX1: i32 = 1022;
-const WY1: i32 = 1024;
-const WX2: i32 = 4032;
-const WY2: i32 = 4096;
+type Num = i16;
 
-type Point32 = Point<i32>;
-type Line = (Point32, Point32);
+const WX1: Num = 1022;
+const WY1: Num = 1024;
+const WX2: Num = 4032;
+const WY2: Num = 4096;
 
-const W1: Point32 = (WX1, WY1);
-const W2: Point32 = (WX2, WY2);
+const W1: Point<Num> = (WX1, WY1);
+const W2: Point<Num> = (WX2, WY2);
 
-const CLIP: Clip<i32> = match Clip::<i32>::new(W1, W2) {
+const CLIP: Clip<Num> = match Clip::<Num>::new(W1, W2) {
     Some(clip) => clip,
     None => unreachable!(),
 };
+
+type Line = (Point<Num>, Point<Num>);
 
 #[derive(Copy, Clone)]
 struct Labeled(&'static str, Line);
@@ -35,16 +35,16 @@ const OUTSIDE_BELOW: Line = ((WX1, WY1 - 10), (WX2, WY1 - 1));
 const MISS_TOP_LEFT: Line = ((WX1 - 15, WY2 - 2), (WX1 + 2, WY2 + 20));
 const MISS_BOTTOM_RIGHT: Line = ((WX2 - 10, WY1 - 8), (WX2 + 15, WY1 + 2));
 
-const INSIDE_1: Point32 = (WX1, WY1);
-const INSIDE_2: Point32 = (WX2, WY2);
+const INSIDE_1: Point<Num> = (WX1, WY1);
+const INSIDE_2: Point<Num> = (WX2, WY2);
 
-const V_ENTRY: Point32 = (WX1 - 4, WY1);
-const U_ENTRY: Point32 = (WX1, WY1 - 4);
-const UV_ENTRY_1: Point32 = (WX1 - 9, WY1 - 3);
+const V_ENTRY: Point<Num> = (WX1 - 4, WY1);
+const U_ENTRY: Point<Num> = (WX1, WY1 - 4);
+const UV_ENTRY_1: Point<Num> = (WX1 - 9, WY1 - 3);
 
-const V_EXIT: Point32 = (WX2 + 5, WY2);
-const U_EXIT: Point32 = (WY2, WY2 + 5);
-const UV_EXIT_1: Point32 = (WX2 + 16, WY2 + 2);
+const V_EXIT: Point<Num> = (WX2 + 5, WY2);
+const U_EXIT: Point<Num> = (WY2, WY2 + 5);
+const UV_EXIT_1: Point<Num> = (WX2 + 16, WY2 + 2);
 
 const INSIDE_INSIDE: Line = (INSIDE_1, INSIDE_2);
 const INSIDE_V_EXIT: Line = (INSIDE_1, V_EXIT);
@@ -103,23 +103,9 @@ fn draw_pixel_unchecked<T: Copy + Ord>(p: Point<T>) {
     black_box(p);
 }
 
-fn line_drawing(line: Line) {
-    let (p1, p2) = line;
-    for p in BresenhamB::new(black_box(p1), black_box(p2)) {
-        draw_pixel_checked(p, (W1, W2))
-    }
-}
-
 #[divan::bench_group]
 mod rejects {
     use super::*;
-
-    #[divan::bench(args = REJECTS)]
-    fn line_drawing(Labeled(_, ((x1, y1), (x2, y2))): Labeled) {
-        let (p1, p2) = black_box(((x1, y1), (x2, y2)));
-        let clip = black_box((W1, W2));
-        line_drawing::Bresenham::new(p1, p2).for_each(|(x, y)| draw_pixel_checked((x, y), clip));
-    }
 
     #[divan::bench(args = REJECTS)]
     fn clipline_012(Labeled(_, ((x1, y1), (x2, y2))): Labeled) {
@@ -132,7 +118,7 @@ mod rejects {
     fn clipline_020(Labeled(_, ((x1, y1), (x2, y2))): Labeled) {
         let line = black_box(((x1, y1), (x2, y2)));
         let clip = black_box((W1, W2));
-        clipline_2::clipline::<i32, _>(line, clip, |x, y| draw_pixel_unchecked((x, y)));
+        clipline_2::clipline::<Num, _>(line, clip, |x, y| draw_pixel_unchecked((x, y)));
     }
 
     #[divan::bench(args = REJECTS)]
@@ -140,9 +126,24 @@ mod rejects {
         let p1 = black_box((x1, y1));
         let p2 = black_box((x2, y2));
         let clip = black_box(CLIP);
-        if let Some(line) = clipline::Bresenham::<i32>::clip(p1, p2, clip) {
+        if let Some(line) = clipline::Bresenham::<Num>::clip(p1, p2, &clip) {
             line.for_each(draw_pixel_unchecked)
         }
+    }
+
+    #[divan::bench(args = REJECTS)]
+    fn clipline_030_no_clip(Labeled(_, ((x1, y1), (x2, y2))): Labeled) {
+        let p1 = black_box((x1, y1));
+        let p2 = black_box((x2, y2));
+        let clip = black_box((W1, W2));
+        clipline::Bresenham::<Num>::new(p1, p2).for_each(|(x, y)| draw_pixel_checked((x, y), clip));
+    }
+
+    #[divan::bench(args = REJECTS)]
+    fn line_drawing(Labeled(_, ((x1, y1), (x2, y2))): Labeled) {
+        let (p1, p2) = (black_box((x1, y1)), black_box((x2, y2)));
+        let clip = black_box((W1, W2));
+        line_drawing::Bresenham::new(p1, p2).for_each(|(x, y)| draw_pixel_checked((x, y), clip));
     }
 }
 
@@ -151,24 +152,17 @@ mod accepts {
     use super::*;
 
     #[divan::bench(args = ACCEPTS)]
-    fn line_drawing(Labeled(_, ((x1, y1), (x2, y2))): Labeled) {
-        let (p1, p2) = black_box(((x1, y1), (x2, y2)));
-        let clip = black_box((W1, W2));
-        line_drawing::Bresenham::new(p1, p2).for_each(|(x, y)| draw_pixel_checked((x, y), clip));
-    }
-
-    #[divan::bench(args = ACCEPTS)]
     fn clipline_012(Labeled(_, ((x1, y1), (x2, y2))): Labeled) {
-        let line = black_box(((x1 as _, y1 as _), (x2 as _, y2 as _)));
-        let clip = black_box(((WX1 as _, WY1 as _), (WX2 as _, WY2 as _)));
+        let line = (black_box((x1 as _, y1 as _)), black_box((x2 as _, y2 as _)));
+        let clip = (black_box((WX1 as _, WY1 as _)), black_box((WX2 as _, WY2 as _)));
         clipline_1::clipline(line, clip, |x, y| draw_pixel_unchecked((x, y)));
     }
 
     #[divan::bench(args = ACCEPTS)]
     fn clipline_020(Labeled(_, ((x1, y1), (x2, y2))): Labeled) {
-        let line = black_box(((x1, y1), (x2, y2)));
+        let line = (black_box((x1, y1)), black_box((x2, y2)));
         let clip = black_box((W1, W2));
-        clipline_2::clipline::<i32, _>(line, clip, |x, y| draw_pixel_unchecked((x, y)));
+        clipline_2::clipline::<Num, _>(line, clip, |x, y| draw_pixel_unchecked((x, y)));
     }
 
     #[divan::bench(args = ACCEPTS)]
@@ -176,9 +170,24 @@ mod accepts {
         let p1 = black_box((x1, y1));
         let p2 = black_box((x2, y2));
         let clip = black_box(CLIP);
-        if let Some(line) = clipline::Bresenham::<i32>::clip(p1, p2, clip) {
+        if let Some(line) = clipline::Bresenham::<Num>::clip(p1, p2, &clip) {
             line.for_each(draw_pixel_unchecked)
         }
+    }
+
+    #[divan::bench(args = ACCEPTS)]
+    fn clipline_030_no_clip(Labeled(_, ((x1, y1), (x2, y2))): Labeled) {
+        let p1 = black_box((x1, y1));
+        let p2 = black_box((x2, y2));
+        let clip = black_box((W1, W2));
+        clipline::Bresenham::<Num>::new(p1, p2).for_each(|(x, y)| draw_pixel_checked((x, y), clip));
+    }
+
+    #[divan::bench(args = ACCEPTS)]
+    fn line_drawing(Labeled(_, ((x1, y1), (x2, y2))): Labeled) {
+        let (p1, p2) = (black_box((x1, y1)), black_box((x2, y2)));
+        let clip = black_box((W1, W2));
+        line_drawing::Bresenham::new(p1, p2).for_each(|(x, y)| draw_pixel_checked((x, y), clip));
     }
 }
 
