@@ -36,28 +36,28 @@ macro_rules! clip_impl {
             /// Checks if the line segment enters the clipping region through a vertical side.
             #[inline(always)]
             #[must_use]
-            const fn enters_u(u1: $T, Clip { wx1, wy1, wx2, wy2 }: Clip<$T>) -> bool {
+            const fn enters_u(u1: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> bool {
                 xy!(fx!(u1 < wx1, wx2 < u1), fy!(u1 < wy1, wy2 < u1))
             }
 
             /// Checks if the line segment enters the clipping region through a horizontal side.
             #[inline(always)]
             #[must_use]
-            const fn enters_v(v1: $T, Clip { wx1, wy1, wx2, wy2 }: Clip<$T>) -> bool {
+            const fn enters_v(v1: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> bool {
                 xy!(fy!(v1 < wy1, wy2 < v1), fx!(v1 < wx1, wx2 < v1))
             }
 
             /// Checks if the line segment exits the clipping region through a vertical side.
             #[inline(always)]
             #[must_use]
-            const fn exits_u(u2: $T, Clip { wx1, wy1, wx2, wy2 }: Clip<$T>) -> bool {
+            const fn exits_u(u2: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> bool {
                 xy!(fx!(wx2 < u2, u2 < wx1), fy!(wy2 < u2, u2 < wy1))
             }
 
             /// Checks if the line segment exits the clipping region through a horizontal side.
             #[inline(always)]
             #[must_use]
-            const fn exits_v(v2: $T, Clip { wx1, wy1, wx2, wy2 }: Clip<$T>) -> bool {
+            const fn exits_v(v2: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> bool {
                 xy!(fy!(wy2 < v2, v2 < wy1), fx!(wx2 < v2, v2 < wx1))
             }
 
@@ -67,7 +67,7 @@ macro_rules! clip_impl {
             const fn tu1(
                 u1: $T,
                 dv: <$T as Num>::U,
-                Clip { wx1, wy1, wx2, wy2 }: Clip<$T>,
+                &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
                 let Du1 = xy!(
                     fx!(Math::<$T>::delta(wx1, u1), Math::<$T>::delta(u1, wx2)),
@@ -82,7 +82,7 @@ macro_rules! clip_impl {
             const fn tu2(
                 u1: $T,
                 dv: <$T as Num>::U,
-                Clip { wx1, wy1, wx2, wy2 }: Clip<$T>,
+                &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
                 let Du2 = xy!(
                     fx!(Math::<$T>::delta(wx2, u1), Math::<$T>::delta(u1, wx1)),
@@ -98,7 +98,7 @@ macro_rules! clip_impl {
                 v1: $T,
                 du: <$T as Num>::U,
                 half_du: <$T as Num>::U,
-                Clip { wx1, wy1, wx2, wy2 }: Clip<$T>,
+                &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
                 let Dv1 = xy!(
                     fy!(Math::<$T>::delta(wy1, v1), Math::<$T>::delta(v1, wy2)),
@@ -113,7 +113,7 @@ macro_rules! clip_impl {
             const fn tv2_naive(
                 v1: $T,
                 du: <$T as Num>::U,
-                Clip { wx1, wy1, wx2, wy2 }: Clip<$T>,
+                &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
                 let Dv2 = xy!(
                     fy!(Math::<$T>::delta(wy2, v1), Math::<$T>::delta(v1, wy1)),
@@ -181,7 +181,7 @@ macro_rules! clip_impl {
                 du: <$T as Num>::U,
                 tu1: <$T as Num>::U2,
                 error: <$T as Num>::I2,
-                Clip { wx1, wy1, wx2, wy2 }: Clip<$T>,
+                &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> (Point<$T>, <$T as Num>::I2) {
                 let cu1 = xy!(fx!(wx1, wx2), fy!(wy1, wy2));
                 let (cv1, error) = Self::cv1_u(v1, du, tu1, error);
@@ -196,7 +196,7 @@ macro_rules! clip_impl {
                 (half_du, dv): Delta<$T>,
                 tv1: <$T as Num>::U2,
                 error: <$T as Num>::I2,
-                Clip { wx1, wy1, wx2, wy2 }: Clip<$T>,
+                &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> (Point<$T>, <$T as Num>::I2) {
                 let (cu1, error) = Self::cu1_v(u1, (half_du, dv), tv1, error);
                 let cv1 = xy!(fy!(wy1, wy2), fx!(wx1, wx2));
@@ -211,7 +211,7 @@ macro_rules! clip_impl {
                 half_du: <$T as Num>::U,
                 (tu1, tv1): Delta2<$T>,
                 error: <$T as Num>::I2,
-                clip: Clip<$T>,
+                clip: &Clip<$T>,
             ) -> (Point<$T>, <$T as Num>::I2) {
                 if tv1 < tu1 {
                     Self::c1_u(v1, du, tu1, error, clip)
@@ -222,7 +222,7 @@ macro_rules! clip_impl {
 
             #[inline(always)]
             #[must_use]
-            const fn cu2_u(Clip { wx1, wy1, wx2, wy2 }: Clip<$T>) -> $T {
+            const fn cu2_u(&Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> $T {
                 // it is overflow-safe to add/sub 1 because of the exit condition
                 xy!(
                     fx!(wx2.wrapping_add(1), wx1.wrapping_sub(1)),
@@ -251,7 +251,7 @@ macro_rules! clip_impl {
                 u1: $T,
                 (half_du, dv): Delta<$T>,
                 (tu2, tv2_naive): Delta2<$T>,
-                clip: Clip<$T>,
+                clip: &Clip<$T>,
             ) -> $T {
                 let tv2 = Self::tv2(tv2_naive, half_du);
                 if tu2 < tv2 {
@@ -268,7 +268,7 @@ macro_rules! clip_impl {
                 (x1, y1): Point<$T>,
                 (x2, y2): Point<$T>,
                 (dx, dy): Delta<$T>,
-                clip: Clip<$T>,
+                clip: &Clip<$T>,
             ) -> Option<Self> {
                 let (u1, v1) = xy!((x1, y1), (y1, x1));
                 let (u2, v2) = xy!((x2, y2), (y2, x2));

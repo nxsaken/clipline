@@ -106,7 +106,7 @@ macro_rules! signed_axis_impl {
             /// **Note**: `(u, v2)`/`(v2, u)` is not included.
             #[inline]
             #[must_use]
-            pub const fn clip(u: $T, v1: $T, v2: $T, clip: Clip<$T>) -> Option<Self> {
+            pub const fn clip(u: $T, v1: $T, v2: $T, clip: &Clip<$T>) -> Option<Self> {
                 if f!(v2 <= v1, v1 <= v2) {
                     return None;
                 }
@@ -297,7 +297,7 @@ macro_rules! axis_impl {
             /// **Note**: `(u, v2)`/`(v2, u)` is not included.
             #[inline]
             #[must_use]
-            pub const fn clip(u: $T, v1: $T, v2: $T, clip: Clip<$T>) -> Option<Self> {
+            pub const fn clip(u: $T, v1: $T, v2: $T, clip: &Clip<$T>) -> Option<Self> {
                 if v1 <= v2 {
                     map!(
                         PositiveAxisAligned::<VERT, $T>::clip_inner(u, v1, v2, clip),
@@ -500,7 +500,7 @@ macro_rules! orthogonal_impl {
             /// **Note**: `(x2, y2)` is not included.
             #[inline]
             #[must_use]
-            pub const fn clip((x1, y1): Point<$T>, (x2, y2): Point<$T>, clip: Clip<$T>) -> Option<Self> {
+            pub const fn clip((x1, y1): Point<$T>, (x2, y2): Point<$T>, clip: &Clip<$T>) -> Option<Self> {
                 if y1 == y2 {
                     return map!(
                         Horizontal::<$T>::clip(y1, x1, x2, clip),

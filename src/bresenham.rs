@@ -127,6 +127,25 @@ macro_rules! octant_impl {
                 Self { x: x1, y: y1, error, dx, dy, end }
             }
 
+            #[inline(always)]
+            #[must_use]
+            const fn covers((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Delta<$T>> {
+                let (u1, u2) = fx!((x1, x2), (x2, x1));
+                let dx = if u1 < u2 {
+                    Math::<$T>::delta(u2, u1)
+                } else {
+                    return None;
+                };
+                let (v1, v2) = fy!((y1, y2), (y2, y1));
+                let dy = if v1 < v2 {
+                    Math::<$T>::delta(v2, v1)
+                } else {
+                    return None;
+                };
+                reject_if!(xy!(dx < dy, dy <= dx));
+                Some((dx, dy))
+            }
+
             /// Returns an iterator over a directed line segment
             /// if it is covered by the given [octant](Octant),
             /// otherwise returns [`None`].
@@ -135,20 +154,10 @@ macro_rules! octant_impl {
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Self> {
-                let (u1, u2) = fx!((x1, x2), (x2, x1));
-                let dx = if u1 < u2 {
-                    Math::<$T>::delta(u2, u1)
-                } else {
+                let Some(delta) = Self::covers((x1, y1), (x2, y2)) else {
                     return None;
                 };
-                let (v1, v2) = fx!((y1, y2), (y2, y1));
-                let dy = if v1 < v2 {
-                    Math::<$T>::delta(v2, v1)
-                } else {
-                    return None;
-                };
-                reject_if!(xy!(dx < dy, dy <= dx));
-                Some(Self::new_inner((x1, y1), (x2, y2), (dx, dy)))
+                Some(Self::new_inner((x1, y1), (x2, y2), delta))
             }
 
             /// Returns an iterator over a directed line segment,
@@ -164,25 +173,17 @@ macro_rules! octant_impl {
             pub const fn clip(
                 (x1, y1): Point<$T>,
                 (x2, y2): Point<$T>,
-                clip: Clip<$T>,
+                clip: &Clip<$T>,
             ) -> Option<Self> {
-                let Clip { wx1, wy1, wx2, wy2 } = clip;
+                let &Clip { wx1, wy1, wx2, wy2 } = clip;
                 let (u1, u2) = fx!((x1, x2), (x2, x1));
                 reject_if!(u2 < wx1 || wx2 <= u1);
-                let dx = if u1 < u2 {
-                    Math::<$T>::delta(u2, u1)
-                } else {
-                    return None;
-                };
-                let (v1, v2) = fx!((y1, y2), (y2, y1));
+                let (v1, v2) = fy!((y1, y2), (y2, y1));
                 reject_if!(v2 < wy1 || wy2 <= v1);
-                let dy = if v1 < v2 {
-                    Math::<$T>::delta(v2, v1)
-                } else {
+                let Some(delta) = Self::covers((x1, y1), (x2, y2)) else {
                     return None;
                 };
-                reject_if!(xy!(dx < dy, dy <= dx));
-                Self::clip_inner((x1, y1), (x2, y2), (dx, dy), clip)
+                Self::clip_inner((x1, y1), (x2, y2), delta, clip)
             }
 
             /// Returns `true` if the iterator has terminated.
@@ -368,10 +369,10 @@ macro_rules! delegate {
 
 macro_rules! octant {
     ($Octant:ident, $T:ty, $p1:expr, $p2:expr, $delta:expr) => {
-        return Self::$Octant($Octant::<$T>::new_inner($p1, $p2, $delta));
+        Self::$Octant($Octant::<$T>::new_inner($p1, $p2, $delta))
     };
     ($Octant:ident, $T:ty, $p1:expr, $p2:expr, $delta:expr, $clip:expr) => {
-        return map!($Octant::<$T>::clip_inner($p1, $p2, $delta, $clip), Self::$Octant);
+        map!($Octant::<$T>::clip_inner($p1, $p2, $delta, $clip), Self::$Octant)
     };
 }
 
@@ -384,6 +385,7 @@ macro_rules! bresenham_impl {
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Self {
+                use diagonal::{Quadrant0, Quadrant1, Quadrant2, Quadrant3};
                 if y1 == y2 {
                     use orthogonal::Horizontal;
                     return match Horizontal::<$T>::new(y1, x1, x2) {
@@ -403,29 +405,41 @@ macro_rules! bresenham_impl {
                     if y1 < y2 {
                         let dy = Math::<$T>::delta(y2, y1);
                         if dy < dx {
-                            octant!(Octant0, $T, (x1, y1), (x2, y2), (dx, dy));
+                             return octant!(Octant0, $T, (x1, y1), (x2, y2), (dx, dy));
                         }
-                        octant!(Octant1, $T, (x1, y1), (x2, y2), (dx, dy));
+                        if dx < dy {
+                             return octant!(Octant1, $T, (x1, y1), (x2, y2), (dx, dy));
+                        }
+                        return diagonal::quadrant!(Quadrant0, $T, (x1, y1), x2);
                     }
                     let dy = Math::<$T>::delta(y1, y2);
                     if dy < dx {
-                        octant!(Octant2, $T, (x1, y1), (x2, y2), (dx, dy));
+                        return octant!(Octant2, $T, (x1, y1), (x2, y2), (dx, dy));
                     }
-                    octant!(Octant3, $T, (x1, y1), (x2, y2), (dx, dy));
+                    if dx < dy {
+                        return octant!(Octant3, $T, (x1, y1), (x2, y2), (dx, dy));
+                    }
+                    return diagonal::quadrant!(Quadrant1, $T, (x1, y1), x2);
                 }
                 let dx = Math::<$T>::delta(x1, x2);
                 if y1 < y2 {
                     let dy = Math::<$T>::delta(y2, y1);
                     if dy < dx {
-                        octant!(Octant4, $T, (x1, y1), (x2, y2), (dx, dy));
+                        return octant!(Octant4, $T, (x1, y1), (x2, y2), (dx, dy));
                     }
-                    octant!(Octant5, $T, (x1, y1), (x2, y2), (dx, dy));
+                    if dx < dy {
+                        return octant!(Octant5, $T, (x1, y1), (x2, y2), (dx, dy));
+                    }
+                    return diagonal::quadrant!(Quadrant2, $T, (x1, y1), x2);
                 }
                 let dy = Math::<$T>::delta(y1, y2);
                 if dy < dx {
-                    octant!(Octant6, $T, (x1, y1), (x2, y2), (dx, dy));
+                    return octant!(Octant6, $T, (x1, y1), (x2, y2), (dx, dy));
                 }
-                octant!(Octant7, $T, (x1, y1), (x2, y2), (dx, dy));
+                if dx < dy {
+                    return octant!(Octant7, $T, (x1, y1), (x2, y2), (dx, dy));
+                }
+                return diagonal::quadrant!(Quadrant3, $T, (x1, y1), x2);
             }
 
             /// Returns a [Bresenham] iterator over an arbitrary directed line segment
@@ -438,8 +452,9 @@ macro_rules! bresenham_impl {
             pub const fn clip(
                 (x1, y1): Point<$T>,
                 (x2, y2): Point<$T>,
-                clip: Clip<$T>,
+                clip: &Clip<$T>,
             ) -> Option<Self> {
+                use diagonal::{Quadrant0, Quadrant1, Quadrant2, Quadrant3};
                 if y1 == y2 {
                     use orthogonal::Horizontal;
                     return map!(
@@ -460,7 +475,7 @@ macro_rules! bresenham_impl {
                         }
                     );
                 }
-                let Clip { wx1, wy1, wx2, wy2 } = clip;
+                let &Clip { wx1, wy1, wx2, wy2 } = clip;
                 if x1 < x2 {
                     reject_if!(x2 < wx1 || wx2 <= x1);
                     let dx = Math::<$T>::delta(x2, x1);
@@ -468,16 +483,22 @@ macro_rules! bresenham_impl {
                         reject_if!(y2 < wy1 || wy2 <= y1);
                         let dy = Math::<$T>::delta(y2, y1);
                         if dy < dx {
-                            octant!(Octant0, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                            return octant!(Octant0, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                         }
-                        octant!(Octant1, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                        if dx < dy {
+                            return octant!(Octant1, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                        }
+                        return diagonal::quadrant!(Quadrant0, $T, (x1, y1), (x2, y2), clip);
                     }
                     reject_if!(y1 < wy1 || wy2 <= y2);
                     let dy = Math::<$T>::delta(y1, y2);
                     if dy < dx {
-                        octant!(Octant2, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                        return octant!(Octant2, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                     }
-                    octant!(Octant3, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                    if dx < dy {
+                        return octant!(Octant3, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                    }
+                    return diagonal::quadrant!(Quadrant1, $T, (x1, y1), (x2, y2), clip);
                 }
                 reject_if!(x1 < wx1 || wx2 <= x2);
                 let dx = Math::<$T>::delta(x1, x2);
@@ -485,16 +506,22 @@ macro_rules! bresenham_impl {
                     reject_if!(y2 < wy1 || wy2 <= y1);
                     let dy = Math::<$T>::delta(y2, y1);
                     if dy < dx {
-                        octant!(Octant4, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                        return octant!(Octant4, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                     }
-                    octant!(Octant5, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                    if dx < dy {
+                        return octant!(Octant5, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                    }
+                    return diagonal::quadrant!(Quadrant2, $T, (x1, y1), (x2, y2), clip);
                 }
                 reject_if!(y1 < wy1 || wy2 <= y2);
                 let dy = Math::<$T>::delta(y1, y2);
                 if dy < dx {
-                    octant!(Octant6, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                    return octant!(Octant6, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                 }
-                octant!(Octant7, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                if dx < dy {
+                    return octant!(Octant7, $T, (x1, y1), (x2, y2), (dx, dy), clip);
+                }
+                return diagonal::quadrant!(Quadrant3, $T, (x1, y1), (x2, y2), clip);
             }
 
             /// Returns `true` if the iterator has terminated.

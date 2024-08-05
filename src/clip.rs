@@ -41,7 +41,7 @@ macro_rules! clip_impl {
             /// Returns [`None`] if the line segment does not intersect this clipping region.
             #[inline]
             #[must_use]
-            pub const fn horizontal(self, y: $T, x1: $T, x2: $T) -> Option<Horizontal<$T>> {
+            pub const fn horizontal(&self, y: $T, x1: $T, x2: $T) -> Option<Horizontal<$T>> {
                 Horizontal::<$T>::clip(y, x1, x2, self)
             }
 
@@ -51,7 +51,7 @@ macro_rules! clip_impl {
             /// Returns [`None`] if the line segment does not intersect this clipping region.
             #[inline]
             #[must_use]
-            pub const fn vertical(self, x: $T, y1: $T, y2: $T) -> Option<Vertical<$T>> {
+            pub const fn vertical(&self, x: $T, y1: $T, y2: $T) -> Option<Vertical<$T>> {
                 Vertical::<$T>::clip(x, y1, y2, self)
             }
 
@@ -62,7 +62,7 @@ macro_rules! clip_impl {
             /// or if it does not intersect this clipping region.
             #[inline]
             #[must_use]
-            pub const fn orthogonal(self, p1: Point<$T>, p2: Point<$T>) -> Option<Orthogonal<$T>> {
+            pub const fn orthogonal(&self, p1: Point<$T>, p2: Point<$T>) -> Option<Orthogonal<$T>> {
                 Orthogonal::<$T>::clip(p1, p2, self)
             }
 
@@ -73,7 +73,7 @@ macro_rules! clip_impl {
             /// or if it does not intersect this clipping region.
             #[inline]
             #[must_use]
-            pub const fn diagonal(self, p1: Point<$T>, p2: Point<$T>) -> Option<Diagonal<$T>> {
+            pub const fn diagonal(&self, p1: Point<$T>, p2: Point<$T>) -> Option<Diagonal<$T>> {
                 Diagonal::<$T>::clip(p1, p2, self)
             }
 
@@ -83,7 +83,7 @@ macro_rules! clip_impl {
             /// Returns [`None`] if the line segment does not intersect this clipping region.
             #[inline]
             #[must_use]
-            pub const fn bresenham(self, p1: Point<$T>, p2: Point<$T>) -> Option<Bresenham<$T>> {
+            pub const fn bresenham(&self, p1: Point<$T>, p2: Point<$T>) -> Option<Bresenham<$T>> {
                 Bresenham::<$T>::clip(p1, p2, self)
             }
         }

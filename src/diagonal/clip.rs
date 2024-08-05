@@ -36,49 +36,49 @@ macro_rules! clip_impl {
         impl<const FX: bool, const FY: bool> Quadrant<FX, FY, $T> {
             #[inline(always)]
             #[must_use]
-            const fn enters_x(x1: $T, Clip { wx1, wx2, .. }: Clip<$T>) -> bool {
+            const fn enters_x(x1: $T, &Clip { wx1, wx2, .. }: &Clip<$T>) -> bool {
                 fx!(x1 < wx1, wx2 < x1)
             }
 
             #[inline(always)]
             #[must_use]
-            const fn enters_y(y1: $T, Clip { wy1, wy2, .. }: Clip<$T>) -> bool {
+            const fn enters_y(y1: $T, &Clip { wy1, wy2, .. }: &Clip<$T>) -> bool {
                 fy!(y1 < wy1, wy2 < y1)
             }
 
             #[inline(always)]
             #[must_use]
-            const fn exits_x(x2: $T, Clip { wx1, wx2, .. }: Clip<$T>) -> bool {
+            const fn exits_x(x2: $T, &Clip { wx1, wx2, .. }: &Clip<$T>) -> bool {
                 fx!(wx2 < x2, x2 < wx1)
             }
 
             #[inline(always)]
             #[must_use]
-            const fn exits_y(y2: $T, Clip { wy1, wy2, .. }: Clip<$T>) -> bool {
+            const fn exits_y(y2: $T, &Clip { wy1, wy2, .. }: &Clip<$T>) -> bool {
                 fy!(wy2 < y2, y2 < wy1)
             }
 
             #[inline(always)]
             #[must_use]
-            const fn Dx1(x1: $T, Clip { wx1, wx2, .. }: Clip<$T>) -> <$T as Num>::U {
+            const fn Dx1(x1: $T, &Clip { wx1, wx2, .. }: &Clip<$T>) -> <$T as Num>::U {
                 fx!(Math::<$T>::delta(wx1, x1), Math::<$T>::delta(x1, wx2))
             }
 
             #[inline(always)]
             #[must_use]
-            const fn Dx2(x1: $T, Clip { wx1, wx2, .. }: Clip<$T>) -> <$T as Num>::U {
+            const fn Dx2(x1: $T, &Clip { wx1, wx2, .. }: &Clip<$T>) -> <$T as Num>::U {
                 fx!(Math::<$T>::delta(wx2, x1), Math::<$T>::delta(x1, wx1))
             }
 
             #[inline(always)]
             #[must_use]
-            const fn Dy1(y1: $T, Clip { wy1, wy2, .. }: Clip<$T>) -> <$T as Num>::U {
+            const fn Dy1(y1: $T, &Clip { wy1, wy2, .. }: &Clip<$T>) -> <$T as Num>::U {
                 fy!(Math::<$T>::delta(wy1, y1), Math::<$T>::delta(y1, wy2))
             }
 
             #[inline(always)]
             #[must_use]
-            const fn Dy2(y1: $T, Clip { wy1, wy2, .. }: Clip<$T>) -> <$T as Num>::U {
+            const fn Dy2(y1: $T, &Clip { wy1, wy2, .. }: &Clip<$T>) -> <$T as Num>::U {
                 fy!(Math::<$T>::delta(wy2, y1), Math::<$T>::delta(y1, wy1))
             }
 
@@ -87,7 +87,7 @@ macro_rules! clip_impl {
             const fn c1_x(
                 y1: $T,
                 Dx1: <$T as Num>::U,
-                Clip { wx1, wx2, .. }: Clip<$T>,
+                &Clip { wx1, wx2, .. }: &Clip<$T>,
             ) -> Point<$T> {
                 let cx1 = fx!(wx1, wx2);
                 let cy1 = fy!(y1.$add(Dx1), y1.$sub(Dx1));
@@ -99,7 +99,7 @@ macro_rules! clip_impl {
             const fn c1_y(
                 x1: $T,
                 Dy1: <$T as Num>::U,
-                Clip { wy1, wy2, .. }: Clip<$T>,
+                &Clip { wy1, wy2, .. }: &Clip<$T>,
             ) -> Point<$T> {
                 let cy1 = fy!(wy1, wy2);
                 let cx1 = fx!(x1.$add(Dy1), x1.$sub(Dy1));
@@ -108,7 +108,7 @@ macro_rules! clip_impl {
 
             #[inline(always)]
             #[must_use]
-            const fn c1((x1, y1): Point<$T>, (Dx1, Dy1): Delta<$T>, clip: Clip<$T>) -> Point<$T> {
+            const fn c1((x1, y1): Point<$T>, (Dx1, Dy1): Delta<$T>, clip: &Clip<$T>) -> Point<$T> {
                 if Dy1 < Dx1 {
                     Self::c1_x(y1, Dx1, clip)
                 } else {
@@ -118,7 +118,7 @@ macro_rules! clip_impl {
 
             #[inline(always)]
             #[must_use]
-            const fn cx2_x(Clip { wx1, wx2, .. }: Clip<$T>) -> $T {
+            const fn cx2_x(&Clip { wx1, wx2, .. }: &Clip<$T>) -> $T {
                 fx!(wx2.wrapping_add(1), wx1.wrapping_sub(1))
             }
 
@@ -130,7 +130,7 @@ macro_rules! clip_impl {
 
             #[inline(always)]
             #[must_use]
-            const fn cx2(x1: $T, (Dx2, Dy2): Delta<$T>, clip: Clip<$T>) -> $T {
+            const fn cx2(x1: $T, (Dx2, Dy2): Delta<$T>, clip: &Clip<$T>) -> $T {
                 if Dx2 < Dy2 {
                     Self::cx2_x(clip)
                 } else {
@@ -143,7 +143,7 @@ macro_rules! clip_impl {
             pub(crate) const fn clip_inner(
                 (x1, y1): Point<$T>,
                 (x2, y2): Point<$T>,
-                clip: Clip<$T>,
+                clip: &Clip<$T>,
             ) -> Option<Self> {
                 let (c1, cx2) = match (
                     Self::enters_x(x1, clip),

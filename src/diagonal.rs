@@ -51,6 +51,24 @@ macro_rules! quadrant_impl {
                 Self { x1, y1, x2 }
             }
 
+            #[inline(always)]
+            #[must_use]
+            const fn covers((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> bool {
+                let (u1, u2) = fx!((x1, x2), (x2, x1));
+                let dx = if u1 < u2 {
+                    Math::<$T>::delta(u2, u1)
+                } else {
+                    return false;
+                };
+                let (v1, v2) = fy!((y1, y2), (y2, y1));
+                let dy = if v1 < v2 {
+                    Math::<$T>::delta(v2, v1)
+                } else {
+                    return false;
+                };
+                dx == dy
+            }
+
             /// Returns an iterator over a directed line segment
             /// if it is diagonal and covered by the given [quadrant](Quadrant).
             ///
@@ -61,19 +79,9 @@ macro_rules! quadrant_impl {
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Self> {
-                let (u1, u2) = fx!((x1, x2), (x2, x1));
-                let dx = if u1 < u2 {
-                    Math::<$T>::delta(u2, u1)
-                } else {
+                if !Self::covers((x1, y1), (x2, y2)) {
                     return None;
                 };
-                let (v1, v2) = fx!((y1, y2), (y2, y1));
-                let dy = if v1 < v2 {
-                    Math::<$T>::delta(v2, v1)
-                } else {
-                    return None;
-                };
-                reject_if!(dx != dy);
                 Some(Self::new_inner((x1, y1), x2))
             }
 
@@ -89,24 +97,16 @@ macro_rules! quadrant_impl {
             pub const fn clip(
                 (x1, y1): Point<$T>,
                 (x2, y2): Point<$T>,
-                clip: Clip<$T>,
+                clip: &Clip<$T>,
             ) -> Option<Self> {
-                let Clip { wx1, wy1, wx2, wy2 } = clip;
+                let &Clip { wx1, wy1, wx2, wy2 } = clip;
                 let (u1, u2) = fx!((x1, x2), (x2, x1));
                 reject_if!(u2 < wx1 || wx2 <= u1);
-                let dx = if u1 < u2 {
-                    Math::<$T>::delta(u2, u1)
-                } else {
-                    return None;
-                };
                 let (v1, v2) = fx!((y1, y2), (y2, y1));
                 reject_if!(v2 < wy1 || wy2 <= v1);
-                let dy = if v1 < v2 {
-                    Math::<$T>::delta(v2, v1)
-                } else {
+                if !Self::covers((x1, y1), (x2, y2)) {
                     return None;
                 };
-                reject_if!(dx != dy);
                 Self::clip_inner((x1, y1), (x2, y2), clip)
             }
 
@@ -229,12 +229,14 @@ macro_rules! delegate {
 
 macro_rules! quadrant {
     ($Quadrant:ident, $T:ty, $p1:expr, $x2:expr) => {
-        Some(Self::$Quadrant($Quadrant::<$T>::new_inner($p1, $x2)))
+        Self::$Quadrant($Quadrant::<$T>::new_inner($p1, $x2))
     };
     ($Quadrant:ident, $T:ty, $p1:expr, $p2:expr, $clip:expr) => {
         map!($Quadrant::<$T>::clip_inner($p1, $p2, $clip), Self::$Quadrant)
     };
 }
+
+pub(crate) use quadrant;
 
 macro_rules! diagonal_impl {
     ($T:ty) => {
@@ -251,21 +253,21 @@ macro_rules! diagonal_impl {
                     if y1 < y2 {
                         let dy = Math::<$T>::delta(y2, y1);
                         reject_if!(dx != dy);
-                        return quadrant!(Quadrant0, $T, (x1, y1), x2);
+                        return Some(quadrant!(Quadrant0, $T, (x1, y1), x2));
                     }
                     let dy = Math::<$T>::delta(y1, y2);
                     reject_if!(dx != dy);
-                    return quadrant!(Quadrant1, $T, (x1, y1), x2);
+                    return Some(quadrant!(Quadrant1, $T, (x1, y1), x2));
                 }
                 let dx = Math::<$T>::delta(x1, x2);
                 if y1 < y2 {
                     let dy = Math::<$T>::delta(y2, y1);
                     reject_if!(dx != dy);
-                    return quadrant!(Quadrant2, $T, (x1, y1), x2);
+                    return Some(quadrant!(Quadrant2, $T, (x1, y1), x2));
                 }
                 let dy = Math::<$T>::delta(y1, y2);
                 reject_if!(dx != dy);
-                return quadrant!(Quadrant3, $T, (x1, y1), x2);
+                return Some(quadrant!(Quadrant3, $T, (x1, y1), x2));
             }
 
             /// Returns an iterator over a directed line segment,
@@ -280,9 +282,9 @@ macro_rules! diagonal_impl {
             pub const fn clip(
                 (x1, y1): Point<$T>,
                 (x2, y2): Point<$T>,
-                clip: Clip<$T>
+                clip: &Clip<$T>
             ) -> Option<Self> {
-                let Clip { wx1, wy1, wx2, wy2 } = clip;
+                let &Clip { wx1, wy1, wx2, wy2 } = clip;
                 if x1 < x2 {
                     reject_if!(x2 < wx1 || wx2 <= x1);
                     let dx = Math::<$T>::delta(x2, x1);

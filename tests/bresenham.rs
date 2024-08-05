@@ -106,7 +106,7 @@ mod clip {
                 ((2, 14), (30, 30), None),
             ] {
                 let line_raw = BresenhamOctant0::<i8>::new(start, end).unwrap();
-                let line_clip = BresenhamOctant0::<i8>::clip(start, end, clip);
+                let line_clip = BresenhamOctant0::<i8>::clip(start, end, &clip);
                 if let Some((clip_start, clip_end)) = clipped {
                     let skip_len = i8::abs_diff(clip_start.0, start.0) as usize;
                     let line_raw = line_raw.skip(skip_len);
