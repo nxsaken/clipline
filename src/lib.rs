@@ -40,17 +40,34 @@ mod utils;
 pub use clip::Clip;
 pub use math::Point;
 
-pub use bresenham::{
-    Bresenham, Octant as BresenhamOctant, Octant0 as BresenhamOctant0, Octant1 as BresenhamOctant1,
-    Octant2 as BresenhamOctant2, Octant3 as BresenhamOctant3, Octant4 as BresenhamOctant4,
-    Octant5 as BresenhamOctant5, Octant6 as BresenhamOctant6, Octant7 as BresenhamOctant7,
-};
-pub use diagonal::{
-    Diagonal, Quadrant as DiagonalQuadrant, Quadrant0 as DiagonalQuadrant0,
-    Quadrant1 as DiagonalQuadrant1, Quadrant2 as DiagonalQuadrant2, Quadrant3 as DiagonalQuadrant3,
-};
-pub use orthogonal::{
-    AxisAligned, Horizontal, NegativeAxisAligned, NegativeHorizontal, NegativeVertical, Orthogonal,
-    PositiveAxisAligned, PositiveHorizontal, PositiveVertical, SignedAxisAligned, SignedHorizontal,
-    SignedVertical, Vertical,
-};
+pub use bresenham::Bresenham;
+pub use bresenham::Octant as BresenhamOctant;
+pub use bresenham::Octant0 as BresenhamOctant0;
+pub use bresenham::Octant1 as BresenhamOctant1;
+pub use bresenham::Octant2 as BresenhamOctant2;
+pub use bresenham::Octant3 as BresenhamOctant3;
+pub use bresenham::Octant4 as BresenhamOctant4;
+pub use bresenham::Octant5 as BresenhamOctant5;
+pub use bresenham::Octant6 as BresenhamOctant6;
+pub use bresenham::Octant7 as BresenhamOctant7;
+
+pub use diagonal::Diagonal;
+pub use diagonal::Quadrant as DiagonalQuadrant;
+pub use diagonal::Quadrant0 as DiagonalQuadrant0;
+pub use diagonal::Quadrant1 as DiagonalQuadrant1;
+pub use diagonal::Quadrant2 as DiagonalQuadrant2;
+pub use diagonal::Quadrant3 as DiagonalQuadrant3;
+
+pub use orthogonal::AxisAligned;
+pub use orthogonal::Horizontal;
+pub use orthogonal::NegativeAxisAligned;
+pub use orthogonal::NegativeHorizontal;
+pub use orthogonal::NegativeVertical;
+pub use orthogonal::Orthogonal;
+pub use orthogonal::PositiveAxisAligned;
+pub use orthogonal::PositiveHorizontal;
+pub use orthogonal::PositiveVertical;
+pub use orthogonal::SignedAxisAligned;
+pub use orthogonal::SignedHorizontal;
+pub use orthogonal::SignedVertical;
+pub use orthogonal::Vertical;

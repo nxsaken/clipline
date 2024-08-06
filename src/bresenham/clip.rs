@@ -403,7 +403,15 @@ clip_impl!(i16, wrapping_add_unsigned, wrapping_sub_unsigned);
 clip_impl!(u16, wrapping_add, wrapping_sub);
 clip_impl!(i32, wrapping_add_unsigned, wrapping_sub_unsigned);
 clip_impl!(u32, wrapping_add, wrapping_sub);
+#[cfg(feature = "bresenham_64")]
+clip_impl!(i64, wrapping_add_unsigned, wrapping_sub_unsigned);
+#[cfg(feature = "bresenham_64")]
+clip_impl!(u64, wrapping_add, wrapping_sub);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 clip_impl!(isize, wrapping_add_unsigned, wrapping_sub_unsigned);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+clip_impl!(usize, wrapping_add, wrapping_sub);
+#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
+clip_impl!(isize, wrapping_add_unsigned, wrapping_sub_unsigned);
+#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
 clip_impl!(usize, wrapping_add, wrapping_sub);

@@ -16,6 +16,9 @@ include = [
 
 [features]
 default = []
+# Enable Bresenham<i64/u64> for all targets
+# and Bresenham<isize/usize> for 64-bit targets.
+bresenham_64 = []
 
 # Enable unstable features.
 nightly = []

@@ -41,13 +41,13 @@ macro_rules! num_impl {
     };
 }
 
-num_impl!([i8, i16, u8, u16], [i16, i32, u16, u32], [i32, i64, u32, u64], [i64, Void, u64, Void]);
+num_impl!([i8, i16, u8, u16], [i16, i32, u16, u32], [i32, i64, u32, u64], [i64, i128, u64, u128],);
 #[cfg(target_pointer_width = "16")]
 num_impl!([isize, i32, usize, u32]);
 #[cfg(target_pointer_width = "32")]
 num_impl!([isize, i64, usize, u64]);
 #[cfg(target_pointer_width = "64")]
-num_impl!([isize, Void, usize, Void]);
+num_impl!([isize, i128, usize, u128]);
 
 /// Generic math functions.
 pub struct Math<T>(T);
@@ -68,10 +68,19 @@ macro_rules! min_math_impl {
     };
 }
 
+min_math_impl!(i8);
+min_math_impl!(u8);
+min_math_impl!(i16);
+min_math_impl!(u16);
+min_math_impl!(i32);
+min_math_impl!(u32);
+min_math_impl!(i64);
+min_math_impl!(u64);
+min_math_impl!(isize);
+min_math_impl!(usize);
+
 macro_rules! math_impl {
     ($T:ty) => {
-        min_math_impl!($T);
-
         impl Math<$T> {
             /// Subtracts two unsigned integers, returning the wide signed difference.
             #[inline(always)]
@@ -132,16 +141,16 @@ math_impl!(i16);
 math_impl!(u16);
 math_impl!(i32);
 math_impl!(u32);
-min_math_impl!(i64);
-min_math_impl!(u64);
+math_impl!(i64);
+math_impl!(u64);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 math_impl!(isize);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 math_impl!(usize);
 #[cfg(target_pointer_width = "64")]
-min_math_impl!(isize);
+math_impl!(isize);
 #[cfg(target_pointer_width = "64")]
-min_math_impl!(usize);
+math_impl!(usize);
 
 #[cfg(test)]
 mod static_tests {
@@ -165,9 +174,9 @@ mod static_tests {
 
     #[cfg(target_pointer_width = "64")]
     #[test]
-    const fn isize_64_bit_is_not_num() {
+    const fn isize_64_bit_is_num() {
         static_assertions::assert_impl_all!(isize: Num);
-        static_assertions::assert_type_eq_all!(<isize as Num>::I2, Void);
-        static_assertions::assert_type_eq_all!(<isize as Num>::U2, Void);
+        static_assertions::assert_type_eq_all!(<isize as Num>::I2, i128);
+        static_assertions::assert_type_eq_all!(<isize as Num>::U2, u128);
     }
 }

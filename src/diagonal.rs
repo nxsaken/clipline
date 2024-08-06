@@ -409,84 +409,74 @@ mod static_tests {
     use super::*;
     use static_assertions::assert_impl_all;
 
-    #[cfg(target_pointer_width = "16")]
     #[test]
-    const fn numerics_satisfy_target_pointer_width() {
-        use static_assertions::assert_not_impl_any;
-
+    const fn iterator_8() {
         assert_impl_all!(Quadrant0<i8>: ExactSizeIterator);
         assert_impl_all!(Quadrant0<u8>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<i16>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<u16>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<isize>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<usize>: ExactSizeIterator);
-        assert_not_impl_any!(Quadrant0<i32>: ExactSizeIterator);
-        assert_not_impl_any!(Quadrant0<u32>: ExactSizeIterator);
-        assert_not_impl_any!(Quadrant0<i64>: ExactSizeIterator);
-        assert_not_impl_any!(Quadrant0<u64>: ExactSizeIterator);
-
         assert_impl_all!(Diagonal<i8>: ExactSizeIterator);
         assert_impl_all!(Diagonal<u8>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<i16>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<u16>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<isize>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<usize>: ExactSizeIterator);
-        assert_not_impl_any!(Diagonal<i32>: ExactSizeIterator);
-        assert_not_impl_any!(Diagonal<u32>: ExactSizeIterator);
-        assert_not_impl_any!(Diagonal<i64>: ExactSizeIterator);
-        assert_not_impl_any!(Diagonal<u64>: ExactSizeIterator);
     }
 
-    #[cfg(target_pointer_width = "32")]
     #[test]
-    const fn numerics_satisfy_target_pointer_width() {
-        use static_assertions::assert_not_impl_any;
-
-        assert_impl_all!(Quadrant0<i8>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<u8>: ExactSizeIterator);
+    const fn iterator_16() {
         assert_impl_all!(Quadrant0<i16>: ExactSizeIterator);
         assert_impl_all!(Quadrant0<u16>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<i32>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<u32>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<isize>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<usize>: ExactSizeIterator);
-        assert_not_impl_any!(Quadrant0<i64>: ExactSizeIterator);
-        assert_not_impl_any!(Quadrant0<u64>: ExactSizeIterator);
-
-        assert_impl_all!(Diagonal<i8>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<u8>: ExactSizeIterator);
         assert_impl_all!(Diagonal<i16>: ExactSizeIterator);
         assert_impl_all!(Diagonal<u16>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<i32>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<u32>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<isize>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<usize>: ExactSizeIterator);
-        assert_not_impl_any!(Diagonal<i64>: ExactSizeIterator);
-        assert_not_impl_any!(Diagonal<u64>: ExactSizeIterator);
     }
 
-    #[cfg(target_pointer_width = "64")]
     #[test]
-    const fn numerics_satisfy_target_pointer_width() {
-        assert_impl_all!(Quadrant0<i8>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<u8>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<i16>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<u16>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<i32>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<u32>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<i64>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<u64>: ExactSizeIterator);
+    const fn iterator_32() {
+        #[cfg(target_pointer_width = "16")]
+        {
+            use static_assertions::assert_not_impl_any;
+
+            assert_impl_all!(Quadrant0<i32>: Iterator);
+            assert_impl_all!(Quadrant0<u32>: Iterator);
+            assert_impl_all!(Diagonal<i32>: Iterator);
+            assert_impl_all!(Diagonal<u32>: Iterator);
+            assert_not_impl_any!(Quadrant0<i32>: ExactSizeIterator);
+            assert_not_impl_any!(Quadrant0<u32>: ExactSizeIterator);
+            assert_not_impl_any!(Diagonal<i32>: ExactSizeIterator);
+            assert_not_impl_any!(Diagonal<u32>: ExactSizeIterator);
+        }
+        #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
+        {
+            assert_impl_all!(Quadrant0<i32>: ExactSizeIterator);
+            assert_impl_all!(Quadrant0<u32>: ExactSizeIterator);
+            assert_impl_all!(Diagonal<i32>: ExactSizeIterator);
+            assert_impl_all!(Diagonal<u32>: ExactSizeIterator);
+        }
+    }
+
+    #[test]
+    const fn iterator_64() {
+        #[cfg(target_pointer_width = "64")]
+        {
+            assert_impl_all!(Quadrant0<i64>: ExactSizeIterator);
+            assert_impl_all!(Quadrant0<u64>: ExactSizeIterator);
+            assert_impl_all!(Diagonal<i64>: ExactSizeIterator);
+            assert_impl_all!(Diagonal<u64>: ExactSizeIterator);
+        }
+        #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+        {
+            use static_assertions::assert_not_impl_any;
+
+            assert_impl_all!(Quadrant0<i64>: Iterator);
+            assert_impl_all!(Quadrant0<u64>: Iterator);
+            assert_impl_all!(Diagonal<i64>: Iterator);
+            assert_impl_all!(Diagonal<u64>: Iterator);
+            assert_not_impl_any!(Quadrant0<i64>: ExactSizeIterator);
+            assert_not_impl_any!(Quadrant0<u64>: ExactSizeIterator);
+            assert_not_impl_any!(Diagonal<i64>: ExactSizeIterator);
+            assert_not_impl_any!(Diagonal<u64>: ExactSizeIterator);
+        }
+    }
+
+    #[test]
+    const fn iterator_pointer_size() {
         assert_impl_all!(Quadrant0<isize>: ExactSizeIterator);
         assert_impl_all!(Quadrant0<usize>: ExactSizeIterator);
-
-        assert_impl_all!(Diagonal<i8>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<u8>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<i16>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<u16>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<i32>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<u32>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<i64>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<u64>: ExactSizeIterator);
         assert_impl_all!(Diagonal<isize>: ExactSizeIterator);
         assert_impl_all!(Diagonal<usize>: ExactSizeIterator);
     }

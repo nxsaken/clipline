@@ -258,9 +258,17 @@ octant_impl!(i16);
 octant_impl!(u16);
 octant_impl!(i32);
 octant_impl!(u32);
+#[cfg(feature = "bresenham_64")]
+octant_impl!(i64);
+#[cfg(feature = "bresenham_64")]
+octant_impl!(u64);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 octant_impl!(isize);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+octant_impl!(usize);
+#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
+octant_impl!(isize);
+#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
 octant_impl!(usize);
 
 macro_rules! octant_exact_size_iter_impl {
@@ -285,9 +293,17 @@ octant_exact_size_iter_impl!(u16);
 octant_exact_size_iter_impl!(i32);
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
 octant_exact_size_iter_impl!(u32);
+#[cfg(feature = "bresenham_64")]
+octant_exact_size_iter_impl!(i64);
+#[cfg(feature = "bresenham_64")]
+octant_exact_size_iter_impl!(u64);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 octant_exact_size_iter_impl!(isize);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+octant_exact_size_iter_impl!(usize);
+#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
+octant_exact_size_iter_impl!(isize);
+#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
 octant_exact_size_iter_impl!(usize);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -583,9 +599,17 @@ bresenham_impl!(i16);
 bresenham_impl!(u16);
 bresenham_impl!(i32);
 bresenham_impl!(u32);
+#[cfg(feature = "bresenham_64")]
+bresenham_impl!(i64);
+#[cfg(feature = "bresenham_64")]
+bresenham_impl!(u64);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 bresenham_impl!(isize);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+bresenham_impl!(usize);
+#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
+bresenham_impl!(isize);
+#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
 bresenham_impl!(usize);
 
 macro_rules! bresenham_exact_size_iter_impl {
@@ -608,92 +632,128 @@ bresenham_exact_size_iter_impl!(u16);
 bresenham_exact_size_iter_impl!(i32);
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
 bresenham_exact_size_iter_impl!(u32);
+#[cfg(feature = "bresenham_64")]
+bresenham_exact_size_iter_impl!(i64);
+#[cfg(feature = "bresenham_64")]
+bresenham_exact_size_iter_impl!(u64);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 bresenham_exact_size_iter_impl!(isize);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+bresenham_exact_size_iter_impl!(usize);
+#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
+bresenham_exact_size_iter_impl!(isize);
+#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
 bresenham_exact_size_iter_impl!(usize);
 
 #[cfg(test)]
 mod static_tests {
     use super::*;
-    use static_assertions::{assert_impl_all, assert_not_impl_any};
+    use static_assertions::assert_impl_all;
 
-    #[cfg(target_pointer_width = "16")]
     #[test]
-    const fn numerics_satisfy_target_pointer_width() {
+    const fn iterator_8() {
         assert_impl_all!(Octant0<i8>: ExactSizeIterator);
         assert_impl_all!(Octant0<u8>: ExactSizeIterator);
-        assert_impl_all!(Octant0<i16>: ExactSizeIterator);
-        assert_impl_all!(Octant0<u16>: ExactSizeIterator);
-        assert_impl_all!(Octant0<isize>: ExactSizeIterator);
-        assert_impl_all!(Octant0<usize>: ExactSizeIterator);
-        assert_not_impl_any!(Octant0<i32>: ExactSizeIterator);
-        assert_not_impl_any!(Octant0<u32>: ExactSizeIterator);
-        assert_not_impl_any!(Octant0<i64>: Iterator);
-        assert_not_impl_any!(Octant0<u64>: Iterator);
-
         assert_impl_all!(Bresenham<i8>: ExactSizeIterator);
         assert_impl_all!(Bresenham<u8>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<i16>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<u16>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<isize>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<usize>: ExactSizeIterator);
-        assert_not_impl_any!(Bresenham<i32>: ExactSizeIterator);
-        assert_not_impl_any!(Bresenham<u32>: ExactSizeIterator);
-        assert_not_impl_any!(Bresenham<i64>: Iterator);
-        assert_not_impl_any!(Bresenham<u64>: Iterator);
     }
 
-    #[cfg(target_pointer_width = "32")]
     #[test]
-    const fn numerics_satisfy_target_pointer_width() {
-        assert_impl_all!(Octant0<i8>: ExactSizeIterator);
-        assert_impl_all!(Octant0<u8>: ExactSizeIterator);
+    const fn iterator_16() {
         assert_impl_all!(Octant0<i16>: ExactSizeIterator);
         assert_impl_all!(Octant0<u16>: ExactSizeIterator);
-        assert_impl_all!(Octant0<i32>: ExactSizeIterator);
-        assert_impl_all!(Octant0<u32>: ExactSizeIterator);
-        assert_impl_all!(Octant0<isize>: ExactSizeIterator);
-        assert_impl_all!(Octant0<usize>: ExactSizeIterator);
-        assert_not_impl_any!(Octant0<i64>: Iterator);
-        assert_not_impl_any!(Octant0<u64>: Iterator);
-
-        assert_impl_all!(Bresenham<i8>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<u8>: ExactSizeIterator);
         assert_impl_all!(Bresenham<i16>: ExactSizeIterator);
         assert_impl_all!(Bresenham<u16>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<i32>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<u32>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<isize>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<usize>: ExactSizeIterator);
-        assert_not_impl_any!(Bresenham<i64>: Iterator);
-        assert_not_impl_any!(Bresenham<u64>: Iterator);
     }
 
-    #[cfg(target_pointer_width = "64")]
     #[test]
-    const fn numerics_satisfy_target_pointer_width() {
-        assert_impl_all!(Octant0<i8>: ExactSizeIterator);
-        assert_impl_all!(Octant0<u8>: ExactSizeIterator);
-        assert_impl_all!(Octant0<i16>: ExactSizeIterator);
-        assert_impl_all!(Octant0<u16>: ExactSizeIterator);
-        assert_impl_all!(Octant0<i32>: ExactSizeIterator);
-        assert_impl_all!(Octant0<u32>: ExactSizeIterator);
-        assert_not_impl_any!(Octant0<i64>: Iterator);
-        assert_not_impl_any!(Octant0<u64>: Iterator);
-        assert_not_impl_any!(Octant0<isize>: Iterator);
-        assert_not_impl_any!(Octant0<usize>: Iterator);
+    const fn iterator_32() {
+        #[cfg(target_pointer_width = "16")]
+        {
+            use static_assertions::assert_not_impl_any;
 
-        assert_impl_all!(Bresenham<i8>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<u8>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<i16>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<u16>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<i32>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<u32>: ExactSizeIterator);
-        assert_not_impl_any!(Bresenham<i64>: Iterator);
-        assert_not_impl_any!(Bresenham<u64>: Iterator);
-        assert_not_impl_any!(Bresenham<isize>: Iterator);
-        assert_not_impl_any!(Bresenham<usize>: Iterator);
+            assert_impl_all!(Octant0<i32>: Iterator);
+            assert_impl_all!(Octant0<u32>: Iterator);
+            assert_impl_all!(Bresenham<i32>: Iterator);
+            assert_impl_all!(Bresenham<u32>: Iterator);
+            assert_not_impl_any!(Octant0<i32>: ExactSizeIterator);
+            assert_not_impl_any!(Octant0<u32>: ExactSizeIterator);
+            assert_not_impl_any!(Bresenham<i32>: ExactSizeIterator);
+            assert_not_impl_any!(Bresenham<u32>: ExactSizeIterator);
+        }
+        #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
+        {
+            assert_impl_all!(Octant0<i32>: ExactSizeIterator);
+            assert_impl_all!(Octant0<u32>: ExactSizeIterator);
+            assert_impl_all!(Bresenham<i32>: ExactSizeIterator);
+            assert_impl_all!(Bresenham<u32>: ExactSizeIterator);
+        }
+    }
+
+    #[test]
+    const fn iterator_64() {
+        #[cfg(feature = "bresenham_64")]
+        {
+            #[cfg(target_pointer_width = "64")]
+            {
+                assert_impl_all!(Octant0<i64>: ExactSizeIterator);
+                assert_impl_all!(Octant0<u64>: ExactSizeIterator);
+                assert_impl_all!(Bresenham<i64>: ExactSizeIterator);
+                assert_impl_all!(Bresenham<u64>: ExactSizeIterator);
+            }
+            #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+            {
+                use static_assertions::assert_not_impl_any;
+
+                assert_impl_all!(Octant0<i64>: Iterator);
+                assert_impl_all!(Octant0<u64>: Iterator);
+                assert_impl_all!(Bresenham<i64>: Iterator);
+                assert_impl_all!(Bresenham<u64>: Iterator);
+                assert_not_impl_any!(Octant0<i64>: ExactSizeIterator);
+                assert_not_impl_any!(Octant0<u64>: ExactSizeIterator);
+                assert_not_impl_any!(Bresenham<i64>: ExactSizeIterator);
+                assert_not_impl_any!(Bresenham<u64>: ExactSizeIterator);
+            }
+        }
+        #[cfg(not(feature = "bresenham_64"))]
+        {
+            use static_assertions::assert_not_impl_any;
+
+            assert_not_impl_any!(Octant0<i64>: Iterator);
+            assert_not_impl_any!(Octant0<u64>: Iterator);
+            assert_not_impl_any!(Bresenham<i64>: Iterator);
+            assert_not_impl_any!(Bresenham<u64>: Iterator);
+        }
+    }
+
+    #[test]
+    const fn iterator_pointer_size() {
+        #[cfg(target_pointer_width = "64")]
+        {
+            #[cfg(feature = "bresenham_64")]
+            {
+                assert_impl_all!(Octant0<isize>: ExactSizeIterator);
+                assert_impl_all!(Octant0<usize>: ExactSizeIterator);
+                assert_impl_all!(Bresenham<isize>: ExactSizeIterator);
+                assert_impl_all!(Bresenham<usize>: ExactSizeIterator);
+            }
+            #[cfg(not(feature = "bresenham_64"))]
+            {
+                use static_assertions::assert_not_impl_any;
+
+                assert_not_impl_any!(Octant0<isize>: Iterator);
+                assert_not_impl_any!(Octant0<usize>: Iterator);
+                assert_not_impl_any!(Bresenham<isize>: Iterator);
+                assert_not_impl_any!(Bresenham<usize>: Iterator);
+            }
+        }
+        #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+        {
+            assert_impl_all!(Octant0<isize>: ExactSizeIterator);
+            assert_impl_all!(Octant0<usize>: ExactSizeIterator);
+            assert_impl_all!(Bresenham<isize>: ExactSizeIterator);
+            assert_impl_all!(Bresenham<usize>: ExactSizeIterator);
+        }
     }
 }
 
