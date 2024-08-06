@@ -8,7 +8,7 @@ use crate::clip::Clip;
 
 macro_rules! clip_impl {
     ($T:ty) => {
-        impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<VERT, FLIP, $T> {
+        impl<const FLIP: bool, const VERT: bool> SignedAxisAligned<FLIP, VERT, $T> {
             #[inline(always)]
             #[must_use]
             const fn reject(
@@ -26,7 +26,7 @@ macro_rules! clip_impl {
             #[inline(always)]
             #[must_use]
             const fn cv1(v1: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> $T {
-                match (VERT, FLIP) {
+                match (FLIP, VERT) {
                     (false, false) if v1 < wx1 => wx1,
                     (false, true) if wx2 < v1 => wx2,
                     (true, false) if v1 < wy1 => wy1,
@@ -38,7 +38,7 @@ macro_rules! clip_impl {
             #[inline(always)]
             #[must_use]
             const fn cv2(v2: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> $T {
-                match (VERT, FLIP) {
+                match (FLIP, VERT) {
                     (false, false) if wx2 < v2 => wx2.wrapping_add(1),
                     (false, true) if v2 < wx1 => wx1.wrapping_sub(1),
                     (true, false) if wy2 < v2 => wy2.wrapping_add(1),

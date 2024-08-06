@@ -327,10 +327,10 @@ octant_exact_size_iter_impl!(usize);
 pub enum Bresenham<T: Num> {
     /// Horizontal line segment at `0°`, see [`PositiveHorizontal`](crate::PositiveHorizontal).
     SignedAxis0(orthogonal::PositiveHorizontal<T>),
-    /// Horizontal line segment at `180°`, see [`NegativeHorizontal`](crate::NegativeHorizontal).
-    SignedAxis1(orthogonal::NegativeHorizontal<T>),
     /// Vertical line segment at `90°`, see [`PositiveVertical`](crate::PositiveVertical).
-    SignedAxis2(orthogonal::PositiveVertical<T>),
+    SignedAxis1(orthogonal::PositiveVertical<T>),
+    /// Horizontal line segment at `180°`, see [`NegativeHorizontal`](crate::NegativeHorizontal).
+    SignedAxis2(orthogonal::NegativeHorizontal<T>),
     /// Vertical line segment at `270°`, see [`NegativeVertical`](crate::NegativeVertical).
     SignedAxis3(orthogonal::NegativeVertical<T>),
     /// Diagonal line segment at `45°`, see [`Quadrant0`](diagonal::Quadrant0).
@@ -406,13 +406,13 @@ macro_rules! bresenham_impl {
                     use orthogonal::Horizontal;
                     return match Horizontal::<$T>::new(y1, x1, x2) {
                         Horizontal::Positive(me) => Self::SignedAxis0(me),
-                        Horizontal::Negative(me) => Self::SignedAxis1(me),
+                        Horizontal::Negative(me) => Self::SignedAxis2(me),
                     };
                 }
                 if x1 == x2 {
                     use orthogonal::Vertical;
                     return match Vertical::<$T>::new(x1, y1, y2) {
-                        Vertical::Positive(me) => Self::SignedAxis2(me),
+                        Vertical::Positive(me) => Self::SignedAxis1(me),
                         Vertical::Negative(me) => Self::SignedAxis3(me),
                     };
                 }
@@ -477,7 +477,7 @@ macro_rules! bresenham_impl {
                         Horizontal::<$T>::clip(y1, x1, x2, clip),
                         me => match me {
                             Horizontal::Positive(me) => Self::SignedAxis0(me),
-                            Horizontal::Negative(me) => Self::SignedAxis1(me),
+                            Horizontal::Negative(me) => Self::SignedAxis2(me),
                         }
                     );
                 }
@@ -486,7 +486,7 @@ macro_rules! bresenham_impl {
                     return map!(
                         Vertical::<$T>::clip(x1, y1, y2, clip),
                         me => match me {
-                            Vertical::Positive(me) => Self::SignedAxis2(me),
+                            Vertical::Positive(me) => Self::SignedAxis1(me),
                             Vertical::Negative(me) => Self::SignedAxis3(me),
                         }
                     );

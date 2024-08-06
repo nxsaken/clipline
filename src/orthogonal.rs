@@ -27,10 +27,10 @@ mod clip;
 /// Iterator over a directed line segment covered by the given *signed axis*.
 ///
 /// A signed axis is defined by the *orientation* and *direction* of the line segments it covers:
-/// - [vertical](SignedVertical) if `VERT`, [horizontal](SignedHorizontal) otherwise.
 /// - [negative](NegativeAxisAligned) if `FLIP`, [positive](PositiveAxisAligned) otherwise.
+/// - [vertical](SignedVertical) if `VERT`, [horizontal](SignedHorizontal) otherwise.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub struct SignedAxisAligned<const VERT: bool, const FLIP: bool, T> {
+pub struct SignedAxisAligned<const FLIP: bool, const VERT: bool, T> {
     u: T,
     v1: T,
     v2: T,
@@ -38,17 +38,17 @@ pub struct SignedAxisAligned<const VERT: bool, const FLIP: bool, T> {
 
 /// Iterator over a directed line segment
 /// covered by the given *positive* [signed axis](SignedAxisAligned).
-pub type PositiveAxisAligned<const VERT: bool, T> = SignedAxisAligned<VERT, false, T>;
+pub type PositiveAxisAligned<const VERT: bool, T> = SignedAxisAligned<false, VERT, T>;
 /// Iterator over a directed line segment
 /// covered by the given *negative* [signed axis](SignedAxisAligned).
-pub type NegativeAxisAligned<const VERT: bool, T> = SignedAxisAligned<VERT, true, T>;
+pub type NegativeAxisAligned<const VERT: bool, T> = SignedAxisAligned<true, VERT, T>;
 
 /// Iterator over a directed line segment
 /// covered by the given *horizontal* [signed axis](SignedAxisAligned).
-pub type SignedHorizontal<const FLIP: bool, T> = SignedAxisAligned<false, FLIP, T>;
+pub type SignedHorizontal<const FLIP: bool, T> = SignedAxisAligned<FLIP, false, T>;
 /// Iterator over a directed line segment
 /// covered by the given *vertical* [signed axis](SignedAxisAligned).
-pub type SignedVertical<const FLIP: bool, T> = SignedAxisAligned<true, FLIP, T>;
+pub type SignedVertical<const FLIP: bool, T> = SignedAxisAligned<FLIP, true, T>;
 
 /// Iterator over a directed line segment
 /// covered by the *positive horizontal* [signed axis](SignedAxisAligned).
@@ -65,7 +65,7 @@ pub type NegativeVertical<T> = SignedVertical<true, T>;
 
 macro_rules! signed_axis_impl {
     ($T:ty) => {
-        impl<const VERT: bool, const FLIP: bool> SignedAxisAligned<VERT, FLIP, $T> {
+        impl<const FLIP: bool, const VERT: bool> SignedAxisAligned<FLIP, VERT, $T> {
             #[inline(always)]
             #[must_use]
             const fn new_inner(u: $T, v1: $T, v2: $T) -> Self {
@@ -128,7 +128,7 @@ macro_rules! signed_axis_impl {
             }
         }
 
-        impl<const VERT: bool, const FLIP: bool> Iterator for SignedAxisAligned<VERT, FLIP, $T> {
+        impl<const FLIP: bool, const VERT: bool> Iterator for SignedAxisAligned<FLIP, VERT, $T> {
             type Item = Point<$T>;
 
             #[inline]
@@ -150,8 +150,8 @@ macro_rules! signed_axis_impl {
             }
         }
 
-        impl<const VERT: bool, const FLIP: bool> DoubleEndedIterator
-            for SignedAxisAligned<VERT, FLIP, $T>
+        impl<const FLIP: bool, const VERT: bool> DoubleEndedIterator
+            for SignedAxisAligned<FLIP, VERT, $T>
         {
             #[inline]
             fn next_back(&mut self) -> Option<Self::Item> {
@@ -164,8 +164,8 @@ macro_rules! signed_axis_impl {
             }
         }
 
-        impl<const VERT: bool, const FLIP: bool> core::iter::FusedIterator
-            for SignedAxisAligned<VERT, FLIP, $T>
+        impl<const FLIP: bool, const VERT: bool> core::iter::FusedIterator
+            for SignedAxisAligned<FLIP, VERT, $T>
         {
         }
     };
@@ -184,8 +184,8 @@ signed_axis_impl!(usize);
 
 macro_rules! signed_axis_exact_size_iter_impl {
     ($T:ty) => {
-        impl<const VERT: bool, const FLIP: bool> ExactSizeIterator
-            for SignedAxisAligned<VERT, FLIP, $T>
+        impl<const FLIP: bool, const VERT: bool> ExactSizeIterator
+            for SignedAxisAligned<FLIP, VERT, $T>
         {
             #[cfg(feature = "is_empty")]
             #[inline]
@@ -446,10 +446,10 @@ axis_exact_size_iter_impl!(usize);
 pub enum Orthogonal<T> {
     /// Horizontal line segment at `0°`, see [`PositiveHorizontal`].
     SignedAxis0(PositiveHorizontal<T>),
-    /// Horizontal line segment at `180°`, see [`NegativeHorizontal`].
-    SignedAxis1(NegativeHorizontal<T>),
     /// Vertical line segment at `90°`, see [`PositiveVertical`].
-    SignedAxis2(PositiveVertical<T>),
+    SignedAxis1(PositiveVertical<T>),
+    /// Horizontal line segment at `180°`, see [`NegativeHorizontal`].
+    SignedAxis2(NegativeHorizontal<T>),
     /// Vertical line segment at `270°`, see [`NegativeVertical`].
     SignedAxis3(NegativeVertical<T>),
 }
@@ -479,12 +479,12 @@ macro_rules! orthogonal_impl {
                 if y1 == y2 {
                     return match Horizontal::<$T>::new(y1, x1, x2) {
                         AxisAligned::Positive(me) => Some(Self::SignedAxis0(me)),
-                        AxisAligned::Negative(me) => Some(Self::SignedAxis1(me)),
+                        AxisAligned::Negative(me) => Some(Self::SignedAxis2(me)),
                     };
                 }
                 if x1 == x2 {
                     return match Vertical::<$T>::new(x1, y1, y2) {
-                        AxisAligned::Positive(me) => Some(Self::SignedAxis2(me)),
+                        AxisAligned::Positive(me) => Some(Self::SignedAxis1(me)),
                         AxisAligned::Negative(me) => Some(Self::SignedAxis3(me)),
                     };
                 }
@@ -506,7 +506,7 @@ macro_rules! orthogonal_impl {
                         Horizontal::<$T>::clip(y1, x1, x2, clip),
                         me => match me {
                             AxisAligned::Positive(me) => Self::SignedAxis0(me),
-                            AxisAligned::Negative(me) => Self::SignedAxis1(me),
+                            AxisAligned::Negative(me) => Self::SignedAxis2(me),
                         }
                     );
                 }
@@ -514,7 +514,7 @@ macro_rules! orthogonal_impl {
                     return map!(
                         Vertical::<$T>::clip(x1, y1, y2, clip),
                         me => match me {
-                            AxisAligned::Positive(me) => Self::SignedAxis2(me),
+                            AxisAligned::Positive(me) => Self::SignedAxis1(me),
                             AxisAligned::Negative(me) => Self::SignedAxis3(me),
                         }
                     );
