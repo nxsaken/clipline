@@ -103,30 +103,25 @@ macro_rules! clip_impl {
             #[allow(non_snake_case)]
             #[inline(always)]
             #[must_use]
-            const fn tv2_naive(
+            const fn tv2(
                 v1: $T,
                 du: <$T as Num>::U,
+                half_du: <$T as Num>::U,
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
                 let Dv2 = xy!(
                     fy!(Math::<$T>::delta(wy2, v1), Math::<$T>::delta(v1, wy1)),
                     fx!(Math::<$T>::delta(wx2, v1), Math::<$T>::delta(v1, wx1)),
                 );
-                Math::<$T>::wide_mul(Dv2, du)
-            }
-
-            #[inline(always)]
-            #[must_use]
-            const fn tv2(naive: <$T as Num>::U2, half_du: <$T as Num>::U) -> <$T as Num>::U2 {
-                naive.wrapping_add(half_du as _)
+                Math::<$T>::wide_mul(Dv2, du).wrapping_add(half_du as _)
             }
 
             #[inline(always)]
             #[must_use]
             const fn cu1_v(
                 u1: $T,
-                (half_du, dv): Delta<$T>,
                 tv1: <$T as Num>::U2,
+                (half_du, dv): Delta<$T>,
                 mut error: <$T as Num>::I2,
             ) -> ($T, <$T as Num>::I2) {
                 // SAFETY: the line segment is slanted and non-empty, thus dv != 0.
@@ -148,8 +143,8 @@ macro_rules! clip_impl {
             #[must_use]
             const fn cv1_u(
                 v1: $T,
-                du: <$T as Num>::U,
                 tu1: <$T as Num>::U2,
+                du: <$T as Num>::U,
                 mut error: <$T as Num>::I2,
             ) -> ($T, <$T as Num>::I2) {
                 // SAFETY: the line segment is slanted and non-empty, thus dv != 0.
@@ -172,13 +167,13 @@ macro_rules! clip_impl {
             #[must_use]
             const fn c1_u(
                 v1: $T,
-                du: <$T as Num>::U,
                 tu1: <$T as Num>::U2,
+                du: <$T as Num>::U,
                 error: <$T as Num>::I2,
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> (Point<$T>, <$T as Num>::I2) {
                 let cu1 = xy!(fx!(wx1, wx2), fy!(wy1, wy2));
-                let (cv1, error) = Self::cv1_u(v1, du, tu1, error);
+                let (cv1, error) = Self::cv1_u(v1, tu1, du, error);
                 ((cu1, cv1), error)
             }
 
@@ -187,12 +182,12 @@ macro_rules! clip_impl {
             #[must_use]
             const fn c1_v(
                 u1: $T,
-                (half_du, dv): Delta<$T>,
                 tv1: <$T as Num>::U2,
+                (half_du, dv): Delta<$T>,
                 error: <$T as Num>::I2,
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> (Point<$T>, <$T as Num>::I2) {
-                let (cu1, error) = Self::cu1_v(u1, (half_du, dv), tv1, error);
+                let (cu1, error) = Self::cu1_v(u1, tv1, (half_du, dv), error);
                 let cv1 = xy!(fy!(wy1, wy2), fx!(wx1, wx2));
                 ((cu1, cv1), error)
             }
@@ -201,16 +196,16 @@ macro_rules! clip_impl {
             #[must_use]
             const fn c1_uv(
                 (u1, v1): Point<$T>,
+                (tu1, tv1): Delta2<$T>,
                 (du, dv): Delta<$T>,
                 half_du: <$T as Num>::U,
-                (tu1, tv1): Delta2<$T>,
                 error: <$T as Num>::I2,
                 clip: &Clip<$T>,
             ) -> (Point<$T>, <$T as Num>::I2) {
                 if tv1 < tu1 {
-                    Self::c1_u(v1, du, tu1, error, clip)
+                    Self::c1_u(v1, tu1, du, error, clip)
                 } else {
-                    Self::c1_v(u1, (half_du, dv), tv1, error, clip)
+                    Self::c1_v(u1, tv1, (half_du, dv), error, clip)
                 }
             }
 
@@ -226,10 +221,15 @@ macro_rules! clip_impl {
 
             #[inline(always)]
             #[must_use]
-            const fn cu2_v(u1: $T, dv: <$T as Num>::U, tv2: <$T as Num>::U2) -> $T {
+            const fn cu2_v(
+                u1: $T,
+                tv2: <$T as Num>::U2,
+                dv: <$T as Num>::U,
+                r0: <$T as Num>::U,
+            ) -> $T {
                 // SAFETY: the line segment is slanted and non-empty, thus dv != 0.
                 let (mut q, r) = unsafe { Math::<$T>::div_rem(tv2, dv) };
-                if 0 == r {
+                if r == 0 && r0 == 0 {
                     q = q.wrapping_sub(1);
                 }
                 // it is overflow-safe to add/sub 1 because of the exit condition
@@ -243,15 +243,15 @@ macro_rules! clip_impl {
             #[must_use]
             const fn cu2_uv(
                 u1: $T,
-                (half_du, dv): Delta<$T>,
-                (tu2, tv2_naive): Delta2<$T>,
+                (tu2, tv2): Delta2<$T>,
+                dv: <$T as Num>::U,
+                r0: <$T as Num>::U,
                 clip: &Clip<$T>,
             ) -> $T {
-                let tv2 = Self::tv2(tv2_naive, half_du);
                 if tu2 < tv2 {
                     Self::cu2_u(clip)
                 } else {
-                    Self::cu2_v(u1, dv, tv2)
+                    Self::cu2_v(u1, tv2, dv, r0)
                 }
             }
 
@@ -267,8 +267,8 @@ macro_rules! clip_impl {
                 let (u1, v1) = xy!((x1, y1), (y1, x1));
                 let (u2, v2) = xy!((x2, y2), (y2, x2));
                 let (du, dv) = xy!((dx, dy), (dy, dx));
-                let half_du = Math::<$T>::half(du);
-                let error = Math::<$T>::error(dv, Math::<$T>::half(du));
+                let (half_du, r0) = Math::<$T>::half(du);
+                let error = Math::<$T>::error(dv, half_du.wrapping_add(r0)); // FIXME: check this
                 let (((cu1, cv1), error), end) = match (
                     Self::enters_u(u1, clip),
                     Self::enters_v(v1, clip),
@@ -277,25 +277,26 @@ macro_rules! clip_impl {
                 ) {
                     INSIDE_INSIDE => (((u1, v1), error), u2),
                     INSIDE_V_EXIT => {
-                        let tv2_naive = Self::tv2_naive(v1, du, clip);
-                        let tv2 = Self::tv2(tv2_naive, half_du);
-                        (((u1, v1), error), Self::cu2_v(u1, dv, tv2))
+                        let tv2 = Self::tv2(v1, du, half_du, clip);
+                        (((u1, v1), error), Self::cu2_v(u1, tv2, dv, r0))
                     }
                     INSIDE_U_EXIT => (((u1, v1), error), Self::cu2_u(clip)),
                     INSIDE_UV_EXIT => {
                         let tu2 = Self::tu2(u1, dv, clip);
-                        let tv2_naive = Self::tv2_naive(v1, du, clip);
-                        (((u1, v1), error), Self::cu2_uv(u1, (half_du, dv), (tu2, tv2_naive), clip))
+                        let tv2 = Self::tv2(v1, du, half_du, clip);
+                        (((u1, v1), error), Self::cu2_uv(u1, (tu2, tv2), dv, r0, clip))
                     }
                     V_ENTRY_INSIDE => {
                         let tv1 = Self::tv1(v1, du, half_du, clip);
-                        (Self::c1_v(u1, (half_du, dv), tv1, error, clip), u2)
+                        (Self::c1_v(u1, tv1, (half_du, dv), error, clip), u2)
                     }
                     V_ENTRY_V_EXIT => {
                         let tv1 = Self::tv1(v1, du, half_du, clip);
-                        let tv2_naive = Self::tv2_naive(v1, du, clip);
-                        let tv2 = Self::tv2(tv2_naive, half_du);
-                        (Self::c1_v(u1, (half_du, dv), tv1, error, clip), Self::cu2_v(u1, dv, tv2))
+                        let tv2 = Self::tv2(v1, du, half_du, clip);
+                        (
+                            Self::c1_v(u1, tv1, (half_du, dv), error, clip),
+                            Self::cu2_v(u1, tv2, dv, r0),
+                        )
                     }
                     V_ENTRY_U_EXIT => {
                         let tv1 = Self::tv1(v1, du, half_du, clip);
@@ -303,7 +304,7 @@ macro_rules! clip_impl {
                         if tu2 < tv1 {
                             return None;
                         }
-                        (Self::c1_v(u1, (half_du, dv), tv1, error, clip), Self::cu2_u(clip))
+                        (Self::c1_v(u1, tv1, (half_du, dv), error, clip), Self::cu2_u(clip))
                     }
                     V_ENTRY_UV_EXIT => {
                         let tv1 = Self::tv1(v1, du, half_du, clip);
@@ -311,59 +312,57 @@ macro_rules! clip_impl {
                         if tu2 < tv1 {
                             return None;
                         }
-                        let tv2_naive = Self::tv2_naive(v1, du, clip);
+                        let tv2 = Self::tv2(v1, du, half_du, clip);
                         (
-                            Self::c1_v(u1, (half_du, dv), tv1, error, clip),
-                            Self::cu2_uv(u1, (half_du, dv), (tu2, tv2_naive), clip),
+                            Self::c1_v(u1, tv1, (half_du, dv), error, clip),
+                            Self::cu2_uv(u1, (tu2, tv2), dv, r0, clip),
                         )
                     }
                     U_ENTRY_INSIDE => {
-                        (Self::c1_u(v1, du, Self::tu1(u1, dv, clip), error, clip), u2)
+                        (Self::c1_u(v1, Self::tu1(u1, dv, clip), du, error, clip), u2)
                     }
                     U_ENTRY_V_EXIT => {
-                        let tv2_naive = Self::tv2_naive(v1, du, clip);
-                        let tv2 = Self::tv2(tv2_naive, half_du);
+                        let tv2 = Self::tv2(v1, du, half_du, clip);
                         (
-                            Self::c1_u(v1, du, Self::tu1(u1, dv, clip), error, clip),
-                            Self::cu2_v(u1, dv, tv2),
+                            Self::c1_u(v1, Self::tu1(u1, dv, clip), du, error, clip),
+                            Self::cu2_v(u1, tv2, dv, r0),
                         )
                     }
                     U_ENTRY_U_EXIT => (
-                        Self::c1_u(v1, du, Self::tu1(u1, dv, clip), error, clip),
+                        Self::c1_u(v1, Self::tu1(u1, dv, clip), du, error, clip),
                         Self::cu2_u(clip),
                     ),
                     U_ENTRY_UV_EXIT => {
                         let tu1 = Self::tu1(u1, dv, clip);
-                        let tv2_naive = Self::tv2_naive(v1, du, clip);
-                        if tv2_naive < tu1 {
+                        let tv2 = Self::tv2(v1, du, half_du, clip);
+                        if tv2 < tu1 {
                             return None;
                         }
                         let tu2 = Self::tu2(u1, dv, clip);
                         (
-                            Self::c1_u(v1, du, tu1, error, clip),
-                            Self::cu2_uv(u1, (half_du, dv), (tu2, tv2_naive), clip),
+                            Self::c1_u(v1, tu1, du, error, clip),
+                            Self::cu2_uv(u1, (tu2, tv2), dv, r0, clip),
                         )
                     }
                     UV_ENTRY_INSIDE => {
                         let tu1 = Self::tu1(u1, dv, clip);
                         let tv1 = Self::tv1(v1, du, half_du, clip);
-                        (Self::c1_uv((u1, v1), (du, dv), half_du, (tu1, tv1), error, clip), u2)
+                        (Self::c1_uv((u1, v1), (tu1, tv1), (du, dv), half_du, error, clip), u2)
                     }
                     UV_ENTRY_V_EXIT => {
                         let tu1 = Self::tu1(u1, dv, clip);
                         let tv1 = Self::tv1(v1, du, half_du, clip);
-                        let tv2_naive = Self::tv2_naive(v1, du, clip);
-                        let tv2 = Self::tv2(tv2_naive, half_du);
+                        let tv2 = Self::tv2(v1, du, half_du, clip);
                         (
-                            Self::c1_uv((u1, v1), (du, dv), half_du, (tu1, tv1), error, clip),
-                            Self::cu2_v(u1, dv, tv2),
+                            Self::c1_uv((u1, v1), (tu1, tv1), (du, dv), half_du, error, clip),
+                            Self::cu2_v(u1, tv2, dv, r0),
                         )
                     }
                     UV_ENTRY_U_EXIT => {
                         let tu1 = Self::tu1(u1, dv, clip);
                         let tv1 = Self::tv1(v1, du, half_du, clip);
                         (
-                            Self::c1_uv((u1, v1), (du, dv), half_du, (tu1, tv1), error, clip),
+                            Self::c1_uv((u1, v1), (tu1, tv1), (du, dv), half_du, error, clip),
                             Self::cu2_u(clip),
                         )
                     }
@@ -374,13 +373,13 @@ macro_rules! clip_impl {
                             return None;
                         }
                         let tu1 = Self::tu1(u1, dv, clip);
-                        let tv2_naive = Self::tv2_naive(v1, du, clip);
-                        if tv2_naive < tu1 {
+                        let tv2 = Self::tv2(v1, du, half_du, clip);
+                        if tv2 < tu1 {
                             return None;
                         }
                         (
-                            Self::c1_uv((u1, v1), (du, dv), half_du, (tu1, tv1), error, clip),
-                            Self::cu2_uv(u1, (half_du, dv), (tu2, tv2_naive), clip),
+                            Self::c1_uv((u1, v1), (tu1, tv1), (du, dv), half_du, error, clip),
+                            Self::cu2_uv(u1, (tu2, tv2), dv, r0, clip),
                         )
                     }
                 };

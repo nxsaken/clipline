@@ -95,13 +95,10 @@ macro_rules! math_impl {
                 <$T as Num>::U2::wrapping_shl(a as _, 1)
             }
 
-            /// Divides an unsigned integer by 2 with rounding.
+            /// Divides an unsigned integer by 2 and returns the quotient with the remainder.
             #[inline(always)]
-            pub const fn half(a: <$T as Num>::U) -> <$T as Num>::U {
-                let half = <$T as Num>::U2::wrapping_add(a as _, 1).wrapping_shr(1);
-                debug_assert!(half <= <$T as Num>::U::MAX as _);
-                #[allow(clippy::cast_possible_truncation)]
-                return half as _;
+            pub const fn half(a: <$T as Num>::U) -> (<$T as Num>::U, <$T as Num>::U) {
+                (a.wrapping_shr(1), a & 1)
             }
 
             /// Divides a wide unsigned integer by a non-zero narrow unsigned integer,

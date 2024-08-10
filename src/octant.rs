@@ -97,8 +97,8 @@ macro_rules! octant_impl {
                 (x2, y2): Point<$T>,
                 (dx, dy): Delta<$T>,
             ) -> Self {
-                #[allow(clippy::cast_possible_wrap)]
-                let error = Math::<$T>::error(xy!(dy, dx), Math::<$T>::half(xy!(dx, dy)));
+                let (half_du, r) = Math::<$T>::half(xy!(dx, dy));
+                let error = Math::<$T>::error(xy!(dy, dx), half_du.wrapping_add(r));
                 let end = xy!(x2, y2);
                 Self { x: x1, y: y1, error, dx, dy, end }
             }
@@ -498,7 +498,7 @@ macro_rules! any_octant_impl {
                     reject_if!(y2 < wy1 || wy2 < y1);
                     let dy = Math::<$T>::delta(y2, y1);
                     if dy < dx {
-                        reject_if!(x1 == wx1);
+                        reject_if!(x2 == wx2);
                         return octant!(Octant4, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                     }
                     if dx < dy {
@@ -510,7 +510,7 @@ macro_rules! any_octant_impl {
                 reject_if!(y1 < wy1 || wy2 < y2);
                 let dy = Math::<$T>::delta(y1, y2);
                 if dy < dx {
-                    reject_if!(x1 == wx1);
+                    reject_if!(x2 == wx2);
                     return octant!(Octant6, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                 }
                 if dx < dy {
