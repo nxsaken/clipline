@@ -1,10 +1,7 @@
 //! ### Diagonal clipping
-//!
-//! This module provides [clipping](Clip) utilities for
-//! [diagonal](crate::Diagonal) directed line segments.
 
 use crate::clip::Clip;
-use crate::diagonal::Quadrant;
+use crate::diagonal::Diagonal;
 use crate::math::{Delta, Math, Num, Point};
 use crate::symmetry::{fx, fy};
 
@@ -33,7 +30,7 @@ const XY_ENTRY_XY_EXIT: LineCode = (I, I, I, I);
 macro_rules! clip_impl {
     ($T:ty, $add:ident, $sub:ident) => {
         #[allow(non_snake_case)]
-        impl<const FX: bool, const FY: bool> Quadrant<FX, FY, $T> {
+        impl<const FX: bool, const FY: bool> Diagonal<FX, FY, $T> {
             #[inline(always)]
             #[must_use]
             const fn enters_x(x1: $T, &Clip { wx1, wx2, .. }: &Clip<$T>) -> bool {

@@ -1,6 +1,4 @@
 //! ## Utilities
-//!
-//! Common utilities.
 
 /// Maps over an [`Option`].
 macro_rules! map {
@@ -18,7 +16,7 @@ macro_rules! map {
     };
 }
 
-/// Short-circuits with [`None`] if the `condition` is true.
+/// Short-circuits with [`None`] if the `condition` is `true`.
 macro_rules! reject_if {
     ($condition:expr) => {
         if $condition {

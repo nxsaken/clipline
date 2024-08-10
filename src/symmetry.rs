@@ -1,6 +1,4 @@
 //! ## Symmetry utilities
-//!
-//! Contains utilities for working with symmetries.
 
 /// Selects an expression based on `VERT`.
 macro_rules! vh {

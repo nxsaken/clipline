@@ -1,7 +1,4 @@
 //! ### Bresenham clipping
-//!
-//! This module provides [clipping](Clip) utilities for
-//! [slanted](Octant) directed line segments.
 
 use super::Octant;
 use crate::clip::Clip;
@@ -33,28 +30,24 @@ const UV_ENTRY_UV_EXIT: LineCode = (I, I, I, I);
 macro_rules! clip_impl {
     ($T:ty, $add:ident, $sub:ident) => {
         impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<FX, FY, SWAP, $T> {
-            /// Checks if the line segment enters the clipping region through a vertical side.
             #[inline(always)]
             #[must_use]
             const fn enters_u(u1: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> bool {
                 xy!(fx!(u1 < wx1, wx2 < u1), fy!(u1 < wy1, wy2 < u1))
             }
 
-            /// Checks if the line segment enters the clipping region through a horizontal side.
             #[inline(always)]
             #[must_use]
             const fn enters_v(v1: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> bool {
                 xy!(fy!(v1 < wy1, wy2 < v1), fx!(v1 < wx1, wx2 < v1))
             }
 
-            /// Checks if the line segment exits the clipping region through a vertical side.
             #[inline(always)]
             #[must_use]
             const fn exits_u(u2: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> bool {
                 xy!(fx!(wx2 < u2, u2 < wx1), fy!(wy2 < u2, u2 < wy1))
             }
 
-            /// Checks if the line segment exits the clipping region through a horizontal side.
             #[inline(always)]
             #[must_use]
             const fn exits_v(v2: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> bool {
@@ -139,6 +132,7 @@ macro_rules! clip_impl {
                 // SAFETY: the line segment is slanted and non-empty, thus dv != 0.
                 let (mut q, r) = unsafe { Math::<$T>::div_rem(tv1, dv) };
                 error = error.wrapping_sub(half_du as _).$sub(r as _);
+                #[allow(unused_comparisons)]
                 if 0 < r {
                     q = xy!(
                         fx!(q.wrapping_add(1), q.wrapping_add(1)),
@@ -403,15 +397,15 @@ clip_impl!(i16, wrapping_add_unsigned, wrapping_sub_unsigned);
 clip_impl!(u16, wrapping_add, wrapping_sub);
 clip_impl!(i32, wrapping_add_unsigned, wrapping_sub_unsigned);
 clip_impl!(u32, wrapping_add, wrapping_sub);
-#[cfg(feature = "bresenham_64")]
+#[cfg(feature = "octant_64")]
 clip_impl!(i64, wrapping_add_unsigned, wrapping_sub_unsigned);
-#[cfg(feature = "bresenham_64")]
+#[cfg(feature = "octant_64")]
 clip_impl!(u64, wrapping_add, wrapping_sub);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 clip_impl!(isize, wrapping_add_unsigned, wrapping_sub_unsigned);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 clip_impl!(usize, wrapping_add, wrapping_sub);
-#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
+#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
 clip_impl!(isize, wrapping_add_unsigned, wrapping_sub_unsigned);
-#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
+#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
 clip_impl!(usize, wrapping_add, wrapping_sub);

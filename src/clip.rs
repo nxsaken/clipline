@@ -1,12 +1,16 @@
 //! ## Clipping
 //!
-//! This module provides the [`Clip`] type representing a rectangular clipping region, as well as
-//! methods for constructing iterators over clipped directed line segments of various types.
+//! This module provides the [`Clip`] type representing a rectangular clipping region,
+//! as well as methods for constructing iterators over clipped line segments of common types.
 
+use crate::axis_aligned::{AnyAxis, Axis0, Axis1};
+use crate::diagonal::AnyDiagonal;
 use crate::math::Point;
-use crate::{Bresenham, Diagonal, Horizontal, Orthogonal, Vertical};
+use crate::octant::AnyOctant;
 
-/// A rectangular region defined by its minimum and maximum [corners](Point), both inclusive.
+/// A rectangular region defined by its minimum and maximum [corners](Point).
+///
+/// *Both corners are included in the region.*
 #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Default)]
 pub struct Clip<T> {
     pub(crate) wx1: T,
@@ -31,60 +35,65 @@ macro_rules! clip_impl {
             /// Checks if this region contains a [point](Point).
             #[inline]
             #[must_use]
-            pub const fn contains(&self, (x, y): Point<$T>) -> bool {
+            pub const fn point(&self, (x, y): Point<$T>) -> bool {
                 self.wx1 <= x && x <= self.wx2 && self.wy1 <= y && y <= self.wy2
             }
 
-            /// Returns an iterator over a [horizontal](Horizontal)
-            /// directed line segment clipped to this region.
+            /// Clips a *half-open* [horizontal](Axis0) line segment
+            /// to this region, and returns an iterator over it.
             ///
             /// Returns [`None`] if the line segment does not intersect this clipping region.
             #[inline]
             #[must_use]
-            pub const fn horizontal(&self, y: $T, x1: $T, x2: $T) -> Option<Horizontal<$T>> {
-                Horizontal::<$T>::clip(y, x1, x2, self)
+            pub const fn axis_0(&self, y: $T, x1: $T, x2: $T) -> Option<Axis0<$T>> {
+                Axis0::<$T>::clip(y, x1, x2, self)
             }
 
-            /// Returns an iterator over a [vertical](Vertical)
-            /// directed line segment clipped to this region.
+            /// Clips a *half-open* [vertical](Axis1) line segment
+            /// to this region, and returns an iterator over it.
             ///
             /// Returns [`None`] if the line segment does not intersect this clipping region.
             #[inline]
             #[must_use]
-            pub const fn vertical(&self, x: $T, y1: $T, y2: $T) -> Option<Vertical<$T>> {
-                Vertical::<$T>::clip(x, y1, y2, self)
+            pub const fn axis_1(&self, x: $T, y1: $T, y2: $T) -> Option<Axis1<$T>> {
+                Axis1::<$T>::clip(x, y1, y2, self)
             }
 
-            /// Returns an iterator over a directed line segment,
-            /// if it is [orthogonal](Orthogonal), clipped to this region.
+            /// Clips a *half-open* line segment to this region
+            /// if it is aligned to [any axis](AnyAxis), and returns an iterator over it,
+            /// .
             ///
-            /// Returns [`None`] if the line segment is not orthogonal,
+            /// Returns [`None`] if the line segment is not axis-aligned,
             /// or if it does not intersect this clipping region.
             #[inline]
             #[must_use]
-            pub const fn orthogonal(&self, p1: Point<$T>, p2: Point<$T>) -> Option<Orthogonal<$T>> {
-                Orthogonal::<$T>::clip(p1, p2, self)
+            pub const fn any_axis(&self, p1: Point<$T>, p2: Point<$T>) -> Option<AnyAxis<$T>> {
+                AnyAxis::<$T>::clip(p1, p2, self)
             }
 
-            /// Returns an iterator over a directed line segment,
-            /// if it is [diagonal](Diagonal), clipped to this region.
+            /// Clips a *half-open* line segment to this region
+            /// if it is [diagonal](AnyDiagonal), and returns an iterator over it.
             ///
             /// Returns [`None`] if the line segment is not diagonal,
             /// or if it does not intersect this clipping region.
             #[inline]
             #[must_use]
-            pub const fn diagonal(&self, p1: Point<$T>, p2: Point<$T>) -> Option<Diagonal<$T>> {
-                Diagonal::<$T>::clip(p1, p2, self)
+            pub const fn any_diagonal(
+                &self,
+                p1: Point<$T>,
+                p2: Point<$T>,
+            ) -> Option<AnyDiagonal<$T>> {
+                AnyDiagonal::<$T>::clip(p1, p2, self)
             }
 
-            /// Returns a [Bresenham] iterator over an arbitrary
-            /// directed line segment clipped to this region.
+            /// Clips a *half-open* [arbitrary](AnyOctant) line segment
+            /// to this region, and returns an iterator over it.
             ///
             /// Returns [`None`] if the line segment does not intersect this clipping region.
             #[inline]
             #[must_use]
-            pub const fn bresenham(&self, p1: Point<$T>, p2: Point<$T>) -> Option<Bresenham<$T>> {
-                Bresenham::<$T>::clip(p1, p2, self)
+            pub const fn any_octant(&self, p1: Point<$T>, p2: Point<$T>) -> Option<AnyOctant<$T>> {
+                AnyOctant::<$T>::clip(p1, p2, self)
             }
         }
     };

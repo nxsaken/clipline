@@ -2,13 +2,14 @@
 name = "clipline"
 version = "0.3.0"
 authors = ["Nurzhan Sakén <nurzhan.sakenov@gmail.com>"]
-edition = "2021"
-description = "Efficient rasterization of line segments with clipping."
-readme = "README.md"
+description = "Efficient rasterization of line segments with pixel-perfect clipping."
+keywords = ["line", "clipping", "bresenham", "rasterization", "grid"]
+categories = ["graphics", "rendering", "algorithms", "game-development"]
 repository = "https://github.com/nxsaken/clipline/"
 license = "MIT OR Apache-2.0"
-keywords = ["graphics", "clipping", "line", "bresenham", "rasterization"]
-categories = ["graphics", "rendering", "algorithms", "game-development"]
+readme = "README.md"
+rust-version = "1.66.0"
+edition = "2021"
 include = [
     "**/*.rs",
     "Cargo.toml",
@@ -16,9 +17,9 @@ include = [
 
 [features]
 default = []
-# Enable Bresenham<i64/u64> for all targets
-# and Bresenham<isize/usize> for 64-bit targets.
-bresenham_64 = []
+# Enable Octant<i64/u64> for all targets
+# and Octant<isize/usize> for 64-bit targets.
+octant_64 = []
 
 # Enable unstable features.
 nightly = []

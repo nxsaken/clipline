@@ -1,10 +1,4 @@
 //! ## Diagonal iterators
-//!
-//! This module provides a family of iterators for directed diagonal line segments.
-//!
-//! For any diagonal line segment, use the [diagonal](Diagonal) iterator.
-//! If you know the direction and length of the diagonal line segment, use
-//! one of the [diagonal quadrant](Quadrant) iterators instead.
 
 use crate::clip::Clip;
 use crate::math::{Math, Num, Point};
@@ -17,34 +11,45 @@ pub mod clip;
 // Diagonal quadrant iterators
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Iterator over a directed diagonal line segment covered by the given *quadrant*.
+/// Iterator over a diagonal line segment in the given **quadrant**.
 ///
-/// A quadrant is defined by the directions of the line segment it covers along each axis:
-/// - Negative along the `y` axis if `FY`, positive otherwise.
-/// - Negative along the `x` axis if `FX`, positive otherwise.
+/// A quadrant is defined by its symmetries relative to [`Diagonal0`]:
+/// - `FX`: flip the `x` axis if `true`.
+/// - `FY`: flip the `y` axis if `true`.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub struct Quadrant<const FX: bool, const FY: bool, T> {
+pub struct Diagonal<const FX: bool, const FY: bool, T> {
     x1: T,
     y1: T,
     x2: T,
 }
 
-/// Iterator over a directed diagonal line segment covered
-/// by the [quadrant](Quadrant) where `x` and `y` both increase.
-pub type Quadrant0<T> = Quadrant<false, false, T>;
-/// Iterator over a directed diagonal line segment covered
-/// by the [quadrant](Quadrant) where `x` increases and `y` decreases.
-pub type Quadrant1<T> = Quadrant<false, true, T>;
-/// Iterator over a directed diagonal line segment covered
-/// by the [quadrant](Quadrant) where `x` decreases and `y` increases.
-pub type Quadrant2<T> = Quadrant<true, false, T>;
-/// Iterator over a directed diagonal line segment covered
-/// by the [quadrant](Quadrant) where `x` and `y` both decrease.
-pub type Quadrant3<T> = Quadrant<true, true, T>;
+/// Iterator over a [diagonal](Diagonal) line segment in the
+/// [quadrant](Diagonal) where `x` and `y` **both increase**.
+///
+/// Covers line segments oriented at `45°`.
+pub type Diagonal0<T> = Diagonal<false, false, T>;
 
-macro_rules! quadrant_impl {
+/// Iterator over a [diagonal](Diagonal) line segment in the
+/// [quadrant](Diagonal) where `x` **increases** and `y` **decreases**.
+///
+/// Covers line segments oriented at `315°`.
+pub type Diagonal1<T> = Diagonal<false, true, T>;
+
+/// Iterator over a [diagonal](Diagonal) line segment in the
+/// [quadrant](Diagonal) where `x` **decreases** and `y` **increases**.
+///
+/// Covers line segments oriented at `135°`.
+pub type Diagonal2<T> = Diagonal<true, false, T>;
+
+/// Iterator over a [diagonal](Diagonal) line segment in the
+/// [quadrant](Diagonal) where `x` and `y` **both decrease**.
+///
+/// Covers line segments oriented at `225°`.
+pub type Diagonal3<T> = Diagonal<true, true, T>;
+
+macro_rules! diagonal_impl {
     ($T:ty) => {
-        impl<const FX: bool, const FY: bool> Quadrant<FX, FY, $T> {
+        impl<const FX: bool, const FY: bool> Diagonal<FX, FY, $T> {
             #[inline(always)]
             #[must_use]
             pub(crate) const fn new_inner((x1, y1): Point<$T>, x2: $T) -> Self {
@@ -69,13 +74,10 @@ macro_rules! quadrant_impl {
                 dx == dy
             }
 
-            /// Returns an iterator over a directed line segment
-            /// if it is diagonal and covered by the given [quadrant](Quadrant).
+            /// Returns an iterator over a *half-open* line segment
+            /// if it is diagonal and covered by the given [quadrant](Diagonal).
             ///
-            /// Returns [`None`] if the line segment is not diagonal,
-            /// or is not covered by the quadrant.
-            ///
-            /// **Note**: `(x2, y2)` is not included.
+            /// Returns [`None`] if the line segment is not diagonal or covered by the quadrant.
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Self> {
@@ -85,13 +87,12 @@ macro_rules! quadrant_impl {
                 Some(Self::new_inner((x1, y1), x2))
             }
 
-            /// Returns an iterator over a directed line segment, if it is diagonal and
-            /// covered by the given [quadrant](Quadrant), clipped to a [rectangular region](Clip).
+            /// Clips a *half-open* line segment to a [rectangular region](Clip)
+            /// if it is diagonal and covered by the given [quadrant](Diagonal),
+            /// and returns an iterator over it.
             ///
-            /// Returns [`None`] if the line segment is not diagonal,
-            /// is not covered by the quadrant, or does not intersect the clipping region.
-            ///
-            /// **Note**: `(x2, y2)` is not included.
+            /// Returns [`None`] if the line segment is not diagonal or covered by the quadrant,
+            /// or if it does not intersect the clipping region.
             #[inline]
             #[must_use]
             pub const fn clip(
@@ -125,7 +126,7 @@ macro_rules! quadrant_impl {
             }
         }
 
-        impl<const FX: bool, const FY: bool> Iterator for Quadrant<FX, FY, $T> {
+        impl<const FX: bool, const FY: bool> Iterator for Diagonal<FX, FY, $T> {
             type Item = Point<$T>;
 
             #[inline]
@@ -148,24 +149,24 @@ macro_rules! quadrant_impl {
             }
         }
 
-        impl<const FX: bool, const FY: bool> core::iter::FusedIterator for Quadrant<FX, FY, $T> {}
+        impl<const FX: bool, const FY: bool> core::iter::FusedIterator for Diagonal<FX, FY, $T> {}
     };
 }
 
-quadrant_impl!(i8);
-quadrant_impl!(u8);
-quadrant_impl!(i16);
-quadrant_impl!(u16);
-quadrant_impl!(i32);
-quadrant_impl!(u32);
-quadrant_impl!(i64);
-quadrant_impl!(u64);
-quadrant_impl!(isize);
-quadrant_impl!(usize);
+diagonal_impl!(i8);
+diagonal_impl!(u8);
+diagonal_impl!(i16);
+diagonal_impl!(u16);
+diagonal_impl!(i32);
+diagonal_impl!(u32);
+diagonal_impl!(i64);
+diagonal_impl!(u64);
+diagonal_impl!(isize);
+diagonal_impl!(usize);
 
-macro_rules! quadrant_exact_size_iter_impl {
+macro_rules! diagonal_exact_size_iter_impl {
     ($T:ty) => {
-        impl<const FX: bool, const FY: bool> ExactSizeIterator for Quadrant<FX, FY, $T> {
+        impl<const FX: bool, const FY: bool> ExactSizeIterator for Diagonal<FX, FY, $T> {
             #[cfg(feature = "is_empty")]
             #[inline]
             fn is_empty(&self) -> bool {
@@ -175,54 +176,53 @@ macro_rules! quadrant_exact_size_iter_impl {
     };
 }
 
-quadrant_exact_size_iter_impl!(i8);
-quadrant_exact_size_iter_impl!(u8);
-quadrant_exact_size_iter_impl!(i16);
-quadrant_exact_size_iter_impl!(u16);
+diagonal_exact_size_iter_impl!(i8);
+diagonal_exact_size_iter_impl!(u8);
+diagonal_exact_size_iter_impl!(i16);
+diagonal_exact_size_iter_impl!(u16);
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-quadrant_exact_size_iter_impl!(i32);
+diagonal_exact_size_iter_impl!(i32);
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-quadrant_exact_size_iter_impl!(u32);
+diagonal_exact_size_iter_impl!(u32);
 #[cfg(target_pointer_width = "64")]
-quadrant_exact_size_iter_impl!(i64);
+diagonal_exact_size_iter_impl!(i64);
 #[cfg(target_pointer_width = "64")]
-quadrant_exact_size_iter_impl!(u64);
-quadrant_exact_size_iter_impl!(isize);
-quadrant_exact_size_iter_impl!(usize);
+diagonal_exact_size_iter_impl!(u64);
+diagonal_exact_size_iter_impl!(isize);
+diagonal_exact_size_iter_impl!(usize);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Arbitrary diagonal iterator
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Iterator over a directed diagonal line segment,
-/// with the [quadrant](Quadrant) of iteration determined at runtime.
+/// Iterator over any [diagonal](Diagonal) line segment,
+/// with the orientation determined at runtime.
 ///
-/// If you know the [quadrant](Quadrant) alignment of the line segment beforehand, consider the
-/// more specific [`Quadrant0`], [`Quadrant1`], [`Quadrant2`] and [`Quadrant3`] iterators instead.
+/// If you know the orientation of the line segment beforehand,
+/// use an iterator from the [`Diagonal`] family.
 ///
 /// **Note**: an optimized implementation of [`Iterator::fold`] is provided.
 /// This makes [`Iterator::for_each`] faster than a `for` loop, since it checks
-/// the quadrant of iteration only once instead of on every call to [`Iterator::next`].
+/// the orientation only once instead of on every call to [`Iterator::next`].
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub enum Diagonal<T> {
-    /// Diagonal line segment at `45°`, see [`Quadrant0`].
-    Quadrant0(Quadrant0<T>),
-    /// Diagonal line segment at `135°`, see [`Quadrant1`].
-    Quadrant1(Quadrant1<T>),
-    /// Diagonal line segment at `225°`, see [`Quadrant2`].
-    Quadrant2(Quadrant2<T>),
-    /// Diagonal line segment at `315°`, see [`Quadrant3`].
-    Quadrant3(Quadrant3<T>),
+pub enum AnyDiagonal<T> {
+    /// Diagonal line segment at `45°`, see [`Diagonal0`].
+    Diagonal0(Diagonal0<T>),
+    /// Diagonal line segment at `135°`, see [`Diagonal1`].
+    Diagonal1(Diagonal1<T>),
+    /// Diagonal line segment at `225°`, see [`Diagonal2`].
+    Diagonal2(Diagonal2<T>),
+    /// Diagonal line segment at `315°`, see [`Diagonal3`].
+    Diagonal3(Diagonal3<T>),
 }
 
-/// Delegates calls to quadrant variants.
 macro_rules! delegate {
     ($self:ident, $me:ident => $call:expr) => {
         match $self {
-            Self::Quadrant0($me) => $call,
-            Self::Quadrant1($me) => $call,
-            Self::Quadrant2($me) => $call,
-            Self::Quadrant3($me) => $call,
+            Self::Diagonal0($me) => $call,
+            Self::Diagonal1($me) => $call,
+            Self::Diagonal2($me) => $call,
+            Self::Diagonal3($me) => $call,
         }
     };
 }
@@ -238,13 +238,11 @@ macro_rules! quadrant {
 
 pub(crate) use quadrant;
 
-macro_rules! diagonal_impl {
+macro_rules! any_diagonal_impl {
     ($T:ty) => {
-        impl Diagonal<$T> {
-            /// Returns an iterator over a directed line segment
-            /// if it is [diagonal](Diagonal), otherwise returns [`None`].
-            ///
-            /// **Note**: `(x2, y2)` is not included.
+        impl AnyDiagonal<$T> {
+            /// Returns an iterator over a *half-open* line segment
+            /// if it is diagonal, otherwise returns [`None`].
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Self> {
@@ -253,30 +251,28 @@ macro_rules! diagonal_impl {
                     if y1 < y2 {
                         let dy = Math::<$T>::delta(y2, y1);
                         reject_if!(dx != dy);
-                        return Some(quadrant!(Quadrant0, $T, (x1, y1), x2));
+                        return Some(quadrant!(Diagonal0, $T, (x1, y1), x2));
                     }
                     let dy = Math::<$T>::delta(y1, y2);
                     reject_if!(dx != dy);
-                    return Some(quadrant!(Quadrant1, $T, (x1, y1), x2));
+                    return Some(quadrant!(Diagonal1, $T, (x1, y1), x2));
                 }
                 let dx = Math::<$T>::delta(x1, x2);
                 if y1 < y2 {
                     let dy = Math::<$T>::delta(y2, y1);
                     reject_if!(dx != dy);
-                    return Some(quadrant!(Quadrant2, $T, (x1, y1), x2));
+                    return Some(quadrant!(Diagonal2, $T, (x1, y1), x2));
                 }
                 let dy = Math::<$T>::delta(y1, y2);
                 reject_if!(dx != dy);
-                return Some(quadrant!(Quadrant3, $T, (x1, y1), x2));
+                return Some(quadrant!(Diagonal3, $T, (x1, y1), x2));
             }
 
-            /// Returns an iterator over a directed line segment,
-            /// if it is [diagonal](Diagonal), clipped to a [rectangular region](Clip).
+            /// Clips a *half-open* line segment to a [rectangular region](Clip)
+            /// if it is diagonal, and returns an iterator over it.
             ///
             /// Returns [`None`] if the given line segment is not diagonal,
             /// or if it does not intersect the clipping region.
-            ///
-            /// **Note**: `(x2, y2)` is not included.
             #[inline]
             #[must_use]
             pub const fn clip(
@@ -292,12 +288,12 @@ macro_rules! diagonal_impl {
                         reject_if!(y2 < wy1 || wy2 <= y1);
                         let dy = Math::<$T>::delta(y2, y1);
                         reject_if!(dx != dy);
-                        return quadrant!(Quadrant0, $T, (x1, y1), (x2, y2), clip);
+                        return quadrant!(Diagonal0, $T, (x1, y1), (x2, y2), clip);
                     }
                     reject_if!(y1 < wy1 || wy2 <= y2);
                     let dy = Math::<$T>::delta(y1, y2);
                     reject_if!(dx != dy);
-                    return quadrant!(Quadrant1, $T, (x1, y1), (x2, y2), clip);
+                    return quadrant!(Diagonal1, $T, (x1, y1), (x2, y2), clip);
                 }
                 reject_if!(x1 < wx1 || wx2 <= x2);
                 let dx = Math::<$T>::delta(x1, x2);
@@ -305,12 +301,12 @@ macro_rules! diagonal_impl {
                     reject_if!(y2 < wy1 || wy2 <= y1);
                     let dy = Math::<$T>::delta(y2, y1);
                     reject_if!(dx != dy);
-                    return quadrant!(Quadrant2, $T, (x1, y1), (x2, y2), clip);
+                    return quadrant!(Diagonal2, $T, (x1, y1), (x2, y2), clip);
                 }
                 reject_if!(y1 < wy1 || wy2 <= y2);
                 let dy = Math::<$T>::delta(y1, y2);
                 reject_if!(dx != dy);
-                return quadrant!(Quadrant3, $T, (x1, y1), (x2, y2), clip);
+                return quadrant!(Diagonal3, $T, (x1, y1), (x2, y2), clip);
             }
 
             /// Returns `true` if the iterator has terminated.
@@ -328,7 +324,7 @@ macro_rules! diagonal_impl {
             }
         }
 
-        impl Iterator for Diagonal<$T> {
+        impl Iterator for AnyDiagonal<$T> {
             type Item = Point<$T>;
 
             #[inline]
@@ -362,24 +358,24 @@ macro_rules! diagonal_impl {
             }
         }
 
-        impl core::iter::FusedIterator for Diagonal<$T> {}
+        impl core::iter::FusedIterator for AnyDiagonal<$T> {}
     };
 }
 
-diagonal_impl!(i8);
-diagonal_impl!(u8);
-diagonal_impl!(i16);
-diagonal_impl!(u16);
-diagonal_impl!(i32);
-diagonal_impl!(u32);
-diagonal_impl!(i64);
-diagonal_impl!(u64);
-diagonal_impl!(isize);
-diagonal_impl!(usize);
+any_diagonal_impl!(i8);
+any_diagonal_impl!(u8);
+any_diagonal_impl!(i16);
+any_diagonal_impl!(u16);
+any_diagonal_impl!(i32);
+any_diagonal_impl!(u32);
+any_diagonal_impl!(i64);
+any_diagonal_impl!(u64);
+any_diagonal_impl!(isize);
+any_diagonal_impl!(usize);
 
-macro_rules! diagonal_exact_size_iter_impl {
+macro_rules! any_diagonal_exact_size_iter_impl {
     ($T:ty) => {
-        impl ExactSizeIterator for Diagonal<$T> {
+        impl ExactSizeIterator for AnyDiagonal<$T> {
             #[cfg(feature = "is_empty")]
             #[inline]
             fn is_empty(&self) -> bool {
@@ -389,20 +385,20 @@ macro_rules! diagonal_exact_size_iter_impl {
     };
 }
 
-diagonal_exact_size_iter_impl!(i8);
-diagonal_exact_size_iter_impl!(u8);
-diagonal_exact_size_iter_impl!(i16);
-diagonal_exact_size_iter_impl!(u16);
+any_diagonal_exact_size_iter_impl!(i8);
+any_diagonal_exact_size_iter_impl!(u8);
+any_diagonal_exact_size_iter_impl!(i16);
+any_diagonal_exact_size_iter_impl!(u16);
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-diagonal_exact_size_iter_impl!(i32);
+any_diagonal_exact_size_iter_impl!(i32);
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-diagonal_exact_size_iter_impl!(u32);
+any_diagonal_exact_size_iter_impl!(u32);
 #[cfg(target_pointer_width = "64")]
-diagonal_exact_size_iter_impl!(i64);
+any_diagonal_exact_size_iter_impl!(i64);
 #[cfg(target_pointer_width = "64")]
-diagonal_exact_size_iter_impl!(u64);
-diagonal_exact_size_iter_impl!(isize);
-diagonal_exact_size_iter_impl!(usize);
+any_diagonal_exact_size_iter_impl!(u64);
+any_diagonal_exact_size_iter_impl!(isize);
+any_diagonal_exact_size_iter_impl!(usize);
 
 #[cfg(test)]
 mod static_tests {
@@ -411,18 +407,18 @@ mod static_tests {
 
     #[test]
     const fn iterator_8() {
-        assert_impl_all!(Quadrant0<i8>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<u8>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<i8>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<u8>: ExactSizeIterator);
+        assert_impl_all!(Diagonal0<i8>: ExactSizeIterator);
+        assert_impl_all!(Diagonal0<u8>: ExactSizeIterator);
+        assert_impl_all!(AnyDiagonal<i8>: ExactSizeIterator);
+        assert_impl_all!(AnyDiagonal<u8>: ExactSizeIterator);
     }
 
     #[test]
     const fn iterator_16() {
-        assert_impl_all!(Quadrant0<i16>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<u16>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<i16>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<u16>: ExactSizeIterator);
+        assert_impl_all!(Diagonal0<i16>: ExactSizeIterator);
+        assert_impl_all!(Diagonal0<u16>: ExactSizeIterator);
+        assert_impl_all!(AnyDiagonal<i16>: ExactSizeIterator);
+        assert_impl_all!(AnyDiagonal<u16>: ExactSizeIterator);
     }
 
     #[test]
@@ -431,21 +427,21 @@ mod static_tests {
         {
             use static_assertions::assert_not_impl_any;
 
-            assert_impl_all!(Quadrant0<i32>: Iterator);
-            assert_impl_all!(Quadrant0<u32>: Iterator);
-            assert_impl_all!(Diagonal<i32>: Iterator);
-            assert_impl_all!(Diagonal<u32>: Iterator);
-            assert_not_impl_any!(Quadrant0<i32>: ExactSizeIterator);
-            assert_not_impl_any!(Quadrant0<u32>: ExactSizeIterator);
-            assert_not_impl_any!(Diagonal<i32>: ExactSizeIterator);
-            assert_not_impl_any!(Diagonal<u32>: ExactSizeIterator);
+            assert_impl_all!(Diagonal0<i32>: Iterator);
+            assert_impl_all!(Diagonal0<u32>: Iterator);
+            assert_impl_all!(AnyDiagonal<i32>: Iterator);
+            assert_impl_all!(AnyDiagonal<u32>: Iterator);
+            assert_not_impl_any!(Diagonal0<i32>: ExactSizeIterator);
+            assert_not_impl_any!(Diagonal0<u32>: ExactSizeIterator);
+            assert_not_impl_any!(AnyDiagonal<i32>: ExactSizeIterator);
+            assert_not_impl_any!(AnyDiagonal<u32>: ExactSizeIterator);
         }
         #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
         {
-            assert_impl_all!(Quadrant0<i32>: ExactSizeIterator);
-            assert_impl_all!(Quadrant0<u32>: ExactSizeIterator);
-            assert_impl_all!(Diagonal<i32>: ExactSizeIterator);
-            assert_impl_all!(Diagonal<u32>: ExactSizeIterator);
+            assert_impl_all!(Diagonal0<i32>: ExactSizeIterator);
+            assert_impl_all!(Diagonal0<u32>: ExactSizeIterator);
+            assert_impl_all!(AnyDiagonal<i32>: ExactSizeIterator);
+            assert_impl_all!(AnyDiagonal<u32>: ExactSizeIterator);
         }
     }
 
@@ -453,31 +449,31 @@ mod static_tests {
     const fn iterator_64() {
         #[cfg(target_pointer_width = "64")]
         {
-            assert_impl_all!(Quadrant0<i64>: ExactSizeIterator);
-            assert_impl_all!(Quadrant0<u64>: ExactSizeIterator);
-            assert_impl_all!(Diagonal<i64>: ExactSizeIterator);
-            assert_impl_all!(Diagonal<u64>: ExactSizeIterator);
+            assert_impl_all!(Diagonal0<i64>: ExactSizeIterator);
+            assert_impl_all!(Diagonal0<u64>: ExactSizeIterator);
+            assert_impl_all!(AnyDiagonal<i64>: ExactSizeIterator);
+            assert_impl_all!(AnyDiagonal<u64>: ExactSizeIterator);
         }
         #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
         {
             use static_assertions::assert_not_impl_any;
 
-            assert_impl_all!(Quadrant0<i64>: Iterator);
-            assert_impl_all!(Quadrant0<u64>: Iterator);
-            assert_impl_all!(Diagonal<i64>: Iterator);
-            assert_impl_all!(Diagonal<u64>: Iterator);
-            assert_not_impl_any!(Quadrant0<i64>: ExactSizeIterator);
-            assert_not_impl_any!(Quadrant0<u64>: ExactSizeIterator);
-            assert_not_impl_any!(Diagonal<i64>: ExactSizeIterator);
-            assert_not_impl_any!(Diagonal<u64>: ExactSizeIterator);
+            assert_impl_all!(Diagonal0<i64>: Iterator);
+            assert_impl_all!(Diagonal0<u64>: Iterator);
+            assert_impl_all!(AnyDiagonal<i64>: Iterator);
+            assert_impl_all!(AnyDiagonal<u64>: Iterator);
+            assert_not_impl_any!(Diagonal0<i64>: ExactSizeIterator);
+            assert_not_impl_any!(Diagonal0<u64>: ExactSizeIterator);
+            assert_not_impl_any!(AnyDiagonal<i64>: ExactSizeIterator);
+            assert_not_impl_any!(AnyDiagonal<u64>: ExactSizeIterator);
         }
     }
 
     #[test]
     const fn iterator_pointer_size() {
-        assert_impl_all!(Quadrant0<isize>: ExactSizeIterator);
-        assert_impl_all!(Quadrant0<usize>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<isize>: ExactSizeIterator);
-        assert_impl_all!(Diagonal<usize>: ExactSizeIterator);
+        assert_impl_all!(Diagonal0<isize>: ExactSizeIterator);
+        assert_impl_all!(Diagonal0<usize>: ExactSizeIterator);
+        assert_impl_all!(AnyDiagonal<isize>: ExactSizeIterator);
+        assert_impl_all!(AnyDiagonal<usize>: ExactSizeIterator);
     }
 }

@@ -1,6 +1,4 @@
 //! ## Math types
-//!
-//! Contains the math types and helper macros.
 
 /// Numeric type representing a coordinate.
 pub trait Num {
@@ -12,16 +10,13 @@ pub trait Num {
     type U2: Copy + Eq + Ord + core::fmt::Debug;
 }
 
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Debug)]
-pub enum Void {}
-
-/// A generic point on a Cartesian plane.
+/// A generic point on a 2D plane.
 pub type Point<T> = (T, T);
 
 /// Absolute offset between two [points](Point).
 pub type Delta<T> = (<T as Num>::U, <T as Num>::U);
 
-/// Quadratic offset between two [points](Point).
+/// [`Delta`] product.
 pub type Delta2<T> = (<T as Num>::U2, <T as Num>::U2);
 
 macro_rules! num_impl {
@@ -113,8 +108,7 @@ macro_rules! math_impl {
             /// returning the narrow quotient and remainder.
             ///
             /// ### Safety
-            /// The divisor must be non-zero,
-            /// and the quotient must fit into the narrow type.
+            /// The divisor must be non-zero, and the quotient must fit into the narrow type.
             #[inline(always)]
             pub const unsafe fn div_rem(
                 a: <$T as Num>::U2,

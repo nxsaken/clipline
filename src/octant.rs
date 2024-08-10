@@ -1,19 +1,10 @@
-//! ## Bresenham iterators
-//!
-//! This module provides a family of iterators for arbitrary directed line segments
-//! backed by [Bresenham's algorithm][1].
-//!
-//! For an arbitrary directed line segment, use the [general Bresenham](Bresenham) iterator.
-//! If you know more about the orientation and direction of the line segment, use one of the
-//! specialized [diagonal](crate::Diagonal) or [orthogonal](crate::Orthogonal) iterators instead.
-//!
-//! [1]: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
+//! ## Octant iterators
 
 use crate::clip::Clip;
 use crate::math::{Delta, Math, Num, Point};
 use crate::symmetry::{fx, fy, xy};
 use crate::utils::{map, reject_if};
-use crate::{diagonal, orthogonal};
+use crate::{axis_aligned, diagonal};
 
 mod clip;
 
@@ -21,11 +12,12 @@ mod clip;
 // Bresenham octant iterators
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Iterator over a directed line segment in the given *octant* of [Bresenham's algorithm][1].
+/// Iterator over a line segment in the given **octant**,
+/// backed by [Bresenham's algorithm][1].
 ///
-/// An octant is defined by its transformations relative to [`Octant0`]:
-/// - `FY`: flip the `y` axis if `true`.
+/// An octant is defined by its symmetries relative to [`Octant0`]:
 /// - `FX`: flip the `x` axis if `true`.
+/// - `FY`: flip the `y` axis if `true`.
 /// - `SWAP`: swap the `x` and `y` axes if `true`.
 ///
 /// [1]: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
@@ -39,76 +31,60 @@ pub struct Octant<const FX: bool, const FY: bool, const SWAP: bool, T: Num> {
     end: T,
 }
 
-/// Iterator over a directed line segment in the first [octant](Octant)
-/// covering the `(0°, 45°]` sector of the Cartesian plane.
+/// Iterator over a line segment in the
+/// [octant](Octant) where `x` and `y` **both increase**,
+/// with `x` changing faster than `y` *(gentle slope)*.
 ///
-/// In this octant, both `x` and `y` increase,
-/// with `x` changing faster than `y` (gentle slope).
+/// Covers line segments spanning the `(0°, 45°]` sector.
 pub type Octant0<T> = Octant<false, false, false, T>;
 
-/// Iterator over a directed line segment in the second [octant](Octant)
-/// covering the `(45°, 90°)` sector of the Cartesian plane.
+/// Iterator over a line segment in the
+/// [octant](Octant) where `x` and `y` **both increase**,
+/// with `y` changing faster than `x` *(steep slope)*.
 ///
-/// In this octant, both `x` and `y` increase,
-/// with `y` changing faster than `x` (steep slope).
-///
-/// Can be obtained from [`Octant0`] by swapping the `x` and `y` coordinates.
+/// Covers line segments spanning the `(45°, 90°)` sector.
 pub type Octant1<T> = Octant<false, false, true, T>;
 
-/// Iterator over a directed line segment in the third [octant](Octant).
-/// covering the `[315°, 360°)` sector of the Cartesian plane.
+/// Iterator over a line segment in the
+/// [octant](Octant) where `x` **increases** and `y` **decreases**,
+/// with `x` changing faster than `y` *(gentle slope)*.
 ///
-/// In this octant, `x` increases and `y` decreases,
-/// with `x` changing faster than `y` (gentle slope).
-///
-/// Can be obtained from [`Octant0`] by flipping the `y` coordinate.
+/// Covers line segments spanning the `[315°, 360°)` sector.
 pub type Octant2<T> = Octant<false, true, false, T>;
 
-/// Iterator over a directed line segment in the fourth [octant](Octant).
-/// covering the `(270°, 315°)` sector of the Cartesian plane.
+/// Iterator over a line segment in the
+/// [octant](Octant) where `x` **increases** and `y` **decreases**,
+/// with `y` changing faster than `x` *(steep slope)*.
 ///
-/// In this octant, `x` increases and `y` decreases,
-/// with `y` changing faster than `x` (steep slope).
-///
-/// Can be obtained from [`Octant0`] by flipping the `y` coordinate,
-/// and swapping the `x` and `y` coordinates.
+/// Covers line segments spanning the `(270°, 315°)` sector.
 pub type Octant3<T> = Octant<false, true, true, T>;
 
-/// Iterator over a directed line segment in the fifth [octant](Octant)
-/// covering the `[135°, 180°)` sector of the Cartesian plane.
+/// Iterator over a line segment in the
+/// [octant](Octant) where `x` **decreases** and `y` **increases**,
+/// with `x` changing faster than `y` *(gentle slope)*.
 ///
-/// In this octant, `x` decreases and `y` increases,
-/// with `x` changing faster than `y` (gentle slope).
-///
-/// Can be obtained from [`Octant0`] by flipping the `x` coordinate.
+/// Covers line segments spanning the `[135°, 180°)` sector.
 pub type Octant4<T> = Octant<true, false, false, T>;
 
-/// Iterator over a directed line segment in the sixth [octant](Octant)
-/// covering the `(90°, 135°)` sector of the Cartesian plane.
+/// Iterator over a line segment in the
+/// [octant](Octant) where `x` **decreases** and `y` **increases**,
+/// with `y` changing faster than `x` *(steep slope)*.
 ///
-/// In this octant, `x` decreases and `y` increases,
-/// with `y` changing faster than `x` (steep slope).
-///
-/// Can be obtained from [`Octant0`] by flipping the `x` coordinate,
-/// and swapping the `x` and `y` coordinates.
+/// Covers line segments spanning the `(90°, 135°)` sector.
 pub type Octant5<T> = Octant<true, false, true, T>;
 
-/// Iterator over a directed line segment in the seventh [octant](Octant)
-/// covering the `(180°, 225°]` sector of the Cartesian plane.
+/// Iterator over a line segment in the
+/// [octant](Octant) where `x` and `y` **both decrease**,
+/// with `x` changing faster than `y` *(gentle slope)*.
 ///
-/// In this octant, both `x` and `y` decrease,
-/// with `x` changing faster than `y` (gentle slope).
-///
-/// Can be obtained from [`Octant0`] by flipping the `x` and `y` coordinates.
+/// Covers line segments spanning the `(180°, 225°]` sector.
 pub type Octant6<T> = Octant<true, true, false, T>;
 
-/// Iterator over a directed line segment in the eighth [octant](Octant)
-/// covering the `(225°, 270°)` sector of the Cartesian plane.
+/// Iterator over a line segment in the
+/// [octant](Octant) where `x` and `y` **both decrease**,
+/// with `y` changing faster than `x` *(steep slope)*.
 ///
-/// In this octant, both `x` and `y` decrease,
-/// with `y` changing faster than `x` (steep slope).
-///
-/// Can be obtained from [`Octant0`] by flipping and swapping the `x` and `y` coordinates.
+/// Covers line segments spanning the `(225°, 270°)` sector.
 pub type Octant7<T> = Octant<true, true, true, T>;
 
 macro_rules! octant_impl {
@@ -146,7 +122,7 @@ macro_rules! octant_impl {
                 Some((dx, dy))
             }
 
-            /// Returns an iterator over a directed line segment
+            /// Returns an iterator over a *half-open* line segment
             /// if it is covered by the given [octant](Octant),
             /// otherwise returns [`None`].
             ///
@@ -160,7 +136,7 @@ macro_rules! octant_impl {
                 Some(Self::new_inner((x1, y1), (x2, y2), delta))
             }
 
-            /// Returns an iterator over a directed line segment,
+            /// Returns an iterator over a *half-open* line segment,
             /// if it is covered by the [octant](Octant),
             /// clipped to the [rectangular region](Clip).
             ///
@@ -258,17 +234,17 @@ octant_impl!(i16);
 octant_impl!(u16);
 octant_impl!(i32);
 octant_impl!(u32);
-#[cfg(feature = "bresenham_64")]
+#[cfg(feature = "octant_64")]
 octant_impl!(i64);
-#[cfg(feature = "bresenham_64")]
+#[cfg(feature = "octant_64")]
 octant_impl!(u64);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 octant_impl!(isize);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 octant_impl!(usize);
-#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
+#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
 octant_impl!(isize);
-#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
+#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
 octant_impl!(usize);
 
 macro_rules! octant_exact_size_iter_impl {
@@ -293,54 +269,52 @@ octant_exact_size_iter_impl!(u16);
 octant_exact_size_iter_impl!(i32);
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
 octant_exact_size_iter_impl!(u32);
-#[cfg(feature = "bresenham_64")]
+#[cfg(feature = "octant_64")]
 octant_exact_size_iter_impl!(i64);
-#[cfg(feature = "bresenham_64")]
+#[cfg(feature = "octant_64")]
 octant_exact_size_iter_impl!(u64);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 octant_exact_size_iter_impl!(isize);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 octant_exact_size_iter_impl!(usize);
-#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
+#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
 octant_exact_size_iter_impl!(isize);
-#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
+#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
 octant_exact_size_iter_impl!(usize);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// Arbitrary Bresenham iterator
+// Arbitrary iterator
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Iterator over an arbitrary directed line segment backed by [Bresenham's algorithm][1].
+/// Iterator over an arbitrary line segment.
 ///
-/// Chooses a sub-iterator variant based on the orientation and direction of the line segment.
+/// Chooses a specialized iterator variant **at runtime** based
+/// on the orientation and direction of the line segment.
 ///
-/// If you know the alignment of the line segment beforehand, consider the more specific
-/// [octant](Octant), [diagonal](crate::Diagonal), [orthogonal](crate::Orthogonal)
-/// and [axis-aligned](crate::AxisAligned) iterators instead.
+/// If you know the orientation of the line segment, use one of the [octant](Octant),
+/// [diagonal](crate::Diagonal), or [axis-aligned](crate::Axis) iterators.
 ///
 /// **Note**: an optimized implementation of [`Iterator::fold`] is provided.
 /// This makes [`Iterator::for_each`] faster than a `for` loop, since it chooses
 /// the underlying iterator only once instead of on every call to [`Iterator::next`].
-///
-/// [1]: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub enum Bresenham<T: Num> {
-    /// Horizontal line segment at `0°`, see [`PositiveHorizontal`](crate::PositiveHorizontal).
-    SignedAxis0(orthogonal::PositiveHorizontal<T>),
-    /// Vertical line segment at `90°`, see [`PositiveVertical`](crate::PositiveVertical).
-    SignedAxis1(orthogonal::PositiveVertical<T>),
-    /// Horizontal line segment at `180°`, see [`NegativeHorizontal`](crate::NegativeHorizontal).
-    SignedAxis2(orthogonal::NegativeHorizontal<T>),
-    /// Vertical line segment at `270°`, see [`NegativeVertical`](crate::NegativeVertical).
-    SignedAxis3(orthogonal::NegativeVertical<T>),
-    /// Diagonal line segment at `45°`, see [`Quadrant0`](diagonal::Quadrant0).
-    Quadrant0(diagonal::Quadrant0<T>),
-    /// Diagonal line segment at `315°`, see [`Quadrant1`](diagonal::Quadrant1).
-    Quadrant1(diagonal::Quadrant1<T>),
-    /// Diagonal line segment at `135°`, see [`Quadrant2`](diagonal::Quadrant2).
-    Quadrant2(diagonal::Quadrant2<T>),
-    /// Diagonal line segment at `225°`, see [`Quadrant3`](diagonal::Quadrant3).
-    Quadrant3(diagonal::Quadrant3<T>),
+pub enum AnyOctant<T: Num> {
+    /// Horizontal line segment at `0°`, see [`PositiveAxis0`](crate::PositiveAxis0).
+    PositiveAxis0(axis_aligned::PositiveAxis0<T>),
+    /// Vertical line segment at `90°`, see [`NegativeAxis0`](crate::NegativeAxis0).
+    NegativeAxis0(axis_aligned::NegativeAxis0<T>),
+    /// Horizontal line segment at `180°`, see [`PositiveAxis1`](crate::PositiveAxis1).
+    PositiveAxis1(axis_aligned::PositiveAxis1<T>),
+    /// Vertical line segment at `270°`, see [`NegativeAxis1`](crate::NegativeAxis1).
+    NegativeAxis1(axis_aligned::NegativeAxis1<T>),
+    /// Diagonal line segment at `45°`, see [`Diagonal0`](crate::Diagonal0).
+    Diagonal0(diagonal::Diagonal0<T>),
+    /// Diagonal line segment at `315°`, see [`Diagonal1`](crate::Diagonal1).
+    Diagonal1(diagonal::Diagonal1<T>),
+    /// Diagonal line segment at `135°`, see [`Diagonal2`](crate::Diagonal2).
+    Diagonal2(diagonal::Diagonal2<T>),
+    /// Diagonal line segment at `225°`, see [`Diagonal3`](crate::Diagonal3).
+    Diagonal3(diagonal::Diagonal3<T>),
     /// Gently-sloped line segment in `(0°, 45°)`, see [`Octant0`].
     Octant0(Octant0<T>),
     /// Steeply-sloped line segment in `(45°, 90°)`, see [`Octant1`].
@@ -359,18 +333,17 @@ pub enum Bresenham<T: Num> {
     Octant7(Octant7<T>),
 }
 
-/// Delegates calls to octant variants.
 macro_rules! delegate {
     ($self:ident, $me:ident => $call:expr) => {
         match $self {
-            Self::SignedAxis0($me) => $call,
-            Self::SignedAxis1($me) => $call,
-            Self::SignedAxis2($me) => $call,
-            Self::SignedAxis3($me) => $call,
-            Self::Quadrant0($me) => $call,
-            Self::Quadrant1($me) => $call,
-            Self::Quadrant2($me) => $call,
-            Self::Quadrant3($me) => $call,
+            Self::PositiveAxis0($me) => $call,
+            Self::NegativeAxis0($me) => $call,
+            Self::PositiveAxis1($me) => $call,
+            Self::NegativeAxis1($me) => $call,
+            Self::Diagonal0($me) => $call,
+            Self::Diagonal1($me) => $call,
+            Self::Diagonal2($me) => $call,
+            Self::Diagonal3($me) => $call,
             Self::Octant0($me) => $call,
             Self::Octant1($me) => $call,
             Self::Octant2($me) => $call,
@@ -392,28 +365,26 @@ macro_rules! octant {
     };
 }
 
-macro_rules! bresenham_impl {
+macro_rules! any_octant_impl {
     ($T:ty) => {
-        impl Bresenham<$T> {
-            /// Returns a [Bresenham] iterator over an arbitrary directed line segment.
-            ///
-            /// **Note**: `(x2, y2)` is not included.
+        impl AnyOctant<$T> {
+            /// Returns an iterator over an arbitrary *half-open* line segment.
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Self {
-                use diagonal::{Quadrant0, Quadrant1, Quadrant2, Quadrant3};
+                use diagonal::{Diagonal0, Diagonal1, Diagonal2, Diagonal3};
                 if y1 == y2 {
-                    use orthogonal::Horizontal;
-                    return match Horizontal::<$T>::new(y1, x1, x2) {
-                        Horizontal::Positive(me) => Self::SignedAxis0(me),
-                        Horizontal::Negative(me) => Self::SignedAxis2(me),
+                    use axis_aligned::Axis0;
+                    return match Axis0::<$T>::new(y1, x1, x2) {
+                        Axis0::Positive(me) => Self::PositiveAxis0(me),
+                        Axis0::Negative(me) => Self::NegativeAxis0(me),
                     };
                 }
                 if x1 == x2 {
-                    use orthogonal::Vertical;
-                    return match Vertical::<$T>::new(x1, y1, y2) {
-                        Vertical::Positive(me) => Self::SignedAxis1(me),
-                        Vertical::Negative(me) => Self::SignedAxis3(me),
+                    use axis_aligned::Axis1;
+                    return match Axis1::<$T>::new(x1, y1, y2) {
+                        Axis1::Positive(me) => Self::PositiveAxis1(me),
+                        Axis1::Negative(me) => Self::NegativeAxis1(me),
                     };
                 }
                 if x1 < x2 {
@@ -426,7 +397,7 @@ macro_rules! bresenham_impl {
                         if dx < dy {
                              return octant!(Octant1, $T, (x1, y1), (x2, y2), (dx, dy));
                         }
-                        return diagonal::quadrant!(Quadrant0, $T, (x1, y1), x2);
+                        return diagonal::quadrant!(Diagonal0, $T, (x1, y1), x2);
                     }
                     let dy = Math::<$T>::delta(y1, y2);
                     if dy < dx {
@@ -435,7 +406,7 @@ macro_rules! bresenham_impl {
                     if dx < dy {
                         return octant!(Octant3, $T, (x1, y1), (x2, y2), (dx, dy));
                     }
-                    return diagonal::quadrant!(Quadrant1, $T, (x1, y1), x2);
+                    return diagonal::quadrant!(Diagonal1, $T, (x1, y1), x2);
                 }
                 let dx = Math::<$T>::delta(x1, x2);
                 if y1 < y2 {
@@ -446,7 +417,7 @@ macro_rules! bresenham_impl {
                     if dx < dy {
                         return octant!(Octant5, $T, (x1, y1), (x2, y2), (dx, dy));
                     }
-                    return diagonal::quadrant!(Quadrant2, $T, (x1, y1), x2);
+                    return diagonal::quadrant!(Diagonal2, $T, (x1, y1), x2);
                 }
                 let dy = Math::<$T>::delta(y1, y2);
                 if dy < dx {
@@ -455,14 +426,13 @@ macro_rules! bresenham_impl {
                 if dx < dy {
                     return octant!(Octant7, $T, (x1, y1), (x2, y2), (dx, dy));
                 }
-                return diagonal::quadrant!(Quadrant3, $T, (x1, y1), x2);
+                return diagonal::quadrant!(Diagonal3, $T, (x1, y1), x2);
             }
 
-            /// Returns a [Bresenham] iterator over an arbitrary directed line segment
-            /// clipped to a [rectangular region](Clip), or [`None`] if it does not
-            /// intersect the region.
+            /// Clips an arbitrary *half-open* line segment to a [rectangular region](Clip),
+            /// and returns an iterator over it.
             ///
-            /// **Note**: `(x2, y2)` is not included.
+            /// Returns [`None`] if the line segment does not intersect the clipping region.
             #[inline]
             #[must_use]
             pub const fn clip(
@@ -470,24 +440,24 @@ macro_rules! bresenham_impl {
                 (x2, y2): Point<$T>,
                 clip: &Clip<$T>,
             ) -> Option<Self> {
-                use diagonal::{Quadrant0, Quadrant1, Quadrant2, Quadrant3};
+                use diagonal::{Diagonal0, Diagonal1, Diagonal2, Diagonal3};
                 if y1 == y2 {
-                    use orthogonal::Horizontal;
+                    use axis_aligned::Axis0;
                     return map!(
-                        Horizontal::<$T>::clip(y1, x1, x2, clip),
+                        Axis0::<$T>::clip(y1, x1, x2, clip),
                         me => match me {
-                            Horizontal::Positive(me) => Self::SignedAxis0(me),
-                            Horizontal::Negative(me) => Self::SignedAxis2(me),
+                            Axis0::Positive(me) => Self::PositiveAxis0(me),
+                            Axis0::Negative(me) => Self::NegativeAxis0(me),
                         }
                     );
                 }
                 if x1 == x2 {
-                    use orthogonal::Vertical;
+                    use axis_aligned::Axis1;
                     return map!(
-                        Vertical::<$T>::clip(x1, y1, y2, clip),
+                        Axis1::<$T>::clip(x1, y1, y2, clip),
                         me => match me {
-                            Vertical::Positive(me) => Self::SignedAxis1(me),
-                            Vertical::Negative(me) => Self::SignedAxis3(me),
+                            Axis1::Positive(me) => Self::PositiveAxis1(me),
+                            Axis1::Negative(me) => Self::NegativeAxis1(me),
                         }
                     );
                 }
@@ -504,7 +474,7 @@ macro_rules! bresenham_impl {
                         if dx < dy {
                             return octant!(Octant1, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                         }
-                        return diagonal::quadrant!(Quadrant0, $T, (x1, y1), (x2, y2), clip);
+                        return diagonal::quadrant!(Diagonal0, $T, (x1, y1), (x2, y2), clip);
                     }
                     reject_if!(y1 < wy1 || wy2 <= y2);
                     let dy = Math::<$T>::delta(y1, y2);
@@ -514,7 +484,7 @@ macro_rules! bresenham_impl {
                     if dx < dy {
                         return octant!(Octant3, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                     }
-                    return diagonal::quadrant!(Quadrant1, $T, (x1, y1), (x2, y2), clip);
+                    return diagonal::quadrant!(Diagonal1, $T, (x1, y1), (x2, y2), clip);
                 }
                 reject_if!(x1 < wx1 || wx2 <= x2);
                 let dx = Math::<$T>::delta(x1, x2);
@@ -527,7 +497,7 @@ macro_rules! bresenham_impl {
                     if dx < dy {
                         return octant!(Octant5, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                     }
-                    return diagonal::quadrant!(Quadrant2, $T, (x1, y1), (x2, y2), clip);
+                    return diagonal::quadrant!(Diagonal2, $T, (x1, y1), (x2, y2), clip);
                 }
                 reject_if!(y1 < wy1 || wy2 <= y2);
                 let dy = Math::<$T>::delta(y1, y2);
@@ -537,7 +507,7 @@ macro_rules! bresenham_impl {
                 if dx < dy {
                     return octant!(Octant7, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                 }
-                return diagonal::quadrant!(Quadrant3, $T, (x1, y1), (x2, y2), clip);
+                return diagonal::quadrant!(Diagonal3, $T, (x1, y1), (x2, y2), clip);
             }
 
             /// Returns `true` if the iterator has terminated.
@@ -555,7 +525,7 @@ macro_rules! bresenham_impl {
             }
         }
 
-        impl Iterator for Bresenham<$T> {
+        impl Iterator for AnyOctant<$T> {
             type Item = Point<$T>;
 
             #[inline]
@@ -589,32 +559,32 @@ macro_rules! bresenham_impl {
             }
         }
 
-        impl core::iter::FusedIterator for Bresenham<$T> {}
+        impl core::iter::FusedIterator for AnyOctant<$T> {}
     };
 }
 
-bresenham_impl!(i8);
-bresenham_impl!(u8);
-bresenham_impl!(i16);
-bresenham_impl!(u16);
-bresenham_impl!(i32);
-bresenham_impl!(u32);
-#[cfg(feature = "bresenham_64")]
-bresenham_impl!(i64);
-#[cfg(feature = "bresenham_64")]
-bresenham_impl!(u64);
+any_octant_impl!(i8);
+any_octant_impl!(u8);
+any_octant_impl!(i16);
+any_octant_impl!(u16);
+any_octant_impl!(i32);
+any_octant_impl!(u32);
+#[cfg(feature = "octant_64")]
+any_octant_impl!(i64);
+#[cfg(feature = "octant_64")]
+any_octant_impl!(u64);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-bresenham_impl!(isize);
+any_octant_impl!(isize);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-bresenham_impl!(usize);
-#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
-bresenham_impl!(isize);
-#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
-bresenham_impl!(usize);
+any_octant_impl!(usize);
+#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
+any_octant_impl!(isize);
+#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
+any_octant_impl!(usize);
 
-macro_rules! bresenham_exact_size_iter_impl {
+macro_rules! any_octant_exact_size_iter_impl {
     ($T:ty) => {
-        impl ExactSizeIterator for Bresenham<$T> {
+        impl ExactSizeIterator for AnyOctant<$T> {
             #[cfg(feature = "is_empty")]
             #[inline]
             fn is_empty(&self) -> bool {
@@ -624,26 +594,26 @@ macro_rules! bresenham_exact_size_iter_impl {
     };
 }
 
-bresenham_exact_size_iter_impl!(i8);
-bresenham_exact_size_iter_impl!(u8);
-bresenham_exact_size_iter_impl!(i16);
-bresenham_exact_size_iter_impl!(u16);
+any_octant_exact_size_iter_impl!(i8);
+any_octant_exact_size_iter_impl!(u8);
+any_octant_exact_size_iter_impl!(i16);
+any_octant_exact_size_iter_impl!(u16);
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-bresenham_exact_size_iter_impl!(i32);
+any_octant_exact_size_iter_impl!(i32);
 #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-bresenham_exact_size_iter_impl!(u32);
-#[cfg(feature = "bresenham_64")]
-bresenham_exact_size_iter_impl!(i64);
-#[cfg(feature = "bresenham_64")]
-bresenham_exact_size_iter_impl!(u64);
+any_octant_exact_size_iter_impl!(u32);
+#[cfg(feature = "octant_64")]
+any_octant_exact_size_iter_impl!(i64);
+#[cfg(feature = "octant_64")]
+any_octant_exact_size_iter_impl!(u64);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-bresenham_exact_size_iter_impl!(isize);
+any_octant_exact_size_iter_impl!(isize);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-bresenham_exact_size_iter_impl!(usize);
-#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
-bresenham_exact_size_iter_impl!(isize);
-#[cfg(all(target_pointer_width = "64", feature = "bresenham_64"))]
-bresenham_exact_size_iter_impl!(usize);
+any_octant_exact_size_iter_impl!(usize);
+#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
+any_octant_exact_size_iter_impl!(isize);
+#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
+any_octant_exact_size_iter_impl!(usize);
 
 #[cfg(test)]
 mod static_tests {
@@ -654,16 +624,16 @@ mod static_tests {
     const fn iterator_8() {
         assert_impl_all!(Octant0<i8>: ExactSizeIterator);
         assert_impl_all!(Octant0<u8>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<i8>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<u8>: ExactSizeIterator);
+        assert_impl_all!(AnyOctant<i8>: ExactSizeIterator);
+        assert_impl_all!(AnyOctant<u8>: ExactSizeIterator);
     }
 
     #[test]
     const fn iterator_16() {
         assert_impl_all!(Octant0<i16>: ExactSizeIterator);
         assert_impl_all!(Octant0<u16>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<i16>: ExactSizeIterator);
-        assert_impl_all!(Bresenham<u16>: ExactSizeIterator);
+        assert_impl_all!(AnyOctant<i16>: ExactSizeIterator);
+        assert_impl_all!(AnyOctant<u16>: ExactSizeIterator);
     }
 
     #[test]
@@ -674,32 +644,32 @@ mod static_tests {
 
             assert_impl_all!(Octant0<i32>: Iterator);
             assert_impl_all!(Octant0<u32>: Iterator);
-            assert_impl_all!(Bresenham<i32>: Iterator);
-            assert_impl_all!(Bresenham<u32>: Iterator);
+            assert_impl_all!(AnyOctant<i32>: Iterator);
+            assert_impl_all!(AnyOctant<u32>: Iterator);
             assert_not_impl_any!(Octant0<i32>: ExactSizeIterator);
             assert_not_impl_any!(Octant0<u32>: ExactSizeIterator);
-            assert_not_impl_any!(Bresenham<i32>: ExactSizeIterator);
-            assert_not_impl_any!(Bresenham<u32>: ExactSizeIterator);
+            assert_not_impl_any!(AnyOctant<i32>: ExactSizeIterator);
+            assert_not_impl_any!(AnyOctant<u32>: ExactSizeIterator);
         }
         #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
         {
             assert_impl_all!(Octant0<i32>: ExactSizeIterator);
             assert_impl_all!(Octant0<u32>: ExactSizeIterator);
-            assert_impl_all!(Bresenham<i32>: ExactSizeIterator);
-            assert_impl_all!(Bresenham<u32>: ExactSizeIterator);
+            assert_impl_all!(AnyOctant<i32>: ExactSizeIterator);
+            assert_impl_all!(AnyOctant<u32>: ExactSizeIterator);
         }
     }
 
     #[test]
     const fn iterator_64() {
-        #[cfg(feature = "bresenham_64")]
+        #[cfg(feature = "octant_64")]
         {
             #[cfg(target_pointer_width = "64")]
             {
                 assert_impl_all!(Octant0<i64>: ExactSizeIterator);
                 assert_impl_all!(Octant0<u64>: ExactSizeIterator);
-                assert_impl_all!(Bresenham<i64>: ExactSizeIterator);
-                assert_impl_all!(Bresenham<u64>: ExactSizeIterator);
+                assert_impl_all!(AnyOctant<i64>: ExactSizeIterator);
+                assert_impl_all!(AnyOctant<u64>: ExactSizeIterator);
             }
             #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
             {
@@ -707,22 +677,22 @@ mod static_tests {
 
                 assert_impl_all!(Octant0<i64>: Iterator);
                 assert_impl_all!(Octant0<u64>: Iterator);
-                assert_impl_all!(Bresenham<i64>: Iterator);
-                assert_impl_all!(Bresenham<u64>: Iterator);
+                assert_impl_all!(AnyOctant<i64>: Iterator);
+                assert_impl_all!(AnyOctant<u64>: Iterator);
                 assert_not_impl_any!(Octant0<i64>: ExactSizeIterator);
                 assert_not_impl_any!(Octant0<u64>: ExactSizeIterator);
-                assert_not_impl_any!(Bresenham<i64>: ExactSizeIterator);
-                assert_not_impl_any!(Bresenham<u64>: ExactSizeIterator);
+                assert_not_impl_any!(AnyOctant<i64>: ExactSizeIterator);
+                assert_not_impl_any!(AnyOctant<u64>: ExactSizeIterator);
             }
         }
-        #[cfg(not(feature = "bresenham_64"))]
+        #[cfg(not(feature = "octant_64"))]
         {
             use static_assertions::assert_not_impl_any;
 
             assert_not_impl_any!(Octant0<i64>: Iterator);
             assert_not_impl_any!(Octant0<u64>: Iterator);
-            assert_not_impl_any!(Bresenham<i64>: Iterator);
-            assert_not_impl_any!(Bresenham<u64>: Iterator);
+            assert_not_impl_any!(AnyOctant<i64>: Iterator);
+            assert_not_impl_any!(AnyOctant<u64>: Iterator);
         }
     }
 
@@ -730,29 +700,29 @@ mod static_tests {
     const fn iterator_pointer_size() {
         #[cfg(target_pointer_width = "64")]
         {
-            #[cfg(feature = "bresenham_64")]
+            #[cfg(feature = "octant_64")]
             {
                 assert_impl_all!(Octant0<isize>: ExactSizeIterator);
                 assert_impl_all!(Octant0<usize>: ExactSizeIterator);
-                assert_impl_all!(Bresenham<isize>: ExactSizeIterator);
-                assert_impl_all!(Bresenham<usize>: ExactSizeIterator);
+                assert_impl_all!(AnyOctant<isize>: ExactSizeIterator);
+                assert_impl_all!(AnyOctant<usize>: ExactSizeIterator);
             }
-            #[cfg(not(feature = "bresenham_64"))]
+            #[cfg(not(feature = "octant_64"))]
             {
                 use static_assertions::assert_not_impl_any;
 
                 assert_not_impl_any!(Octant0<isize>: Iterator);
                 assert_not_impl_any!(Octant0<usize>: Iterator);
-                assert_not_impl_any!(Bresenham<isize>: Iterator);
-                assert_not_impl_any!(Bresenham<usize>: Iterator);
+                assert_not_impl_any!(AnyOctant<isize>: Iterator);
+                assert_not_impl_any!(AnyOctant<usize>: Iterator);
             }
         }
         #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
         {
             assert_impl_all!(Octant0<isize>: ExactSizeIterator);
             assert_impl_all!(Octant0<usize>: ExactSizeIterator);
-            assert_impl_all!(Bresenham<isize>: ExactSizeIterator);
-            assert_impl_all!(Bresenham<usize>: ExactSizeIterator);
+            assert_impl_all!(AnyOctant<isize>: ExactSizeIterator);
+            assert_impl_all!(AnyOctant<usize>: ExactSizeIterator);
         }
     }
 }
@@ -760,48 +730,46 @@ mod static_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::diagonal::{Quadrant0, Quadrant1, Quadrant2, Quadrant3};
-    use crate::orthogonal::{
-        NegativeHorizontal, NegativeVertical, PositiveHorizontal, PositiveVertical,
-    };
+    use crate::axis_aligned::{NegativeAxis0, NegativeAxis1, PositiveAxis0, PositiveAxis1};
+    use crate::diagonal::{Diagonal0, Diagonal1, Diagonal2, Diagonal3};
 
     #[test]
-    fn orthogonal_lines_are_special_cased() {
+    fn axis_aligned_lines_are_special_cased() {
         assert_eq!(
-            Bresenham::SignedAxis0(PositiveHorizontal::<u8>::new(0, 0, 255).unwrap()),
-            Bresenham::<u8>::new((0, 0), (255, 0)),
+            AnyOctant::PositiveAxis0(PositiveAxis0::<u8>::new(0, 0, 255).unwrap()),
+            AnyOctant::<u8>::new((0, 0), (255, 0)),
         );
         assert_eq!(
-            Bresenham::SignedAxis1(NegativeHorizontal::<u8>::new(0, 255, 0).unwrap()),
-            Bresenham::<u8>::new((255, 0), (0, 0)),
+            AnyOctant::PositiveAxis1(PositiveAxis1::<u8>::new(0, 0, 255).unwrap()),
+            AnyOctant::<u8>::new((0, 0), (0, 255)),
         );
         assert_eq!(
-            Bresenham::SignedAxis2(PositiveVertical::<u8>::new(0, 0, 255).unwrap()),
-            Bresenham::<u8>::new((0, 0), (0, 255)),
+            AnyOctant::NegativeAxis0(NegativeAxis0::<u8>::new(0, 255, 0).unwrap()),
+            AnyOctant::<u8>::new((255, 0), (0, 0)),
         );
         assert_eq!(
-            Bresenham::SignedAxis3(NegativeVertical::<u8>::new(0, 255, 0).unwrap()),
-            Bresenham::<u8>::new((0, 255), (0, 0)),
+            AnyOctant::NegativeAxis1(NegativeAxis1::<u8>::new(0, 255, 0).unwrap()),
+            AnyOctant::<u8>::new((0, 255), (0, 0)),
         );
     }
 
     #[test]
     fn diagonal_lines_are_special_cased() {
         assert_eq!(
-            Bresenham::<u8>::new((0, 0), (255, 255)),
-            Bresenham::Quadrant0(Quadrant0::<u8>::new((0, 0), (255, 255)).unwrap()),
+            AnyOctant::<u8>::new((0, 0), (255, 255)),
+            AnyOctant::Diagonal0(Diagonal0::<u8>::new((0, 0), (255, 255)).unwrap()),
         );
         assert_eq!(
-            Bresenham::<u8>::new((0, 255), (255, 0)),
-            Bresenham::Quadrant1(Quadrant1::<u8>::new((0, 255), (255, 0)).unwrap()),
+            AnyOctant::<u8>::new((0, 255), (255, 0)),
+            AnyOctant::Diagonal1(Diagonal1::<u8>::new((0, 255), (255, 0)).unwrap()),
         );
         assert_eq!(
-            Bresenham::<u8>::new((255, 0), (0, 255)),
-            Bresenham::Quadrant2(Quadrant2::<u8>::new((255, 0), (0, 255)).unwrap()),
+            AnyOctant::<u8>::new((255, 0), (0, 255)),
+            AnyOctant::Diagonal2(Diagonal2::<u8>::new((255, 0), (0, 255)).unwrap()),
         );
         assert_eq!(
-            Bresenham::<u8>::new((255, 255), (0, 0)),
-            Bresenham::Quadrant3(Quadrant3::<u8>::new((255, 255), (0, 0)).unwrap()),
+            AnyOctant::<u8>::new((255, 255), (0, 0)),
+            AnyOctant::Diagonal3(Diagonal3::<u8>::new((255, 255), (0, 0)).unwrap()),
         );
     }
 
@@ -809,14 +777,14 @@ mod tests {
     fn exclusive_covers_whole_domain() {
         const MAX: u8 = u8::MAX;
         for i in 0..=MAX {
-            assert_eq!(Bresenham::<u8>::new((0, i), (MAX, MAX)).count(), MAX as usize);
-            assert_eq!(Bresenham::<u8>::new((MAX, MAX), (0, i)).count(), MAX as usize);
-            assert_eq!(Bresenham::<u8>::new((i, 0), (MAX, MAX)).count(), MAX as usize);
-            assert_eq!(Bresenham::<u8>::new((MAX, MAX), (i, 0)).count(), MAX as usize);
-            assert_eq!(Bresenham::<u8>::new((0, MAX), (MAX, i)).count(), MAX as usize);
-            assert_eq!(Bresenham::<u8>::new((MAX, i), (0, MAX)).count(), MAX as usize);
-            assert_eq!(Bresenham::<u8>::new((MAX, 0), (i, MAX)).count(), MAX as usize);
-            assert_eq!(Bresenham::<u8>::new((i, MAX), (MAX, 0)).count(), MAX as usize);
+            assert_eq!(AnyOctant::<u8>::new((0, i), (MAX, MAX)).count(), MAX as usize);
+            assert_eq!(AnyOctant::<u8>::new((MAX, MAX), (0, i)).count(), MAX as usize);
+            assert_eq!(AnyOctant::<u8>::new((i, 0), (MAX, MAX)).count(), MAX as usize);
+            assert_eq!(AnyOctant::<u8>::new((MAX, MAX), (i, 0)).count(), MAX as usize);
+            assert_eq!(AnyOctant::<u8>::new((0, MAX), (MAX, i)).count(), MAX as usize);
+            assert_eq!(AnyOctant::<u8>::new((MAX, i), (0, MAX)).count(), MAX as usize);
+            assert_eq!(AnyOctant::<u8>::new((MAX, 0), (i, MAX)).count(), MAX as usize);
+            assert_eq!(AnyOctant::<u8>::new((i, MAX), (MAX, 0)).count(), MAX as usize);
         }
     }
 }

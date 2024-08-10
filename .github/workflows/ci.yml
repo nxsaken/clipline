@@ -83,6 +83,10 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
       - uses: dtolnay/install@cargo-docs-rs
       - run: cargo docs-rs
+      - name: cargo rdme --check
+        run: |
+          cargo install cargo-rdme
+          cargo rdme --check
 
   test:
     name: cargo test

@@ -126,7 +126,7 @@ mod rejects {
         let p1 = black_box((x1, y1));
         let p2 = black_box((x2, y2));
         let clip = black_box(CLIP);
-        if let Some(line) = clipline::Bresenham::<Num>::clip(p1, p2, &clip) {
+        if let Some(line) = clipline::AnyOctant::<Num>::clip(p1, p2, &clip) {
             line.for_each(draw_pixel_unchecked)
         }
     }
@@ -136,7 +136,7 @@ mod rejects {
         let p1 = black_box((x1, y1));
         let p2 = black_box((x2, y2));
         let clip = black_box((W1, W2));
-        clipline::Bresenham::<Num>::new(p1, p2).for_each(|(x, y)| draw_pixel_checked((x, y), clip));
+        clipline::AnyOctant::<Num>::new(p1, p2).for_each(|(x, y)| draw_pixel_checked((x, y), clip));
     }
 
     #[divan::bench(args = REJECTS)]
@@ -170,7 +170,7 @@ mod accepts {
         let p1 = black_box((x1, y1));
         let p2 = black_box((x2, y2));
         let clip = black_box(CLIP);
-        if let Some(line) = clipline::Bresenham::<Num>::clip(p1, p2, &clip) {
+        if let Some(line) = clipline::AnyOctant::<Num>::clip(p1, p2, &clip) {
             line.for_each(draw_pixel_unchecked)
         }
     }
@@ -180,7 +180,7 @@ mod accepts {
         let p1 = black_box((x1, y1));
         let p2 = black_box((x2, y2));
         let clip = black_box((W1, W2));
-        clipline::Bresenham::<Num>::new(p1, p2).for_each(|(x, y)| draw_pixel_checked((x, y), clip));
+        clipline::AnyOctant::<Num>::new(p1, p2).for_each(|(x, y)| draw_pixel_checked((x, y), clip));
     }
 
     #[divan::bench(args = ACCEPTS)]
