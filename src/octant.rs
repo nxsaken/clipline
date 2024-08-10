@@ -153,9 +153,10 @@ macro_rules! octant_impl {
             ) -> Option<Self> {
                 let &Clip { wx1, wy1, wx2, wy2 } = clip;
                 let (u1, u2) = fx!((x1, x2), (x2, x1));
-                reject_if!(u2 < wx1 || wx2 <= u1);
+                // TODO: strict comparison for closed line segments
+                reject_if!(xy!(u2 <= wx1, u2 < wx1) || wx2 < u1);
                 let (v1, v2) = fy!((y1, y2), (y2, y1));
-                reject_if!(v2 < wy1 || wy2 <= v1);
+                reject_if!(xy!(v2 < wy1, v2 <= wy1) || wy2 < v1);
                 let Some(delta) = Self::covers((x1, y1), (x2, y2)) else {
                     return None;
                 };
@@ -463,48 +464,57 @@ macro_rules! any_octant_impl {
                 }
                 let &Clip { wx1, wy1, wx2, wy2 } = clip;
                 if x1 < x2 {
-                    reject_if!(x2 < wx1 || wx2 <= x1);
+                    reject_if!(x2 < wx1 || wx2 < x1);
                     let dx = Math::<$T>::delta(x2, x1);
                     if y1 < y2 {
-                        reject_if!(y2 < wy1 || wy2 <= y1);
+                        reject_if!(y2 < wy1 || wy2 < y1);
                         let dy = Math::<$T>::delta(y2, y1);
                         if dy < dx {
+                            // TODO: strict comparison for closed line segments
+                            reject_if!(x2 == wx1);
                             return octant!(Octant0, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                         }
                         if dx < dy {
+                            reject_if!(y2 == wy1);
                             return octant!(Octant1, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                         }
                         return diagonal::quadrant!(Diagonal0, $T, (x1, y1), (x2, y2), clip);
                     }
-                    reject_if!(y1 < wy1 || wy2 <= y2);
+                    reject_if!(y1 < wy1 || wy2 < y2);
                     let dy = Math::<$T>::delta(y1, y2);
                     if dy < dx {
+                        reject_if!(x2 == wx1);
                         return octant!(Octant2, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                     }
                     if dx < dy {
+                        reject_if!(y2 == wy2);
                         return octant!(Octant3, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                     }
                     return diagonal::quadrant!(Diagonal1, $T, (x1, y1), (x2, y2), clip);
                 }
-                reject_if!(x1 < wx1 || wx2 <= x2);
+                reject_if!(x1 < wx1 || wx2 < x2);
                 let dx = Math::<$T>::delta(x1, x2);
                 if y1 < y2 {
-                    reject_if!(y2 < wy1 || wy2 <= y1);
+                    reject_if!(y2 < wy1 || wy2 < y1);
                     let dy = Math::<$T>::delta(y2, y1);
                     if dy < dx {
+                        reject_if!(x1 == wx1);
                         return octant!(Octant4, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                     }
                     if dx < dy {
+                        reject_if!(y2 == wy1);
                         return octant!(Octant5, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                     }
                     return diagonal::quadrant!(Diagonal2, $T, (x1, y1), (x2, y2), clip);
                 }
-                reject_if!(y1 < wy1 || wy2 <= y2);
+                reject_if!(y1 < wy1 || wy2 < y2);
                 let dy = Math::<$T>::delta(y1, y2);
                 if dy < dx {
+                    reject_if!(x1 == wx1);
                     return octant!(Octant6, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                 }
                 if dx < dy {
+                    reject_if!(y2 == wy2);
                     return octant!(Octant7, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                 }
                 return diagonal::quadrant!(Diagonal3, $T, (x1, y1), (x2, y2), clip);

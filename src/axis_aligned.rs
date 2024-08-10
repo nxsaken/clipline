@@ -278,20 +278,22 @@ macro_rules! axis_impl {
             /// - A [horizontal](Axis0) line segment has endpoints `(v1, u)` and `(v2, u)`.
             /// - A [vertical](Axis1) line segment has endpoints `(u, v1)` and `(u, v2)`.
             ///
-            /// Returns [`None`] if the line segment does not intersect the clipping region.
+            /// Returns [`None`] if the line segment is empty or does not intersect the clipping region.
             #[inline]
             #[must_use]
             pub const fn clip(u: $T, v1: $T, v2: $T, clip: &Clip<$T>) -> Option<Self> {
-                if v1 <= v2 {
+                if v1 < v2 {
                     map!(
                         PositiveAxis::<VERT, $T>::clip_inner(u, v1, v2, clip),
                         Self::Positive,
                     )
-                } else {
+                } else if v2 < v1 {
                     map!(
                         NegativeAxis::<VERT, $T>::clip_inner(u, v1, v2, clip),
                         Self::Negative,
                     )
+                } else {
+                    None
                 }
             }
 
@@ -476,7 +478,7 @@ macro_rules! any_axis_impl {
             /// if it is aligned to any [axis](Axis), and returns an iterator over it.
             ///
             /// Returns [`None`] if the line segment is not axis-aligned,
-            /// or if it does not intersect the clipping region.
+            /// is empty, or does not intersect the clipping region.
             #[inline]
             #[must_use]
             pub const fn clip((x1, y1): Point<$T>, (x2, y2): Point<$T>, clip: &Clip<$T>) -> Option<Self> {

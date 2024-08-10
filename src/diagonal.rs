@@ -102,9 +102,9 @@ macro_rules! diagonal_impl {
             ) -> Option<Self> {
                 let &Clip { wx1, wy1, wx2, wy2 } = clip;
                 let (u1, u2) = fx!((x1, x2), (x2, x1));
-                reject_if!(u2 < wx1 || wx2 <= u1);
+                reject_if!(u2 <= wx1 || wx2 < u1);
                 let (v1, v2) = fx!((y1, y2), (y2, y1));
-                reject_if!(v2 < wy1 || wy2 <= v1);
+                reject_if!(v2 <= wy1 || wy2 < v1);
                 if !Self::covers((x1, y1), (x2, y2)) {
                     return None;
                 };
@@ -282,10 +282,11 @@ macro_rules! any_diagonal_impl {
             ) -> Option<Self> {
                 let &Clip { wx1, wy1, wx2, wy2 } = clip;
                 if x1 < x2 {
-                    reject_if!(x2 < wx1 || wx2 <= x1);
+                    // TODO: strict comparison for closed line segments
+                    reject_if!(x2 <= wx1 || wx2 < x1);
                     let dx = Math::<$T>::delta(x2, x1);
                     if y1 < y2 {
-                        reject_if!(y2 < wy1 || wy2 <= y1);
+                        reject_if!(y2 <= wy1 || wy2 < y1);
                         let dy = Math::<$T>::delta(y2, y1);
                         reject_if!(dx != dy);
                         return quadrant!(Diagonal0, $T, (x1, y1), (x2, y2), clip);
@@ -298,7 +299,7 @@ macro_rules! any_diagonal_impl {
                 reject_if!(x1 < wx1 || wx2 <= x2);
                 let dx = Math::<$T>::delta(x1, x2);
                 if y1 < y2 {
-                    reject_if!(y2 < wy1 || wy2 <= y1);
+                    reject_if!(y2 <= wy1 || wy2 < y1);
                     let dy = Math::<$T>::delta(y2, y1);
                     reject_if!(dx != dy);
                     return quadrant!(Diagonal2, $T, (x1, y1), (x2, y2), clip);
