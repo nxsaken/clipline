@@ -18,6 +18,8 @@ Efficient rasterization of line segments with pixel-perfect [clipping][clip].
   - Defines the iterators on the entire domains of the underlying numeric types.
 - Usable in `const` contexts and `#![no_std]` environments.
 
+![`clipline` in action](img/clip.gif)
+
 ## Usage
 
 Add `clipline` to `Cargo.toml`:

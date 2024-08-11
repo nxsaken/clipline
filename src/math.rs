@@ -10,13 +10,13 @@ pub trait Num {
     type U2: Copy + Eq + Ord + core::fmt::Debug;
 }
 
-/// A generic point on a 2D plane.
+/// A generic 2D point.
 pub type Point<T> = (T, T);
 
 /// Absolute offset between two [points](Point).
 pub type Delta<T> = (<T as Num>::U, <T as Num>::U);
 
-/// [`Delta`] product.
+/// Product between two [`Delta`] offsets.
 pub type Delta2<T> = (<T as Num>::U2, <T as Num>::U2);
 
 macro_rules! num_impl {

@@ -1,4 +1,4 @@
-//! ### Bresenham clipping
+//! ### Octant clipping
 
 use super::Octant;
 use crate::clip::Clip;

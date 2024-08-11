@@ -9,11 +9,11 @@ use crate::{axis_aligned, diagonal};
 mod clip;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-// Bresenham octant iterators
+// Octant iterators
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// Iterator over a line segment in the given **octant**,
-/// backed by [Bresenham's algorithm][1].
+/// backed by one of the eight cases of [Bresenham's algorithm][1].
 ///
 /// An octant is defined by its symmetries relative to [`Octant0`]:
 /// - `FX`: flip the `x` axis if `true`.
