@@ -132,15 +132,17 @@ math_impl!(i16);
 math_impl!(u16);
 math_impl!(i32);
 math_impl!(u32);
+#[cfg(feature = "octant_64")]
 math_impl!(i64);
+#[cfg(feature = "octant_64")]
 math_impl!(u64);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 math_impl!(isize);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
 math_impl!(usize);
-#[cfg(target_pointer_width = "64")]
+#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
 math_impl!(isize);
-#[cfg(target_pointer_width = "64")]
+#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
 math_impl!(usize);
 
 #[cfg(test)]
