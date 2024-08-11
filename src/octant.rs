@@ -215,6 +215,7 @@ macro_rules! octant_impl {
 
             #[inline]
             fn size_hint(&self) -> (usize, Option<usize>) {
+                #[allow(unreachable_patterns)]
                 match usize::try_from(self.length()) {
                     Ok(length) => (length, Some(length)),
                     Err(_) => (usize::MAX, None),
