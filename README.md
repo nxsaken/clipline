@@ -122,11 +122,6 @@ fn main() {
 * To support usage in `const` contexts, types must have an inherent implementation for every supported numeric type instead of relying on a trait. This and Rust's lack of support for function overloading means that the numeric type parameter must always be specified.
 * Currently, only half-open line segments can be iterated. This allows `ExactSizeIterator` to be implemented for all types. Inclusive iterators are tracked in [#1](https://github.com/nxsaken/clipline/issues/1).
 
-## Benchmarks
-
-- [`divan`](https://crates.io/crates/divan) is used to [benchmark](benches/comparison.rs) different versions of `clipline`, as well as [`line_drawing`](https://crates.io/crates/line_drawing). Use `cargo bench` to run the benchmarks.
-- In practice, with unclipped line segments, bounds checks are required when indexing into a grid, hence the difference between the `draw_pixel_checked` and `draw_pixel_unchecked` functions.
-
 ## References
 
 `clipline` is inspired by the following papers:
