@@ -1,6 +1,6 @@
 # clipline
 
-[![CI](https://github.com/nxsaken/clipline/actions/workflows/rust.yml/badge.svg)](https://github.com/nxsaken/clipline/actions/workflows/rust.yml)
+[![CI](https://github.com/nxsaken/clipline/actions/workflows/ci.yml/badge.svg)](https://github.com/nxsaken/clipline/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/clipline.svg)](https://crates.io/crates/clipline)
 [![docs.rs](https://img.shields.io/docsrs/clipline)](https://docs.rs/clipline/latest/clipline/)
 [![downloads](https://img.shields.io/crates/d/clipline.svg)](https://crates.io/crates/clipline)
