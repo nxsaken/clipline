@@ -23,7 +23,7 @@ env:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -83,10 +83,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
       - uses: dtolnay/install@cargo-docs-rs
       - run: cargo docs-rs
-      - name: cargo rdme --check
-        run: |
-          cargo install cargo-rdme
-          cargo rdme --check
 
   test:
     name: cargo test
@@ -102,7 +98,18 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - name: Default features
-        run: cargo test --no-fail-fast
+        run: cargo test --no-fail-fast -- --skip proptest
       - name: Nightly features
         if: matrix.rust == 'nightly'
-        run: cargo test --no-fail-fast -F "nightly try_fold is_empty"
+        run: cargo test --no-fail-fast -F "nightly try_fold is_empty" -- --skip proptest
+
+  proptest:
+    name: proptest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Default features
+        run: cargo test --no-fail-fast proptest

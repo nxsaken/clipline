@@ -1,4 +1,4 @@
-//! Axis-aligned line segment iterator tests.
+//! ## Axis-aligned iterator tests
 
 mod iterator {
     #[test]

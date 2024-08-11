@@ -1,9 +1,7 @@
-//! Octant line segment iterator tests.
-
-use clipline::{Octant0, Octant1, Octant2, Octant3, Octant4, Octant5, Octant6, Octant7};
+//! ## Octant iterator tests
 
 mod octant_bounds {
-    use super::*;
+    use clipline::{Octant0, Octant1, Octant2, Octant3, Octant4, Octant5, Octant6, Octant7};
 
     #[test]
     fn all_octants_exclude_empty_line() {
@@ -67,7 +65,7 @@ mod octant_bounds {
 }
 
 mod iterator {
-    use clipline::*;
+    use clipline::{Octant0, Octant1, Octant2, Octant3, Octant4, Octant5, Octant6, Octant7};
 
     #[test]
     fn octant_0_produces_correct_points() {
@@ -118,49 +116,142 @@ mod iterator {
     }
 }
 
-mod clip {
-    use clipline::{AnyOctant, Clip};
+mod proptest {
+    use clipline::{AnyOctant, Clip, Point};
+    use proptest::prelude::{prop_assert, proptest, ProptestConfig};
 
-    mod octant_0 {
+    fn config() -> ProptestConfig {
+        ProptestConfig { cases: 4000000, failure_persistence: None, ..ProptestConfig::default() }
+    }
+
+    mod u8 {
         use super::*;
-        use clipline::Octant0;
 
-        #[test]
-        fn line_1111() {
-            let clip = Clip::<i8>::new((16, 16), (25, 20)).unwrap();
-            for (start, end, clipped) in [
-                // top-right
-                ((7, 11), (31, 22), Some(((17, 16), (25, 19)))),
-                // left-bottom
-                ((7, 13), (34, 25), Some(((16, 17), (23, 20)))),
-                // top-bottom
-                ((8, 9), (34, 27), Some(((18, 16), (24, 20)))),
-                // left-right
-                ((0, 15), (47, 21), Some(((16, 17), (25, 18)))),
-                // rejects
-                ((9, 6), (38, 22), None),
-                ((2, 14), (30, 30), None),
-            ] {
-                let line_raw = Octant0::<i8>::new(start, end).unwrap();
-                let line_clip = Octant0::<i8>::clip(start, end, &clip);
-                if let Some((clip_start, clip_end)) = clipped {
-                    let skip_len = i8::abs_diff(clip_start.0, start.0) as usize;
-                    let line_raw = line_raw.skip(skip_len);
-                    let line_clip = line_clip.unwrap();
-                    let mut pair = line_raw.zip(line_clip);
-                    let (actual_raw_start, actual_clip_start) = pair.next().unwrap();
-                    assert_eq!(actual_raw_start, actual_clip_start);
-                    assert_eq!(actual_clip_start, clip_start);
-                    let mut pair = pair.peekable();
-                    while let Some((raw, clip)) = pair.next() {
-                        assert_eq!(raw, clip);
-                        if pair.peek().is_none() {
-                            assert_eq!(clip, clip_end);
-                        }
-                    }
-                } else {
-                    assert!(line_clip.is_none())
-                }
+        const MIN: u8 = 0;
+        const MAX: u8 = 255;
+        const HALF_0: u8 = 127;
+        const HALF_1: u8 = 128;
+        const QUARTER_0: u8 = 63;
+        const QUARTER_1: u8 = 64;
+        const QUARTER_2: u8 = 191;
+        const QUARTER_3: u8 = 192;
+
+        const CLIPS: [(&str, Point<u8>, Point<u8>); 35] = [
+            ("FULL", (MIN, MIN), (MAX, MAX)),
+            ("CENTER HALF-SIZE 0", (QUARTER_0, QUARTER_1), (QUARTER_2, QUARTER_3)),
+            ("CENTER HALF-SIZE 1", (QUARTER_1, QUARTER_0), (QUARTER_3, QUARTER_2)),
+            ("TOP-LEFT-CENTER QUARTER-SIZE 0", (QUARTER_0, QUARTER_0), (HALF_0, HALF_0)),
+            ("TOP-LEFT-CENTER QUARTER-SIZE 1", (QUARTER_0, QUARTER_1), (HALF_1, HALF_0)),
+            ("TOP-LEFT-CENTER QUARTER-SIZE 2", (QUARTER_1, QUARTER_0), (HALF_0, HALF_1)),
+            ("TOP-LEFT-CENTER QUARTER-SIZE 3", (QUARTER_1, QUARTER_1), (HALF_1, HALF_1)),
+            ("TOP-RIGHT-CENTER QUARTER-SIZE 0", (HALF_0, QUARTER_0), (QUARTER_2, HALF_0)),
+            ("TOP-RIGHT-CENTER QUARTER-SIZE 1", (HALF_0, QUARTER_1), (QUARTER_3, HALF_1)),
+            ("TOP-RIGHT-CENTER QUARTER-SIZE 2", (HALF_1, QUARTER_0), (QUARTER_2, HALF_1)),
+            ("TOP-RIGHT-CENTER QUARTER-SIZE 3", (HALF_1, QUARTER_1), (QUARTER_3, HALF_0)),
+            ("BOTTOM-LEFT-CENTER QUARTER-SIZE 0", (QUARTER_0, HALF_0), (HALF_0, QUARTER_2)),
+            ("BOTTOM-LEFT-CENTER QUARTER-SIZE 1", (QUARTER_0, HALF_1), (HALF_1, QUARTER_3)),
+            ("BOTTOM-LEFT-CENTER QUARTER-SIZE 2", (QUARTER_1, HALF_0), (HALF_0, QUARTER_2)),
+            ("BOTTOM-LEFT-CENTER QUARTER-SIZE 3", (QUARTER_1, HALF_1), (HALF_1, QUARTER_3)),
+            ("BOTTOM-RIGHT-CENTER QUARTER-SIZE 0", (HALF_0, HALF_0), (QUARTER_3, QUARTER_2)),
+            ("BOTTOM-RIGHT-CENTER QUARTER-SIZE 1", (HALF_0, HALF_1), (QUARTER_3, QUARTER_3)),
+            ("BOTTOM-RIGHT-CENTER QUARTER-SIZE 2", (HALF_1, HALF_0), (QUARTER_2, QUARTER_2)),
+            ("BOTTOM-RIGHT-CENTER QUARTER-SIZE 3", (HALF_1, HALF_1), (QUARTER_2, QUARTER_3)),
+            ("TOP-LEFT QUARTER 0", (MIN, MIN), (QUARTER_0, QUARTER_0)),
+            ("TOP-LEFT QUARTER 1", (MIN, MIN), (QUARTER_1, QUARTER_1)),
+            ("TOP-RIGHT QUARTER 0", (QUARTER_2, MIN), (MAX, QUARTER_2)),
+            ("TOP-RIGHT QUARTER 1", (QUARTER_3, MIN), (MAX, QUARTER_3)),
+            ("BOTTOM-LEFT QUARTER 0", (MIN, QUARTER_2), (QUARTER_2, MAX)),
+            ("BOTTOM-LEFT QUARTER 1", (MIN, QUARTER_3), (QUARTER_3, MAX)),
+            ("BOTTOM-RIGHT QUARTER 0", (QUARTER_2, QUARTER_2), (MAX, MAX)),
+            ("BOTTOM-RIGHT QUARTER 1", (QUARTER_3, QUARTER_3), (MAX, MAX)),
+            ("TOP HALF 0", (MIN, MIN), (MAX, HALF_0)),
+            ("TOP HALF 1", (MIN, MIN), (MAX, HALF_1)),
+            ("BOTTOM HALF 0", (MIN, HALF_0), (MAX, MAX)),
+            ("BOTTOM HALF 1", (MIN, HALF_1), (MAX, MAX)),
+            ("LEFT HALF 0", (MIN, MIN), (HALF_0, MAX)),
+            ("LEFT HALF 1", (MIN, MIN), (HALF_1, MAX)),
+            ("RIGHT HALF 0", (HALF_0, MIN), (MAX, MAX)),
+            ("RIGHT HALF 1", (HALF_1, MIN), (MAX, MAX)),
+        ];
+
+        proptest! {
+            #![proptest_config(config())]
+            #[test]
+            fn clipped_matches_unclipped(
+                clip in proptest::sample::select(&CLIPS),
+                ((p1, p2)): (Point<u8>, Point<u8>)
+            ) {
+                let (_, w1, w2) = clip;
+                let clip = Clip::<u8>::new(w1, w2).unwrap();
+                let clipped = clip.any_octant(p1, p2).into_iter().flatten();
+                let naive_clipped = AnyOctant::<u8>::new(p1, p2).filter(|&xy| clip.point(xy));
+                prop_assert!(clipped.eq(naive_clipped));
+            }
+        }
+    }
+
+    mod i8 {
+        use super::*;
+
+        const MIN: i8 = -128;
+        const MAX: i8 = 127;
+        const HALF_0: i8 = 0;
+        const HALF_1: i8 = 1;
+        const QUARTER_0: i8 = -64;
+        const QUARTER_1: i8 = -63;
+        const QUARTER_2: i8 = 64;
+        const QUARTER_3: i8 = 65;
+
+        const CLIPS: [(&str, Point<i8>, Point<i8>); 35] = [
+            ("FULL", (MIN, MIN), (MAX, MAX)),
+            ("CENTER HALF-SIZE 0", (QUARTER_0, QUARTER_1), (QUARTER_2, QUARTER_3)),
+            ("CENTER HALF-SIZE 1", (QUARTER_1, QUARTER_0), (QUARTER_3, QUARTER_2)),
+            ("TOP-LEFT-CENTER QUARTER-SIZE 0", (QUARTER_0, QUARTER_0), (HALF_0, HALF_0)),
+            ("TOP-LEFT-CENTER QUARTER-SIZE 1", (QUARTER_0, QUARTER_1), (HALF_1, HALF_0)),
+            ("TOP-LEFT-CENTER QUARTER-SIZE 2", (QUARTER_1, QUARTER_0), (HALF_0, HALF_1)),
+            ("TOP-LEFT-CENTER QUARTER-SIZE 3", (QUARTER_1, QUARTER_1), (HALF_1, HALF_1)),
+            ("TOP-RIGHT-CENTER QUARTER-SIZE 0", (HALF_0, QUARTER_0), (QUARTER_2, HALF_0)),
+            ("TOP-RIGHT-CENTER QUARTER-SIZE 1", (HALF_0, QUARTER_1), (QUARTER_3, HALF_1)),
+            ("TOP-RIGHT-CENTER QUARTER-SIZE 2", (HALF_1, QUARTER_0), (QUARTER_2, HALF_1)),
+            ("TOP-RIGHT-CENTER QUARTER-SIZE 3", (HALF_1, QUARTER_1), (QUARTER_3, HALF_0)),
+            ("BOTTOM-LEFT-CENTER QUARTER-SIZE 0", (QUARTER_0, HALF_0), (HALF_0, QUARTER_2)),
+            ("BOTTOM-LEFT-CENTER QUARTER-SIZE 1", (QUARTER_0, HALF_1), (HALF_1, QUARTER_3)),
+            ("BOTTOM-LEFT-CENTER QUARTER-SIZE 2", (QUARTER_1, HALF_0), (HALF_0, QUARTER_2)),
+            ("BOTTOM-LEFT-CENTER QUARTER-SIZE 3", (QUARTER_1, HALF_1), (HALF_1, QUARTER_3)),
+            ("BOTTOM-RIGHT-CENTER QUARTER-SIZE 0", (HALF_0, HALF_0), (QUARTER_3, QUARTER_2)),
+            ("BOTTOM-RIGHT-CENTER QUARTER-SIZE 1", (HALF_0, HALF_1), (QUARTER_3, QUARTER_3)),
+            ("BOTTOM-RIGHT-CENTER QUARTER-SIZE 2", (HALF_1, HALF_0), (QUARTER_2, QUARTER_2)),
+            ("BOTTOM-RIGHT-CENTER QUARTER-SIZE 3", (HALF_1, HALF_1), (QUARTER_2, QUARTER_3)),
+            ("TOP-LEFT QUARTER 0", (MIN, MIN), (QUARTER_0, QUARTER_0)),
+            ("TOP-LEFT QUARTER 1", (MIN, MIN), (QUARTER_1, QUARTER_1)),
+            ("TOP-RIGHT QUARTER 0", (QUARTER_2, MIN), (MAX, QUARTER_2)),
+            ("TOP-RIGHT QUARTER 1", (QUARTER_3, MIN), (MAX, QUARTER_3)),
+            ("BOTTOM-LEFT QUARTER 0", (MIN, QUARTER_2), (QUARTER_2, MAX)),
+            ("BOTTOM-LEFT QUARTER 1", (MIN, QUARTER_3), (QUARTER_3, MAX)),
+            ("BOTTOM-RIGHT QUARTER 0", (QUARTER_2, QUARTER_2), (MAX, MAX)),
+            ("BOTTOM-RIGHT QUARTER 1", (QUARTER_3, QUARTER_3), (MAX, MAX)),
+            ("TOP HALF 0", (MIN, MIN), (MAX, HALF_0)),
+            ("TOP HALF 1", (MIN, MIN), (MAX, HALF_1)),
+            ("BOTTOM HALF 0", (MIN, HALF_0), (MAX, MAX)),
+            ("BOTTOM HALF 1", (MIN, HALF_1), (MAX, MAX)),
+            ("LEFT HALF 0", (MIN, MIN), (HALF_0, MAX)),
+            ("LEFT HALF 1", (MIN, MIN), (HALF_1, MAX)),
+            ("RIGHT HALF 0", (HALF_0, MIN), (MAX, MAX)),
+            ("RIGHT HALF 1", (HALF_1, MIN), (MAX, MAX)),
+        ];
+
+        proptest! {
+            #![proptest_config(config())]
+            #[test]
+            fn clipped_matches_unclipped(
+                clip in proptest::sample::select(&CLIPS),
+                ((p1, p2)): (Point<i8>, Point<i8>)
+            ) {
+                let (_, w1, w2) = clip;
+                let clip = Clip::<i8>::new(w1, w2).unwrap();
+                let clipped = clip.any_octant(p1, p2).into_iter().flatten();
+                let naive_clipped = AnyOctant::<i8>::new(p1, p2).filter(|&xy| clip.point(xy));
+                prop_assert!(clipped.eq(naive_clipped));
             }
         }
     }

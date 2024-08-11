@@ -32,6 +32,20 @@ macro_rules! clip_impl {
                 Some(Self { wx1, wy1, wx2, wy2 })
             }
 
+            /// Returns the minimum corner of this clipping region.
+            #[inline]
+            #[must_use]
+            pub const fn min(&self) -> Point<$T> {
+                (self.wx1, self.wy1)
+            }
+
+            /// Returns the maximum corner of this clipping region.
+            #[inline]
+            #[must_use]
+            pub const fn max(&self) -> Point<$T> {
+                (self.wx2, self.wy2)
+            }
+
             /// Checks if this region contains a [point](Point).
             #[inline]
             #[must_use]

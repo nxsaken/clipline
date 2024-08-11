@@ -1,4 +1,4 @@
-//! Diagonal line segment iterator tests.
+//! ## Diagonal iterator tests
 
 use clipline::{AnyDiagonal, Diagonal0, Diagonal1, Diagonal2, Diagonal3};
 
