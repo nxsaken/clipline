@@ -1,29 +1,35 @@
 [package]
 name = "clipline"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Nurzhan Sakén <nurzhan.sakenov@gmail.com>"]
-edition = "2021"
-description = "Efficient scan conversion (rasterization) of line segments with clipping to a rectangular window."
-readme = "README.md"
+description = "Efficient rasterization of line segments with pixel-perfect clipping."
+keywords = ["line", "clipping", "bresenham", "rasterization", "grid"]
+categories = ["graphics", "rendering", "algorithms", "game-development"]
 repository = "https://github.com/nxsaken/clipline/"
 license = "MIT OR Apache-2.0"
-keywords = ["graphics", "clipping", "line", "bresenham", "rasterization"]
-categories = ["graphics", "rendering", "algorithms", "game-development", "rendering"]
+readme = "README.md"
+rust-version = "1.66.0"
+edition = "2021"
 include = [
     "**/*.rs",
     "Cargo.toml",
 ]
 
 [features]
-default = ["func", "iter"]
-iter = []
-func = []
+default = []
+# Enable Octant<i64/u64> for all targets
+# and Octant<isize/usize> for 64-bit targets.
+octant_64 = []
+
+# Enable unstable features.
+nightly = []
+# Enable optimized `try_fold` implementations.
+# Requires the unstable `try_trait_v2` feature.
+try_fold = ["nightly"]
+# Enable optimized `is_empty` implementations.
+# Requires the unstable `exact_size_is_empty` feature.
+is_empty = ["nightly"]
 
 [dev-dependencies]
-criterion = { version = "0.5.1"}
-bresenham = "0.1.1"
-line_drawing = "1.0.0"
-
-[[bench]]
-name = "bresenham_comparison"
-harness = false
+static_assertions = "1.1.0"
+proptest = "1.5.0"
