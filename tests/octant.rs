@@ -136,8 +136,10 @@ mod proptest {
         const QUARTER_2: u8 = 191;
         const QUARTER_3: u8 = 192;
 
-        const CLIPS: [(&str, Point<u8>, Point<u8>); 35] = [
+        const CLIPS: [(&str, Point<u8>, Point<u8>); 37] = [
             ("FULL", (MIN, MIN), (MAX, MAX)),
+            ("POINT", (HALF_0, HALF_0), (HALF_0, HALF_0)),
+            ("SMALL", (HALF_0, HALF_0), (HALF_1, HALF_1)),
             ("CENTER HALF-SIZE 0", (QUARTER_0, QUARTER_1), (QUARTER_2, QUARTER_3)),
             ("CENTER HALF-SIZE 1", (QUARTER_1, QUARTER_0), (QUARTER_3, QUARTER_2)),
             ("TOP-LEFT-CENTER QUARTER-SIZE 0", (QUARTER_0, QUARTER_0), (HALF_0, HALF_0)),
@@ -202,8 +204,10 @@ mod proptest {
         const QUARTER_2: i8 = 64;
         const QUARTER_3: i8 = 65;
 
-        const CLIPS: [(&str, Point<i8>, Point<i8>); 35] = [
+        const CLIPS: [(&str, Point<i8>, Point<i8>); 37] = [
             ("FULL", (MIN, MIN), (MAX, MAX)),
+            ("POINT", (HALF_0, HALF_0), (HALF_0, HALF_0)),
+            ("SMALL", (HALF_0, HALF_0), (HALF_1, HALF_1)),
             ("CENTER HALF-SIZE 0", (QUARTER_0, QUARTER_1), (QUARTER_2, QUARTER_3)),
             ("CENTER HALF-SIZE 1", (QUARTER_1, QUARTER_0), (QUARTER_3, QUARTER_2)),
             ("TOP-LEFT-CENTER QUARTER-SIZE 0", (QUARTER_0, QUARTER_0), (HALF_0, HALF_0)),
