@@ -42,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Generify the library over the signed numeric types
 
-## [0.1.2] – 2023-12-07
+## [0.1.2] – 2023-11-02
 
 ### Added
 
@@ -52,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Inline internal functions
 
-## [0.1.1] – 2023-12-07
+## [0.1.1] – 22023-10-31
 
 ### Added
 
@@ -63,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Gate the `clipline` function behind `func`
 - Gate the `Clipline` iterator behind `iter`
 
-## [0.1.0] – 2023-12-07
+## [0.1.0] – 2023-10-25
 
 ### Added
 
