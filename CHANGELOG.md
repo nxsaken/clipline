@@ -52,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Inline internal functions
 
-## [0.1.1] – 22023-10-31
+## [0.1.1] – 2023-10-31
 
 ### Added
 
@@ -68,3 +68,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add the `clipline` function
+
+[0.3.0]: https://github.com/nxsaken/clipline/releases/tag/0.3.0
+[0.2.0]: https://github.com/nxsaken/clipline/releases/tag/0.2.0
