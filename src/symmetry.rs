@@ -1,9 +1,9 @@
 //! ## Symmetry utilities
 
-/// Selects an expression based on `VERT`.
+/// Selects an expression based on `V`.
 macro_rules! vh {
     ($a:expr, $b:expr$(,)?) => {
-        if !VERT {
+        if !V {
             $a
         } else {
             $b
@@ -30,10 +30,10 @@ macro_rules! xy {
     }};
 }
 
-/// Selects an expression based on `FLIP`.
+/// Selects an expression based on `F`.
 macro_rules! f {
     ($pos:expr, $neg:expr$(,)?) => {
-        if !FLIP {
+        if !F {
             $pos
         } else {
             $neg
