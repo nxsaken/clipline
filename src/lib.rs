@@ -212,10 +212,9 @@
 mod axis_aligned;
 mod clip;
 mod diagonal;
+mod macros;
 mod math;
 mod octant;
-mod symmetry;
-mod utils;
 
 pub use clip::Clip;
 pub use math::Point;

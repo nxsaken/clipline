@@ -19,9 +19,8 @@ pub type Delta<T> = (<T as Num>::U, <T as Num>::U);
 /// Product between two [`Delta`] offsets.
 pub type Delta2<T> = (<T as Num>::U2, <T as Num>::U2);
 
-macro_rules! num_impl {
-    ($([$i:ty, $i2:ty, $u:ty, $u2:ty]$(,)?)+) => {
-        $(
+macro_rules! impl_num {
+    ($i:ty, $i2:ty, $u:ty, $u2:ty) => {
         impl Num for $i {
             type I2 = $i2;
             type U = $u;
@@ -32,22 +31,24 @@ macro_rules! num_impl {
             type U = Self;
             type U2 = $u2;
         }
-        )+
     };
 }
 
-num_impl!([i8, i16, u8, u16], [i16, i32, u16, u32], [i32, i64, u32, u64], [i64, i128, u64, u128],);
+impl_num!(i8, i16, u8, u16);
+impl_num!(i16, i32, u16, u32);
+impl_num!(i32, i64, u32, u64);
+impl_num!(i64, i128, u64, u128);
 #[cfg(target_pointer_width = "16")]
-num_impl!([isize, i32, usize, u32]);
+impl_num!(isize, i32, usize, u32);
 #[cfg(target_pointer_width = "32")]
-num_impl!([isize, i64, usize, u64]);
+impl_num!(isize, i64, usize, u64);
 #[cfg(target_pointer_width = "64")]
-num_impl!([isize, i128, usize, u128]);
+impl_num!(isize, i128, usize, u128);
 
 /// Generic math functions.
 pub struct Math<T>(T);
 
-macro_rules! min_math_impl {
+macro_rules! impl_math_base {
     ($T:ty) => {
         impl Math<$T> {
             /// Subtracts two signed integers, returning the unsigned difference.
@@ -63,18 +64,18 @@ macro_rules! min_math_impl {
     };
 }
 
-min_math_impl!(i8);
-min_math_impl!(u8);
-min_math_impl!(i16);
-min_math_impl!(u16);
-min_math_impl!(i32);
-min_math_impl!(u32);
-min_math_impl!(i64);
-min_math_impl!(u64);
-min_math_impl!(isize);
-min_math_impl!(usize);
+impl_math_base!(i8);
+impl_math_base!(u8);
+impl_math_base!(i16);
+impl_math_base!(u16);
+impl_math_base!(i32);
+impl_math_base!(u32);
+impl_math_base!(i64);
+impl_math_base!(u64);
+impl_math_base!(isize);
+impl_math_base!(usize);
 
-macro_rules! math_impl {
+macro_rules! impl_math_extended {
     ($T:ty) => {
         impl Math<$T> {
             /// Subtracts two unsigned integers, returning the wide signed difference.
@@ -126,24 +127,24 @@ macro_rules! math_impl {
     };
 }
 
-math_impl!(i8);
-math_impl!(u8);
-math_impl!(i16);
-math_impl!(u16);
-math_impl!(i32);
-math_impl!(u32);
+impl_math_extended!(i8);
+impl_math_extended!(u8);
+impl_math_extended!(i16);
+impl_math_extended!(u16);
+impl_math_extended!(i32);
+impl_math_extended!(u32);
 #[cfg(feature = "octant_64")]
-math_impl!(i64);
+impl_math_extended!(i64);
 #[cfg(feature = "octant_64")]
-math_impl!(u64);
+impl_math_extended!(u64);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-math_impl!(isize);
+impl_math_extended!(isize);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-math_impl!(usize);
+impl_math_extended!(usize);
 #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-math_impl!(isize);
+impl_math_extended!(isize);
 #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-math_impl!(usize);
+impl_math_extended!(usize);
 
 #[cfg(test)]
 mod static_tests {

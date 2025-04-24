@@ -2,8 +2,8 @@
 
 use crate::clip::Clip;
 use crate::diagonal::Diagonal;
+use crate::macros::{fx, fy, none_if};
 use crate::math::{Delta, Math, Num, Point};
-use crate::symmetry::{fx, fy};
 
 const O: bool = false;
 const I: bool = true;
@@ -29,7 +29,7 @@ const XY_ENTRY_XY_EXIT: LineCode = (I, I, I, I);
 
 macro_rules! clip_impl {
     ($T:ty, $add:ident, $sub:ident) => {
-        #[allow(non_snake_case)]
+        #[expect(non_snake_case)]
         impl<const FX: bool, const FY: bool> Diagonal<FX, FY, $T> {
             #[inline(always)]
             #[must_use]
@@ -162,17 +162,13 @@ macro_rules! clip_impl {
                     Y_ENTRY_X_EXIT => {
                         let Dy1 = Self::Dy1(y1, clip);
                         let Dx2 = Self::Dx2(x1, clip);
-                        if Dx2 < Dy1 {
-                            return None;
-                        }
+                        none_if!(Dx2 < Dy1);
                         (Self::c1_y(x1, Dy1, clip), Self::cx2_x(clip))
                     }
                     Y_ENTRY_XY_EXIT => {
                         let Dy1 = Self::Dy1(y1, clip);
                         let Dx2 = Self::Dx2(x1, clip);
-                        if Dx2 < Dy1 {
-                            return None;
-                        }
+                        none_if!(Dx2 < Dy1);
                         (Self::c1_y(x1, Dy1, clip), Self::cx2(x1, (Dx2, Self::Dy2(y1, clip)), clip))
                     }
                     X_ENTRY_INSIDE => (Self::c1_x(y1, Self::Dx1(x1, clip), clip), x2),
@@ -186,9 +182,7 @@ macro_rules! clip_impl {
                     X_ENTRY_XY_EXIT => {
                         let Dx1 = Self::Dx1(x1, clip);
                         let Dy2 = Self::Dy2(y1, clip);
-                        if Dy2 < Dx1 {
-                            return None;
-                        }
+                        none_if!(Dy2 < Dx1);
                         (Self::c1_x(y1, Dx1, clip), Self::cx2(x1, (Self::Dx2(x1, clip), Dy2), clip))
                     }
                     XY_ENTRY_INSIDE => {
@@ -205,14 +199,10 @@ macro_rules! clip_impl {
                     XY_ENTRY_XY_EXIT => {
                         let Dy1 = Self::Dy1(y1, clip);
                         let Dx2 = Self::Dx2(x1, clip);
-                        if Dx2 < Dy1 {
-                            return None;
-                        }
+                        none_if!(Dx2 < Dy1);
                         let Dx1 = Self::Dx1(x1, clip);
                         let Dy2 = Self::Dy2(y1, clip);
-                        if Dy2 < Dx1 {
-                            return None;
-                        }
+                        none_if!(Dy2 < Dx1);
                         (Self::c1((x1, y1), (Dx1, Dy1), clip), Self::cx2(x1, (Dx2, Dy2), clip))
                     }
                 };

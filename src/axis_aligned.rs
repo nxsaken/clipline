@@ -1,9 +1,8 @@
 //! ## Axis-aligned iterators
 
 use crate::clip::Clip;
+use crate::macros::{all_nums, f, hv, impl_iters, impl_methods, map, none_if, variant};
 use crate::math::{Math, Num, Point};
-use crate::symmetry::{f, vh};
-use crate::utils::map;
 
 mod clip;
 
@@ -63,179 +62,6 @@ pub type PositiveAxis1<T> = SignedAxis1<false, T>;
 /// Covers line segments oriented at `270°`.
 pub type NegativeAxis1<T> = SignedAxis1<true, T>;
 
-/// Implements inherent axis methods or delegates to the variant implementation.
-macro_rules! impl_axis_methods {
-    (
-        $self:ident,
-        $T:ty,
-        is_done = $is_done:expr,
-        length = $length:expr,
-        head = $head:expr,
-        tail = $tail:expr,
-        pop_head = $pop_head:expr,
-        pop_tail = $pop_tail:expr
-    ) => {
-        /// Returns `true` if the iterator has terminated.
-        #[inline]
-        #[must_use]
-        pub const fn is_done(&$self) -> bool { $is_done }
-
-        /// Returns the remaining length of this iterator.
-        #[inline]
-        #[must_use]
-        pub const fn length(&$self) -> <$T as Num>::U { $length }
-
-        /// Returns the point at the start of the iterator.
-        /// Does not advance the iterator.
-        ///
-        /// Returns [`None`] if the iterator has terminated.
-        #[inline]
-        #[must_use]
-        pub const fn head(&$self) -> Option<Point<$T>> { $head }
-
-        /// Returns the point immediately before the end of the iterator.
-        /// Does not advance the iterator.
-        ///
-        /// Returns [`None`] if the iterator has terminated.
-        ///
-        /// ## Warning
-        /// Calling `pop_tail` after `tail` will recompute the point.
-        #[inline]
-        #[must_use]
-        pub const fn tail(&$self) -> Option<Point<$T>> { $tail }
-
-        /// Consumes and returns the point at the start of the iterator.
-        ///
-        /// Returns [`None`] if the iterator has terminated.
-        #[inline]
-        #[must_use]
-        pub const fn pop_head(&mut $self) -> Option<Point<$T>> { $pop_head }
-
-        /// Consumes the point at the end of the iterator, and returns the point immediately before.
-        ///
-        /// Returns [`None`] if the iterator has terminated.
-        #[inline]
-        #[must_use]
-        pub const fn pop_tail(&mut $self) -> Option<Point<$T>> { $pop_tail }
-    };
-    ($T:ty, $variant:ident) => {
-        impl_axis_methods!(
-            self,
-            $T,
-            is_done = $variant!(self, me => me.is_done()),
-            length = $variant!(self, me => me.length()),
-            head = $variant!(self, me => me.head()),
-            tail = $variant!(self, me => me.tail()),
-            pop_head = $variant!(self, me => me.pop_head()),
-            pop_tail = $variant!(self, me => me.pop_tail())
-        );
-    }
-}
-
-/// Implements iterator traits or delegates to the variant implementations:
-/// - [`Iterator`]
-/// - [`DoubleEndedIterator`]
-/// - [`core::iter::FusedIterator`]
-/// - [`ExactSizeIterator`] (conditionally on `cfg_esi`)
-macro_rules! impl_axis_iters {
-    (
-        $Axis:ident<$(const $FV:ident,)* $T:ty>,
-        $self:ident,
-        next = $next:expr,
-        next_back = $next_back:expr,
-        size_hint = $size_hint:expr,
-        is_empty = $is_empty:expr
-        $(, |$init:ident, $f:ident| {
-            fold = $fold:expr,
-            try_fold = $try_fold:expr,
-            rfold = $rfold:expr,
-            try_rfold = $try_rfold:expr
-        })?
-        $(, cfg_esi = $cfg_esi:meta)?
-    ) => {
-        impl<$(const $FV: bool),*> Iterator for $Axis<$($FV,)? $T> {
-            type Item = Point<$T>;
-
-            #[inline]
-            fn next(&mut $self) -> Option<Self::Item> { $next }
-
-            #[inline]
-            fn size_hint(&$self) -> (usize, Option<usize>) { $size_hint }
-
-            $(
-            #[inline]
-            fn fold<B, F>($self, $init: B, $f: F) -> B
-            where
-                Self: Sized,
-                F: FnMut(B, Self::Item) -> B,
-            { $fold }
-
-            #[cfg(feature = "try_fold")]
-            #[inline]
-            fn try_fold<B, F, R>(&mut $self, $init: B, $f: F) -> R
-            where
-                Self: Sized,
-                F: FnMut(B, Self::Item) -> R,
-                R: core::ops::Try<Output = B>,
-            { $try_fold }
-            )?
-        }
-
-        impl<$(const $FV: bool),*> DoubleEndedIterator for $Axis<$($FV,)? $T> {
-            #[inline]
-            fn next_back(&mut $self) -> Option<Self::Item> { $next_back }
-
-            $(
-            #[inline]
-            fn rfold<B, F>($self, $init: B, $f: F) -> B
-            where
-                Self: Sized,
-                F: FnMut(B, Self::Item) -> B,
-            { $rfold }
-
-            #[cfg(feature = "try_fold")]
-            #[inline]
-            fn try_rfold<B, F, R>(&mut $self, $init: B, $f: F) -> R
-            where
-                Self: Sized,
-                F: FnMut(B, Self::Item) -> R,
-                R: core::ops::Try<Output = B>,
-            { $try_rfold }
-            )?
-        }
-
-        impl<$(const $FV: bool),*> core::iter::FusedIterator for $Axis<$($FV,)? $T> {}
-
-        $(#[$cfg_esi])?
-        impl<$(const $FV: bool),*> ExactSizeIterator for $Axis<$($FV,)? $T> {
-            #[cfg(feature = "is_empty")]
-            #[inline]
-            fn is_empty(&$self) -> bool { $is_empty }
-        }
-    };
-    (
-        $Axis:ident<$(const $FV:ident,)* $T:ty>,
-        $variant:ident
-        $(, cfg_esi = $cfg_esi:meta)?
-    ) => {
-        impl_axis_iters!(
-            $Axis<$(const $FV,)* $T>,
-            self,
-            next = $variant!(self, me => me.next()),
-            next_back = $variant!(self, me => me.next_back()),
-            size_hint = $variant!(self, me => me.size_hint()),
-            is_empty = $variant!(self, me => me.is_empty()),
-            |init, f| {
-                fold = $variant!(self, me => me.fold(init, f)),
-                try_fold = $variant!(self, me => me.try_fold(init, f)),
-                rfold = $variant!(self, me => me.rfold(init, f)),
-                try_rfold = $variant!(self, me => me.try_rfold(init, f))
-            }
-            $(, cfg_esi = $cfg_esi)?
-        );
-    }
-}
-
 macro_rules! impl_signed_axis {
     ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
         impl<const F: bool, const V: bool> SignedAxis<F, V, $T> {
@@ -253,9 +79,7 @@ macro_rules! impl_signed_axis {
             #[inline]
             #[must_use]
             pub const fn new(u: $T, v1: $T, v2: $T) -> Option<Self> {
-                if f!(v2 <= v1, v1 <= v2) {
-                    return None;
-                }
+                none_if!(f!(v2 <= v1, v1 <= v2));
                 Some(Self::new_inner(u, v1, v2))
             }
 
@@ -271,30 +95,24 @@ macro_rules! impl_signed_axis {
             #[inline]
             #[must_use]
             pub const fn clip(u: $T, v1: $T, v2: $T, clip: &Clip<$T>) -> Option<Self> {
-                if f!(v2 <= v1, v1 <= v2) {
-                    return None;
-                }
+                none_if!(f!(v2 <= v1, v1 <= v2));
                 Self::clip_inner(u, v1, v2, clip)
             }
 
-            impl_axis_methods!(
+            impl_methods!(
                 self,
                 $T,
                 is_done = f!(self.v2 <= self.v1, self.v1 <= self.v2),
                 length = Math::<$T>::delta(f!(self.v2, self.v1), f!(self.v1, self.v2)),
                 head = {
-                    if self.is_done() {
-                        return None;
-                    }
-                    let (x, y) = vh!((self.v1, self.u), (self.u, self.v1));
+                    none_if!(self.is_done());
+                    let (x, y) = hv!((self.v1, self.u), (self.u, self.v1));
                     Some((x, y))
                 },
                 tail = {
-                    if self.is_done() {
-                        return None;
-                    }
+                    none_if!(self.is_done());
                     let v2 = f!(self.v2.wrapping_sub(1), self.v2.wrapping_add(1));
-                    let (x, y) = vh!((v2, self.u), (self.u, v2));
+                    let (x, y) = hv!((v2, self.u), (self.u, v2));
                     Some((x, y))
                 },
                 pop_head = {
@@ -308,19 +126,18 @@ macro_rules! impl_signed_axis {
                     let Some((x, y)) = self.tail() else {
                         return None;
                     };
-                    self.v2 = vh!(x, y);
+                    self.v2 = hv!(x, y);
                     Some((x, y))
                 }
             );
         }
 
-        impl_axis_iters!(
+        impl_iters!(
             SignedAxis<const F, const V, $T>,
             self,
             next = self.pop_head(),
             next_back = self.pop_tail(),
             size_hint = {
-                #[allow(unreachable_patterns)]
                 match usize::try_from(self.length()) {
                     Ok(length) => (length, Some(length)),
                     Err(_) => (usize::MAX, None),
@@ -329,22 +146,6 @@ macro_rules! impl_signed_axis {
             is_empty = self.is_done()
             $(, cfg_esi = $cfg_esi)?
         );
-    };
-}
-
-/// Applies the macro `m` to multiple integer types.
-macro_rules! all_nums {
-    ($m:ident) => {
-        $m!(i8);
-        $m!(u8);
-        $m!(i16);
-        $m!(u16);
-        $m!(i32, cfg_esi = cfg(any(target_pointer_width = "32", target_pointer_width = "64")));
-        $m!(u32, cfg_esi = cfg(any(target_pointer_width = "32", target_pointer_width = "64")));
-        $m!(i64, cfg_esi = cfg(target_pointer_width = "64"));
-        $m!(u64, cfg_esi = cfg(target_pointer_width = "64"));
-        $m!(isize);
-        $m!(usize);
     };
 }
 
@@ -396,15 +197,6 @@ pub type Axis0<T> = Axis<false, T>;
 /// the direction only once instead of on every call to [`Iterator::next`].
 pub type Axis1<T> = Axis<true, T>;
 
-macro_rules! match_axis {
-    ($self:ident, $me:ident => $call:expr) => {
-        match $self {
-            Self::Positive($me) => $call,
-            Self::Negative($me) => $call,
-        }
-    };
-}
-
 macro_rules! impl_axis {
     ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
         impl<const V: bool> Axis<V, $T> {
@@ -433,18 +225,24 @@ macro_rules! impl_axis {
             #[must_use]
             pub const fn clip(u: $T, v1: $T, v2: $T, clip: &Clip<$T>) -> Option<Self> {
                 if v1 < v2 {
-                    map!(PositiveAxis::<V, $T>::clip_inner(u, v1, v2, clip), Self::Positive)
-                } else if v2 < v1 {
-                    map!(NegativeAxis::<V, $T>::clip_inner(u, v1, v2, clip), Self::Negative)
-                } else {
-                    None
+                    return map!(PositiveAxis::<V, $T>::clip_inner(u, v1, v2, clip), Self::Positive)
                 }
+                if v2 < v1 {
+                    return map!(NegativeAxis::<V, $T>::clip_inner(u, v1, v2, clip), Self::Negative)
+                }
+                None
             }
 
-            impl_axis_methods!($T, match_axis);
+            impl_methods!(
+                $T,
+                Self::{Positive, Negative}
+            );
         }
 
-        impl_axis_iters!(Axis<const V, $T>, match_axis $(, cfg_esi = $cfg_esi)?);
+        impl_iters!(
+            Axis<const V, $T>::{Positive, Negative}
+            $(, cfg_esi = $cfg_esi)?
+        );
     };
 }
 
@@ -472,18 +270,6 @@ pub enum AnyAxis<T> {
     NegativeAxis0(NegativeAxis0<T>),
     /// Vertical line segment at `270°`, see [`NegativeAxis1`].
     NegativeAxis1(NegativeAxis1<T>),
-}
-
-/// Delegates calls to signed-axis variants.
-macro_rules! match_axis {
-    ($self:ident, $me:ident => $call:expr) => {
-        match $self {
-            Self::PositiveAxis0($me) => $call,
-            Self::NegativeAxis0($me) => $call,
-            Self::PositiveAxis1($me) => $call,
-            Self::NegativeAxis1($me) => $call,
-        }
-    };
 }
 
 macro_rules! impl_any_axis {
@@ -520,7 +306,7 @@ macro_rules! impl_any_axis {
                 if y1 == y2 {
                     return map!(
                         Axis0::<$T>::clip(y1, x1, x2, clip),
-                        me => match me {
+                        |me| match me {
                             Axis::Positive(me) => Self::PositiveAxis0(me),
                             Axis::Negative(me) => Self::NegativeAxis0(me),
                         }
@@ -529,7 +315,7 @@ macro_rules! impl_any_axis {
                 if x1 == x2 {
                     return map!(
                         Axis1::<$T>::clip(x1, y1, y2, clip),
-                        me => match me {
+                        |me| match me {
                             Axis::Positive(me) => Self::PositiveAxis1(me),
                             Axis::Negative(me) => Self::NegativeAxis1(me),
                         }
@@ -538,10 +324,16 @@ macro_rules! impl_any_axis {
                 None
             }
 
-            impl_axis_methods!($T, match_axis);
+            impl_methods!(
+                $T,
+                Self::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1}
+            );
         }
 
-        impl_axis_iters!(AnyAxis<$T>, match_axis $(, cfg_esi = $cfg_esi)?);
+        impl_iters!(
+            AnyAxis<$T>::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1}
+            $(, cfg_esi = $cfg_esi)?
+        );
     };
 }
 

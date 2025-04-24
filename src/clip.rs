@@ -5,6 +5,7 @@
 
 use crate::axis_aligned::{AnyAxis, Axis0, Axis1};
 use crate::diagonal::AnyDiagonal;
+use crate::macros::none_if;
 use crate::math::Point;
 use crate::octant::AnyOctant;
 
@@ -26,9 +27,7 @@ macro_rules! clip_impl {
             #[inline]
             #[must_use]
             pub const fn new((wx1, wy1): Point<$T>, (wx2, wy2): Point<$T>) -> Option<Self> {
-                if wx2 < wx1 || wy2 < wy1 {
-                    return None;
-                }
+                none_if!(wx2 < wx1 || wy2 < wy1);
                 Some(Self { wx1, wy1, wx2, wy2 })
             }
 
