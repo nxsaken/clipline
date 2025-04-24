@@ -10,11 +10,23 @@ mod clip;
 // Signed-axis-aligned iterators
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Iterator over a line segment aligned to the given **signed axis**.
+/// An iterator over an axis-aligned line segment whose
+/// *direction* and *orientation* are known at compile-time.
 ///
-/// A signed axis is defined by the direction and axis-alignment of the line segments aligned to it:
-/// - [negative](NegativeAxis) if `F`, [positive](PositiveAxis) otherwise.
-/// - [vertical](SignedAxis1) if `V`, [horizontal](SignedAxis0) otherwise.
+/// - `F` fixes the direction of the covered line segments:
+///   * `false` – *increasing*, see [`PositiveAxis`]
+///   * `true` – *decreasing*, see [`NegativeAxis`]
+///
+/// - `V` fixes the orientation of the covered line segments:
+///   * `false` – *horizontal*, see [`SignedAxis0`]
+///   * `true` – *vertical*, see [`SignedAxis1`]
+///
+/// - If both are fixed, see:
+///   * [`PositiveAxis0`], [`NegativeAxis0`]
+///   * [`PositiveAxis1`], [`NegativeAxis1`]
+///
+/// - If the direction is determined at runtime, see [`Axis`].
+/// - If the orientation is determined at runtime too, see [`AnyAxis`].
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct SignedAxis<const F: bool, const V: bool, T> {
     u: T,
@@ -22,45 +34,65 @@ pub struct SignedAxis<const F: bool, const V: bool, T> {
     v2: T,
 }
 
-/// Iterator over a line segment aligned to the given
-/// **positive** [signed axis](SignedAxis).
-pub type PositiveAxis<const V: bool, T> = SignedAxis<false, V, T>;
-
-/// Iterator over a line segment aligned to the given
-/// **negative** [signed axis](SignedAxis).
-pub type NegativeAxis<const V: bool, T> = SignedAxis<true, V, T>;
-
-/// Iterator over a line segment aligned to the given
-/// **horizontal** [signed axis](SignedAxis).
+/// An iterator over a *horizontal* axis-aligned line segment
+/// whose *direction* is known at compile-time.
+///
+/// - `F` fixes the direction of the covered line segments:
+///   * `false` – increasing, see [`PositiveAxis0`]
+///   * `true` – decreasing, see [`NegativeAxis0`]
+///
+/// - If the direction is determined at runtime, see [`Axis0`].
 pub type SignedAxis0<const F: bool, T> = SignedAxis<F, false, T>;
 
-/// Iterator over a line segment aligned to the given
-/// **vertical** [signed axis](SignedAxis).
+/// An iterator over a *vertical* axis-aligned line segment
+/// whose *direction* is known at compile-time.
+///
+/// - `F` fixes the direction of the covered line segments:
+///   * `false` – increasing, see [`PositiveAxis1`]
+///   * `true` – decreasing, see [`NegativeAxis1`]
+///
+/// - If the direction is determined at runtime, see [`Axis1`].
 pub type SignedAxis1<const F: bool, T> = SignedAxis<F, true, T>;
 
-/// Iterator over a line segment aligned to the
-/// **positive horizontal** [signed axis](SignedAxis).
+/// An iterator over a *positive* axis-aligned line segment
+/// whose *orientation* is known at compile-time.
 ///
-/// Covers line segments oriented at `0°`.
-pub type PositiveAxis0<T> = SignedAxis0<false, T>;
+/// - `V` fixes the orientation of the covered line segments:
+///   * `false` – horizontal, see [`PositiveAxis0`]
+///   * `true` – vertical, see [`PositiveAxis1`]
+pub type PositiveAxis<const V: bool, T> = SignedAxis<false, V, T>;
 
-/// Iterator over a line segment aligned to the
-/// **negative horizontal** [signed axis](SignedAxis).
+/// An iterator over a *negative* axis-aligned line segment
+/// whose *orientation* is known at compile-time.
 ///
-/// Covers line segments oriented at `180°`.
-pub type NegativeAxis0<T> = SignedAxis0<true, T>;
+/// - `V` fixes the orientation of the covered line segments:
+///   * `false` – horizontal, see [`NegativeAxis0`]
+///   * `true` – vertical, see [`NegativeAxis1`]
+pub type NegativeAxis<const V: bool, T> = SignedAxis<true, V, T>;
 
-/// Iterator over a line segment aligned to the
-/// **positive vertical** [signed axis](SignedAxis).
+/// An iterator over a *positive*, *horizontal* axis-aligned line segment.
 ///
-/// Covers line segments oriented at `90°`.
-pub type PositiveAxis1<T> = SignedAxis1<false, T>;
+/// - Covers line segments oriented at `0°`.
+/// - `y = u`, `v1 <= x < v2`
+pub type PositiveAxis0<T> = PositiveAxis<false, T>;
 
-/// Iterator over a line segment aligned to the
-/// **negative vertical** [signed axis](SignedAxis).
+/// An iterator over a *negative*, *horizontal* axis-aligned line segment.
 ///
-/// Covers line segments oriented at `270°`.
-pub type NegativeAxis1<T> = SignedAxis1<true, T>;
+/// - Covers line segments oriented at `180°`.
+/// - `y = u`, `v1 >= x > v2`
+pub type NegativeAxis0<T> = NegativeAxis<false, T>;
+
+/// An iterator over a *positive*, *vertical* axis-aligned line segment.
+///
+/// - Covers line segments oriented at `90°`.
+/// - `x = u`, `v1 <= y < v2`
+pub type PositiveAxis1<T> = PositiveAxis<true, T>;
+
+/// An iterator over a *negative*, *vertical* axis-aligned line segment.
+///
+/// - Covers line segments oriented at `270°`.
+/// - `x = u`, `v1 >= y > v2`
+pub type NegativeAxis1<T> = NegativeAxis<true, T>;
 
 macro_rules! impl_signed_axis {
     ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
@@ -71,31 +103,35 @@ macro_rules! impl_signed_axis {
                 Self { u, v1, v2 }
             }
 
-            /// Returns an iterator over a *half-open* line segment if it is aligned to
-            /// the given [signed axis](SignedAxis), otherwise returns [`None`].
+            #[inline(always)]
+            #[must_use]
+            const fn covers(v1: $T, v2: $T) -> bool {
+                f!(v1 <= v2, v2 < v1)
+            }
+
+            /// Constructs a [`SignedAxis`] over a *half-open* line segment.
             ///
-            /// - A [horizontal](SignedAxis0) line segment has endpoints `(v1, u)` and `(v2, u)`.
-            /// - A [vertical](SignedAxis1) line segment has endpoints `(u, v1)` and `(u, v2)`.
+            /// Returns [`None`] if the line segment lies in the opposite direction.
+            ///
+            /// **Note**: empty line segments are covered by [`PositiveAxis`].
             #[inline]
             #[must_use]
             pub const fn new(u: $T, v1: $T, v2: $T) -> Option<Self> {
-                none_if!(f!(v2 < v1, v1 <= v2));
+                none_if!(!Self::covers(v1, v2));
                 Some(Self::new_inner(u, v1, v2))
             }
 
-            /// Clips a *half-open* line segment to a [rectangular region](Clip)
-            /// if it aligned to the given [signed axis](SignedAxis),
-            /// and returns an iterator over it.
+            /// Clips a *half-open* line segment against a rectangular region
+            /// and constructs a [`SignedAxis`] over the portion inside the clip.
             ///
-            /// - A [horizontal](SignedAxis0) line segment has endpoints `(v1, u)` and `(v2, u)`.
-            /// - A [vertical](SignedAxis1) line segment has endpoints `(u, v1)` and `(u, v2)`.
+            /// Returns [`None`] if the line segment lies in the opposite direction,
+            /// or outside the clipping region.
             ///
-            /// Returns [`None`] if the line segment is not aligned to the signed axis,
-            /// or if it does not intersect the clipping region.
+            /// **Note**: empty line segments are covered by [`PositiveAxis`].
             #[inline]
             #[must_use]
             pub const fn clip(u: $T, v1: $T, v2: $T, clip: &Clip<$T>) -> Option<Self> {
-                none_if!(f!(v2 < v1, v1 <= v2));
+                none_if!(!Self::covers(v1, v2));
                 Self::clip_inner(u, v1, v2, clip)
             }
 
@@ -155,18 +191,17 @@ all_nums!(impl_signed_axis);
 // Axis-aligned iterators
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Iterator over a line segment aligned to the given **axis**,
-/// with the direction determined at runtime.
+/// An iterator over an axis-aligned line segment whose *direction*
+/// is determined at runtime, and *orientation* is known at compile-time.
 ///
-/// An axis is defined by the orientation of the line segments it covers:
-/// [vertical](Axis1) if `V`, [horizontal](Axis0) otherwise.
+/// - `V` fixes the orientation of the covered line segments:
+///   * `false` – *horizontal*, see [`Axis0`]
+///   * `true` – *vertical*, see [`Axis1`]
+/// - If the direction is known at compile-time, see [`SignedAxis`].
+/// - If the orientation is determined at runtime, see [`AnyAxis`].
 ///
-/// If you know the [direction](SignedAxis) of the line segment,
-/// consider [`PositiveAxis`] and [`NegativeAxis`].
-///
-/// **Note**: an optimized implementation of [`Iterator::fold`] is provided.
-/// This makes [`Iterator::for_each`] faster than a `for` loop, since it checks
-/// the direction only once instead of on every call to [`Iterator::next`].
+/// **Note**: optimized [`Iterator::fold`] checks the direction once, not on every call
+/// to [`Iterator::next`]. This makes [`Iterator::for_each`] faster than a `for` loop.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub enum Axis<const V: bool, T> {
     /// See [`PositiveAxis`].
@@ -175,35 +210,28 @@ pub enum Axis<const V: bool, T> {
     Negative(NegativeAxis<V, T>),
 }
 
-/// Iterator over a line segment aligned to the **horizontal** [axis](Axis),
-/// with the direction determined at runtime.
+/// An iterator over a *horizontal* axis-aligned line segment
+/// whose *direction* is determined at runtime.
 ///
-/// If you know the [direction](SignedAxis) of the line segment,
-/// consider [`PositiveAxis0`] and [`NegativeAxis0`].
+/// If the direction is known at compile-time, see [`SignedAxis0`].
 ///
-/// **Note**: an optimized implementation of [`Iterator::fold`] is provided.
-/// This makes [`Iterator::for_each`] faster than a `for` loop, since it checks
-/// the direction only once instead of on every call to [`Iterator::next`].
+/// **Note**: optimized [`Iterator::fold`] checks the direction once, not on every call
+/// to [`Iterator::next`]. This makes [`Iterator::for_each`] faster than a `for` loop.
 pub type Axis0<T> = Axis<false, T>;
 
-/// Iterator over a line segment aligned to the **vertical** [axis](Axis),
-/// with the direction determined at runtime.
+/// An iterator over a *vertical* axis-aligned line segment
+/// whose *direction* is determined at runtime.
 ///
-/// If you know the [direction](SignedAxis) of the line segment,
-/// consider [`PositiveAxis1`] and [`NegativeAxis1`].
+/// If the direction is known at compile-time, see [`SignedAxis1`].
 ///
-/// **Note**: an optimized implementation of [`Iterator::fold`] is provided.
-/// This makes [`Iterator::for_each`] faster than a `for` loop, since it checks
-/// the direction only once instead of on every call to [`Iterator::next`].
+/// **Note**: optimized [`Iterator::fold`] checks the direction once, not on every call
+/// to [`Iterator::next`]. This makes [`Iterator::for_each`] faster than a `for` loop.
 pub type Axis1<T> = Axis<true, T>;
 
 macro_rules! impl_axis {
     ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
         impl<const V: bool> Axis<V, $T> {
-            /// Returns an iterator over a *half-open* line segment aligned to the given [axis](Axis).
-            ///
-            /// - A [horizontal](Axis0) line segment has endpoints `(v1, u)` and `(v2, u)`.
-            /// - A [vertical](Axis1) line segment has endpoints `(u, v1)` and `(u, v2)`.
+            /// Constructs an [`Axis`] over a *half-open* line segment.
             #[inline]
             #[must_use]
             pub const fn new(u: $T, v1: $T, v2: $T) -> Self {
@@ -213,13 +241,10 @@ macro_rules! impl_axis {
                 Self::Negative(NegativeAxis::<V, $T>::new_inner(u, v1, v2))
             }
 
-            /// Clips a *half-open* line segment aligned to the given [axis](Axis)
-            /// to a [rectangular region](Clip), and returns an iterator over it.
+            /// Clips a *half-open* line segment against a rectangular region
+            /// and constructs an [`Axis`] over the portion inside the clip.
             ///
-            /// - A [horizontal](Axis0) line segment has endpoints `(v1, u)` and `(v2, u)`.
-            /// - A [vertical](Axis1) line segment has endpoints `(u, v1)` and `(u, v2)`.
-            ///
-            /// Returns [`None`] if the line segment is empty or does not intersect the clipping region.
+            /// Returns [`None`] if the line segment lies outside the clipping region.
             #[inline]
             #[must_use]
             pub const fn clip(u: $T, v1: $T, v2: $T, clip: &Clip<$T>) -> Option<Self> {
@@ -248,31 +273,32 @@ all_nums!(impl_axis);
 // Arbitrary axis-aligned iterator
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Iterator over a [horizontal](Axis0) or [vertical](Axis1) line segment,
-/// with the axis-alignment and direction determined at runtime.
+/// An iterator over an axis-aligned line segment whose
+/// *direction* and *orientation* are determined at runtime.
 ///
-/// If you know the [axis-alignment](Axis) of the line segment, use [`Axis0`] or [`Axis1`].
+/// - If the orientation is known at compile-time, see [`Axis`].
+/// - If the direction is known at compile-time too, see [`SignedAxis`].
 ///
-/// **Note**: an optimized implementation of [`Iterator::fold`] is provided.
-/// This makes [`Iterator::for_each`] faster than a `for` loop, since it checks
-/// the signed axis only once instead of on every call to [`Iterator::next`].
+/// **Note**: optimized [`Iterator::fold`] checks the direction once, not on every call
+/// to [`Iterator::next`]. This makes [`Iterator::for_each`] faster than a `for` loop.
 #[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub enum AnyAxis<T> {
-    /// Horizontal line segment at `0°`, see [`PositiveAxis0`].
+    /// See [`PositiveAxis0`].
     PositiveAxis0(PositiveAxis0<T>),
-    /// Vertical line segment at `90°`, see [`PositiveAxis1`].
+    /// See [`PositiveAxis1`].
     PositiveAxis1(PositiveAxis1<T>),
-    /// Horizontal line segment at `180°`, see [`NegativeAxis0`].
+    /// See [`NegativeAxis0`].
     NegativeAxis0(NegativeAxis0<T>),
-    /// Vertical line segment at `270°`, see [`NegativeAxis1`].
+    /// See [`NegativeAxis1`].
     NegativeAxis1(NegativeAxis1<T>),
 }
 
 macro_rules! impl_any_axis {
     ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
         impl AnyAxis<$T> {
-            /// Returns an iterator over a *half-open* line segment
-            /// if it is aligned to any [axis](Axis), otherwise returns [`None`].
+            /// Constructs an [`AnyAxis`] over a *half-open* line segment.
+            ///
+            /// Returns [`None`] if the line segment is not axis-aligned.
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Self> {
@@ -291,11 +317,11 @@ macro_rules! impl_any_axis {
                 None
             }
 
-            /// Clips a *half-open* line segment to a [rectangular region](Clip)
-            /// if it is aligned to any [axis](Axis), and returns an iterator over it.
+            /// Clips a *half-open* line segment against a rectangular region
+            /// and constructs an [`AnyAxis`] over the portion inside the clip.
             ///
             /// Returns [`None`] if the line segment is not axis-aligned,
-            /// is empty, or does not intersect the clipping region.
+            /// or lies outside the clipping region.
             #[inline]
             #[must_use]
             pub const fn clip((x1, y1): Point<$T>, (x2, y2): Point<$T>, clip: &Clip<$T>) -> Option<Self> {
