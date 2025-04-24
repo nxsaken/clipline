@@ -5,6 +5,7 @@ use crate::macros::{all_nums, f, hv, impl_iters, impl_methods, map, none_if, var
 use crate::math::{Math, Num, Point};
 
 mod clip;
+mod convert;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Signed-axis-aligned iterators
