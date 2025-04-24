@@ -2,6 +2,12 @@
 
 mod iterator {
     #[test]
+    fn empty_is_positive() {
+        assert!(clipline::PositiveAxis0::<u8>::new(0, 0, 0).is_some_and(|me| me.is_done()));
+        assert!(clipline::NegativeAxis0::<u8>::new(0, 0, 0).is_none());
+    }
+
+    #[test]
     fn length_is_correct() {
         for v1 in -2..4 {
             for v2 in -2..4 {

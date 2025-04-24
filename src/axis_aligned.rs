@@ -79,7 +79,7 @@ macro_rules! impl_signed_axis {
             #[inline]
             #[must_use]
             pub const fn new(u: $T, v1: $T, v2: $T) -> Option<Self> {
-                none_if!(f!(v2 <= v1, v1 <= v2));
+                none_if!(f!(v2 < v1, v1 <= v2));
                 Some(Self::new_inner(u, v1, v2))
             }
 
@@ -95,7 +95,7 @@ macro_rules! impl_signed_axis {
             #[inline]
             #[must_use]
             pub const fn clip(u: $T, v1: $T, v2: $T, clip: &Clip<$T>) -> Option<Self> {
-                none_if!(f!(v2 <= v1, v1 <= v2));
+                none_if!(f!(v2 < v1, v1 <= v2));
                 Self::clip_inner(u, v1, v2, clip)
             }
 
@@ -208,10 +208,9 @@ macro_rules! impl_axis {
             #[must_use]
             pub const fn new(u: $T, v1: $T, v2: $T) -> Self {
                 if v1 <= v2 {
-                    Self::Positive(PositiveAxis::<V, $T>::new_inner(u, v1, v2))
-                } else {
-                    Self::Negative(NegativeAxis::<V, $T>::new_inner(u, v1, v2))
+                    return Self::Positive(PositiveAxis::<V, $T>::new_inner(u, v1, v2))
                 }
+                Self::Negative(NegativeAxis::<V, $T>::new_inner(u, v1, v2))
             }
 
             /// Clips a *half-open* line segment aligned to the given [axis](Axis)
@@ -224,13 +223,10 @@ macro_rules! impl_axis {
             #[inline]
             #[must_use]
             pub const fn clip(u: $T, v1: $T, v2: $T, clip: &Clip<$T>) -> Option<Self> {
-                if v1 < v2 {
+                if v1 <= v2 {
                     return map!(PositiveAxis::<V, $T>::clip_inner(u, v1, v2, clip), Self::Positive)
                 }
-                if v2 < v1 {
-                    return map!(NegativeAxis::<V, $T>::clip_inner(u, v1, v2, clip), Self::Negative)
-                }
-                None
+                return map!(NegativeAxis::<V, $T>::clip_inner(u, v1, v2, clip), Self::Negative)
             }
 
             impl_methods!(
