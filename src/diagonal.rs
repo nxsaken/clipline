@@ -58,13 +58,11 @@ macro_rules! diagonal_impl {
             #[inline(always)]
             #[must_use]
             const fn covers((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> bool {
-                let (u1, u2) = fx!((x1, x2), (x2, x1));
-                return_if!(u2 <= u1, false);
-                let dx = Math::<$T>::delta(u2, u1);
-                let (v1, v2) = fy!((y1, y2), (y2, y1));
-                return_if!(v2 <= v1, false);
-                let dy = Math::<$T>::delta(v2, v1);
-                dx == dy
+                return_if!(fx!(x2 < x1, x1 <= x2), false);
+                return_if!(fy!(y2 < y1, y1 <= y2), false);
+                let du = Math::<$T>::delta(fx!(x2, x1), fx!(x1, x2));
+                let dv = Math::<$T>::delta(fy!(y2, y1), fy!(y1, y2));
+                du == dv
             }
 
             /// Returns an iterator over a *half-open* line segment
@@ -196,9 +194,9 @@ macro_rules! impl_any_diagonal {
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Self> {
-                if x1 < x2 {
+                if x1 <= x2 {
                     let dx = Math::<$T>::delta(x2, x1);
-                    if y1 < y2 {
+                    if y1 <= y2 {
                         let dy = Math::<$T>::delta(y2, y1);
                         return_if!(dx != dy);
                         return Some(quadrant!(Diagonal0, $T, (x1, y1), x2));
@@ -208,7 +206,7 @@ macro_rules! impl_any_diagonal {
                     return Some(quadrant!(Diagonal1, $T, (x1, y1), x2));
                 }
                 let dx = Math::<$T>::delta(x1, x2);
-                if y1 < y2 {
+                if y1 <= y2 {
                     let dy = Math::<$T>::delta(y2, y1);
                     return_if!(dx != dy);
                     return Some(quadrant!(Diagonal2, $T, (x1, y1), x2));

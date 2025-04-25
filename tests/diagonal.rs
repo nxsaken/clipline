@@ -4,8 +4,8 @@ mod bounds {
     use clipline::*;
 
     #[test]
-    fn all_quadrants_exclude_empty_lines() {
-        assert!(Diagonal0::<i8>::new((0, 0), (0, 0)).is_none());
+    fn empty_line_segments_are_quadrant0() {
+        assert!(Diagonal0::<i8>::new((0, 0), (0, 0)).is_some_and(|d| d.is_done()));
         assert!(Diagonal1::<i8>::new((0, 0), (0, 0)).is_none());
         assert!(Diagonal2::<i8>::new((0, 0), (0, 0)).is_none());
         assert!(Diagonal3::<i8>::new((0, 0), (0, 0)).is_none());
