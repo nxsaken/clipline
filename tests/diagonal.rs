@@ -1,9 +1,7 @@
-//! ## Diagonal iterator tests
+//! Diagonal iterator tests
 
-use clipline::{AnyDiagonal, Diagonal0, Diagonal1, Diagonal2, Diagonal3};
-
-mod quadrant {
-    use super::*;
+mod bounds {
+    use clipline::*;
 
     #[test]
     fn all_quadrants_exclude_empty_lines() {
@@ -22,8 +20,8 @@ mod quadrant {
     }
 }
 
-mod iterator {
-    use super::*;
+mod iter {
+    use clipline::*;
 
     #[test]
     fn length_is_correct() {

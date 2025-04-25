@@ -1,7 +1,7 @@
-//! ## Octant iterator tests
+//! Octant iterator tests
 
-mod octant_bounds {
-    use clipline::{Octant0, Octant1, Octant2, Octant3, Octant4, Octant5, Octant6, Octant7};
+mod bounds {
+    use clipline::*;
 
     #[test]
     fn all_octants_exclude_empty_line() {
@@ -64,8 +64,8 @@ mod octant_bounds {
     }
 }
 
-mod iterator {
-    use clipline::{Octant0, Octant1, Octant2, Octant3, Octant4, Octant5, Octant6, Octant7};
+mod iter {
+    use clipline::*;
 
     #[test]
     fn octant_0_produces_correct_points() {
@@ -117,8 +117,8 @@ mod iterator {
 }
 
 mod proptest {
-    use clipline::{AnyOctant, Clip, Point};
-    use proptest::prelude::{prop_assert, proptest, ProptestConfig};
+    use clipline::*;
+    use proptest::prelude::*;
 
     fn config() -> ProptestConfig {
         ProptestConfig { cases: 4000000, failure_persistence: None, ..ProptestConfig::default() }
