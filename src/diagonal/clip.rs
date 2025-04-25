@@ -2,7 +2,7 @@
 
 use crate::clip::Clip;
 use crate::diagonal::Diagonal;
-use crate::macros::{fx, fy, none_if};
+use crate::macros::{fx, fy, return_if};
 use crate::math::{Delta, Math, Num, Point};
 
 const O: bool = false;
@@ -162,13 +162,13 @@ macro_rules! clip_impl {
                     Y_ENTRY_X_EXIT => {
                         let Dy1 = Self::Dy1(y1, clip);
                         let Dx2 = Self::Dx2(x1, clip);
-                        none_if!(Dx2 < Dy1);
+                        return_if!(Dx2 < Dy1);
                         (Self::c1_y(x1, Dy1, clip), Self::cx2_x(clip))
                     }
                     Y_ENTRY_XY_EXIT => {
                         let Dy1 = Self::Dy1(y1, clip);
                         let Dx2 = Self::Dx2(x1, clip);
-                        none_if!(Dx2 < Dy1);
+                        return_if!(Dx2 < Dy1);
                         (Self::c1_y(x1, Dy1, clip), Self::cx2(x1, (Dx2, Self::Dy2(y1, clip)), clip))
                     }
                     X_ENTRY_INSIDE => (Self::c1_x(y1, Self::Dx1(x1, clip), clip), x2),
@@ -182,7 +182,7 @@ macro_rules! clip_impl {
                     X_ENTRY_XY_EXIT => {
                         let Dx1 = Self::Dx1(x1, clip);
                         let Dy2 = Self::Dy2(y1, clip);
-                        none_if!(Dy2 < Dx1);
+                        return_if!(Dy2 < Dx1);
                         (Self::c1_x(y1, Dx1, clip), Self::cx2(x1, (Self::Dx2(x1, clip), Dy2), clip))
                     }
                     XY_ENTRY_INSIDE => {
@@ -199,10 +199,10 @@ macro_rules! clip_impl {
                     XY_ENTRY_XY_EXIT => {
                         let Dy1 = Self::Dy1(y1, clip);
                         let Dx2 = Self::Dx2(x1, clip);
-                        none_if!(Dx2 < Dy1);
+                        return_if!(Dx2 < Dy1);
                         let Dx1 = Self::Dx1(x1, clip);
                         let Dy2 = Self::Dy2(y1, clip);
-                        none_if!(Dy2 < Dx1);
+                        return_if!(Dy2 < Dx1);
                         (Self::c1((x1, y1), (Dx1, Dy1), clip), Self::cx2(x1, (Dx2, Dy2), clip))
                     }
                 };

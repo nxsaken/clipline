@@ -1,7 +1,7 @@
 //! ## Axis-aligned iterators
 
 use crate::clip::Clip;
-use crate::macros::{all_nums, f, hv, impl_iters, impl_methods, map, none_if, variant};
+use crate::macros::{all_nums, f, hv, impl_iters, impl_methods, map, return_if, variant};
 use crate::math::{Math, Num, Point};
 
 mod clip;
@@ -118,7 +118,7 @@ macro_rules! impl_signed_axis {
             #[inline]
             #[must_use]
             pub const fn new(u: $T, v1: $T, v2: $T) -> Option<Self> {
-                none_if!(!Self::covers(v1, v2));
+                return_if!(!Self::covers(v1, v2));
                 Some(Self::new_inner(u, v1, v2))
             }
 
@@ -132,7 +132,7 @@ macro_rules! impl_signed_axis {
             #[inline]
             #[must_use]
             pub const fn clip(u: $T, v1: $T, v2: $T, clip: &Clip<$T>) -> Option<Self> {
-                none_if!(!Self::covers(v1, v2));
+                return_if!(!Self::covers(v1, v2));
                 Self::clip_inner(u, v1, v2, clip)
             }
 
@@ -142,12 +142,12 @@ macro_rules! impl_signed_axis {
                 is_done = f!(self.v2 <= self.v1, self.v1 <= self.v2),
                 length = Math::<$T>::delta(f!(self.v2, self.v1), f!(self.v1, self.v2)),
                 head = {
-                    none_if!(self.is_done());
+                    return_if!(self.is_done());
                     let (x, y) = hv!((self.v1, self.u), (self.u, self.v1));
                     Some((x, y))
                 },
                 tail = {
-                    none_if!(self.is_done());
+                    return_if!(self.is_done());
                     let v2 = f!(self.v2.wrapping_sub(1), self.v2.wrapping_add(1));
                     let (x, y) = hv!((v2, self.u), (self.u, v2));
                     Some((x, y))

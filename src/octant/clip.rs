@@ -2,7 +2,7 @@
 
 use super::Octant;
 use crate::clip::Clip;
-use crate::macros::{fx, fy, none_if, xy};
+use crate::macros::{fx, fy, return_if, xy};
 use crate::math::{Delta, Delta2, Math, Num, Point};
 
 const O: bool = false;
@@ -298,13 +298,13 @@ macro_rules! clip_impl {
                     V_ENTRY_U_EXIT => {
                         let tv1 = Self::tv1(v1, du, half_du, clip);
                         let tu2 = Self::tu2(u1, dv, clip);
-                        none_if!(tu2 < tv1);
+                        return_if!(tu2 < tv1);
                         (Self::c1_v(u1, tv1, (half_du, dv), error, clip), Self::cu2_u(clip))
                     }
                     V_ENTRY_UV_EXIT => {
                         let tv1 = Self::tv1(v1, du, half_du, clip);
                         let tu2 = Self::tu2(u1, dv, clip);
-                        none_if!(tu2 < tv1);
+                        return_if!(tu2 < tv1);
                         let tv2 = Self::tv2(v1, du, half_du, clip);
                         (
                             Self::c1_v(u1, tv1, (half_du, dv), error, clip),
@@ -328,7 +328,7 @@ macro_rules! clip_impl {
                     U_ENTRY_UV_EXIT => {
                         let tu1 = Self::tu1(u1, dv, clip);
                         let tv2 = Self::tv2(v1, du, half_du, clip);
-                        none_if!(tv2 < tu1);
+                        return_if!(tv2 < tu1);
                         let tu2 = Self::tu2(u1, dv, clip);
                         (
                             Self::c1_u(v1, tu1, du, error, clip),
@@ -360,10 +360,10 @@ macro_rules! clip_impl {
                     UV_ENTRY_UV_EXIT => {
                         let tv1 = Self::tv1(v1, du, half_du, clip);
                         let tu2 = Self::tu2(u1, dv, clip);
-                        none_if!(tu2 < tv1);
+                        return_if!(tu2 < tv1);
                         let tu1 = Self::tu1(u1, dv, clip);
                         let tv2 = Self::tv2(v1, du, half_du, clip);
-                        none_if!(tv2 < tu1);
+                        return_if!(tv2 < tu1);
                         (
                             Self::c1_uv((u1, v1), (tu1, tv1), (du, dv), half_du, error, clip),
                             Self::cu2_uv(u1, (tu2, tv2), dv, r0, clip),

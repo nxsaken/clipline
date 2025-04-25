@@ -281,13 +281,18 @@ macro_rules! map {
     };
 }
 
-/// Short-circuits with `None` if the condition is `true`.
-macro_rules! none_if {
+/// Short-circuits with [`None`] or `$ret` if `$cond` is `true`.
+macro_rules! return_if {
     ($cond:expr) => {
         if $cond {
             return None;
         }
     };
+    ($cond:expr, $ret:expr) => {
+        if $cond {
+            return $ret;
+        }
+    };
 }
 
-pub(crate) use {map, none_if};
+pub(crate) use {map, return_if};

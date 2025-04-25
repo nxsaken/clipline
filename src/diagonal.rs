@@ -1,7 +1,7 @@
 //! ## Diagonal iterators
 
 use crate::clip::Clip;
-use crate::macros::{fx, fy, map, none_if};
+use crate::macros::{fx, fy, map, return_if};
 use crate::math::{Math, Num, Point};
 
 pub mod clip;
@@ -59,17 +59,11 @@ macro_rules! diagonal_impl {
             #[must_use]
             const fn covers((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> bool {
                 let (u1, u2) = fx!((x1, x2), (x2, x1));
-                let dx = if u1 < u2 {
-                    Math::<$T>::delta(u2, u1)
-                } else {
-                    return false;
-                };
+                return_if!(u2 <= u1, false);
+                let dx = Math::<$T>::delta(u2, u1);
                 let (v1, v2) = fy!((y1, y2), (y2, y1));
-                let dy = if v1 < v2 {
-                    Math::<$T>::delta(v2, v1)
-                } else {
-                    return false;
-                };
+                return_if!(v2 <= v1, false);
+                let dy = Math::<$T>::delta(v2, v1);
                 dx == dy
             }
 
@@ -80,7 +74,7 @@ macro_rules! diagonal_impl {
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Self> {
-                none_if!(!Self::covers((x1, y1), (x2, y2)));
+                return_if!(!Self::covers((x1, y1), (x2, y2)));
                 Some(Self::new_inner((x1, y1), x2))
             }
 
@@ -99,9 +93,9 @@ macro_rules! diagonal_impl {
             ) -> Option<Self> {
                 let &Clip { wx1, wy1, wx2, wy2 } = clip;
                 let (u1, u2) = fx!((x1, x2), (x2, x1));
-                none_if!(u2 <= wx1 || wx2 < u1);
+                return_if!(u2 <= wx1 || wx2 < u1);
                 let (v1, v2) = fx!((y1, y2), (y2, y1));
-                none_if!(v2 <= wy1 || wy2 < v1 || !Self::covers((x1, y1), (x2, y2)));
+                return_if!(v2 <= wy1 || wy2 < v1 || !Self::covers((x1, y1), (x2, y2)));
                 Self::clip_inner((x1, y1), (x2, y2), clip)
             }
 
@@ -125,7 +119,7 @@ macro_rules! diagonal_impl {
 
             #[inline]
             fn next(&mut self) -> Option<Self::Item> {
-                none_if!(self.is_done());
+                return_if!(self.is_done());
                 let (x, y) = (self.x1, self.y1);
                 self.x1 = fx!(self.x1.wrapping_add(1), self.x1.wrapping_sub(1));
                 self.y1 = fy!(self.y1.wrapping_add(1), self.y1.wrapping_sub(1));
@@ -242,21 +236,21 @@ macro_rules! any_diagonal_impl {
                     let dx = Math::<$T>::delta(x2, x1);
                     if y1 < y2 {
                         let dy = Math::<$T>::delta(y2, y1);
-                        none_if!(dx != dy);
+                        return_if!(dx != dy);
                         return Some(quadrant!(Diagonal0, $T, (x1, y1), x2));
                     }
                     let dy = Math::<$T>::delta(y1, y2);
-                    none_if!(dx != dy);
+                    return_if!(dx != dy);
                     return Some(quadrant!(Diagonal1, $T, (x1, y1), x2));
                 }
                 let dx = Math::<$T>::delta(x1, x2);
                 if y1 < y2 {
                     let dy = Math::<$T>::delta(y2, y1);
-                    none_if!(dx != dy);
+                    return_if!(dx != dy);
                     return Some(quadrant!(Diagonal2, $T, (x1, y1), x2));
                 }
                 let dy = Math::<$T>::delta(y1, y2);
-                none_if!(dx != dy);
+                return_if!(dx != dy);
                 return Some(quadrant!(Diagonal3, $T, (x1, y1), x2));
             }
 
@@ -275,30 +269,30 @@ macro_rules! any_diagonal_impl {
                 let &Clip { wx1, wy1, wx2, wy2 } = clip;
                 if x1 < x2 {
                     // TODO: strict comparison for closed line segments
-                    none_if!(x2 <= wx1 || wx2 < x1);
+                    return_if!(x2 <= wx1 || wx2 < x1);
                     let dx = Math::<$T>::delta(x2, x1);
                     if y1 < y2 {
-                        none_if!(y2 <= wy1 || wy2 < y1);
+                        return_if!(y2 <= wy1 || wy2 < y1);
                         let dy = Math::<$T>::delta(y2, y1);
-                        none_if!(dx != dy);
+                        return_if!(dx != dy);
                         return quadrant!(Diagonal0, $T, (x1, y1), (x2, y2), clip);
                     }
-                    none_if!(y1 < wy1 || wy2 <= y2);
+                    return_if!(y1 < wy1 || wy2 <= y2);
                     let dy = Math::<$T>::delta(y1, y2);
-                    none_if!(dx != dy);
+                    return_if!(dx != dy);
                     return quadrant!(Diagonal1, $T, (x1, y1), (x2, y2), clip);
                 }
-                none_if!(x1 < wx1 || wx2 <= x2);
+                return_if!(x1 < wx1 || wx2 <= x2);
                 let dx = Math::<$T>::delta(x1, x2);
                 if y1 < y2 {
-                    none_if!(y2 <= wy1 || wy2 < y1);
+                    return_if!(y2 <= wy1 || wy2 < y1);
                     let dy = Math::<$T>::delta(y2, y1);
-                    none_if!(dx != dy);
+                    return_if!(dx != dy);
                     return quadrant!(Diagonal2, $T, (x1, y1), (x2, y2), clip);
                 }
-                none_if!(y1 < wy1 || wy2 <= y2);
+                return_if!(y1 < wy1 || wy2 <= y2);
                 let dy = Math::<$T>::delta(y1, y2);
-                none_if!(dx != dy);
+                return_if!(dx != dy);
                 return quadrant!(Diagonal3, $T, (x1, y1), (x2, y2), clip);
             }
 

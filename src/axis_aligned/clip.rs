@@ -2,7 +2,7 @@
 
 use super::SignedAxis;
 use crate::clip::Clip;
-use crate::macros::{f, hv, none_if};
+use crate::macros::{f, hv, return_if};
 
 macro_rules! clip_impl {
     ($T:ty) => {
@@ -49,7 +49,7 @@ macro_rules! clip_impl {
             #[inline(always)]
             #[must_use]
             pub(super) const fn clip_inner(u: $T, v1: $T, v2: $T, clip: &Clip<$T>) -> Option<Self> {
-                none_if!(Self::reject(u, v1, v2, clip));
+                return_if!(Self::reject(u, v1, v2, clip));
                 Some(Self::new_inner(u, Self::cv1(v1, clip), Self::cv2(v2, clip)))
             }
         }
