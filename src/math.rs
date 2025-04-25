@@ -60,6 +60,44 @@ macro_rules! impl_math_base {
                 #[allow(clippy::cast_sign_loss)]
                 <$T as Num>::U::wrapping_sub(max as _, min as _)
             }
+
+            /// Adds an unsigned offset to a value of type `$T`, wrapping on overflow.
+            ///
+            /// This reinterprets the two’s-complement bits of `value` as `<$T as Num>::U`,
+            /// does the addition modulo 2ⁿ, then casts back to `$T`.
+            #[inline(always)]
+            pub const fn add_delta(value: $T, delta: <$T as Num>::U) -> $T {
+                // reinterpret value’s bits as unsigned
+                #[allow(clippy::cast_sign_loss)]
+                let value: <$T as Num>::U = value as _;
+                // sanity-check: we only allow `bits + delta <= U::MAX`, so no real wrap occurs
+                debug_assert!(
+                    value <= <$T as Num>::U::MAX.wrapping_sub(delta),
+                    "overflow in add_delta"
+                );
+                // perform the addition mod 2ⁿ (but we know it won't actually wrap)
+                #[allow(clippy::cast_possible_wrap)]
+                let value = value.wrapping_add(delta) as _;
+                value
+            }
+
+            /// Subtracts an unsigned offset from a value of type `$T`, wrapping on underflow.
+            ///
+            /// This reinterprets the two’s-complement bits of `val` as `<$T as Num>::U`,
+            /// does the subtraction modulo 2ⁿ, then casts back to `$T`.
+            #[inline(always)]
+            pub const fn sub_delta(value: $T, delta: <$T as Num>::U) -> $T {
+                // reinterpret val’s bits as an unsigned
+                #[allow(clippy::cast_sign_loss)]
+                let value = value as <$T as Num>::U;
+                // sanity‐check: we only allow `bits >= off`, so no real wrap occurs
+                debug_assert!(value >= delta, "underflow in sub_delta");
+                // subtract the offset mod 2ⁿ
+                #[allow(clippy::cast_possible_wrap)]
+                let value = value.wrapping_sub(delta) as _;
+                // cast the two’s-complement result back to signed
+                value
+            }
         }
     };
 }

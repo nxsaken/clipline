@@ -1,7 +1,7 @@
 //! ## Diagonal iterators
 
 use crate::clip::Clip;
-use crate::macros::{fx, fy, map, return_if};
+use crate::macros::{all_nums, fx, fy, impl_iters, impl_methods, map, return_if, variant};
 use crate::math::{Math, Num, Point};
 
 pub mod clip;
@@ -47,7 +47,7 @@ pub type Diagonal2<T> = Diagonal<true, false, T>;
 pub type Diagonal3<T> = Diagonal<true, true, T>;
 
 macro_rules! diagonal_impl {
-    ($T:ty) => {
+    ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
         impl<const FX: bool, const FY: bool> Diagonal<FX, FY, $T> {
             #[inline(always)]
             #[must_use]
@@ -99,83 +99,58 @@ macro_rules! diagonal_impl {
                 Self::clip_inner((x1, y1), (x2, y2), clip)
             }
 
-            /// Returns `true` if the iterator has terminated.
-            #[inline]
-            #[must_use]
-            pub const fn is_done(&self) -> bool {
-                fx!(self.x2 <= self.x1, self.x1 <= self.x2)
-            }
-
-            /// Returns the remaining length of this iterator.
-            #[inline]
-            #[must_use]
-            pub const fn length(&self) -> <$T as Num>::U {
-                Math::<$T>::delta(fx!(self.x2, self.x1), fx!(self.x1, self.x2))
-            }
+            impl_methods!(
+                self,
+                $T,
+                is_done = fx!(self.x2 <= self.x1, self.x1 <= self.x2),
+                length = Math::<$T>::delta(fx!(self.x2, self.x1), fx!(self.x1, self.x2)),
+                head = {
+                    return_if!(self.is_done());
+                    Some((self.x1, self.y1))
+                },
+                tail = {
+                    return_if!(self.is_done());
+                    let x2 = fx!(self.x2.wrapping_sub(1), self.x2.wrapping_add(1));
+                    let dx = Math::<$T>::delta(fx!(x2, self.x1), fx!(self.x1, x2));
+                    let y2 = fy!(Math::<$T>::add_delta(self.y1, dx), Math::<$T>::sub_delta(self.y1, dx));
+                    Some((x2, y2))
+                },
+                pop_head = {
+                    let Some((x, y)) = self.head() else {
+                        return None;
+                    };
+                    self.x1 = fx!(self.x1.wrapping_add(1), self.x1.wrapping_sub(1));
+                    self.y1 = fy!(self.y1.wrapping_add(1), self.y1.wrapping_sub(1));
+                    Some((x, y))
+                },
+                pop_tail = {
+                    let Some((x, y)) = self.tail() else {
+                        return None;
+                    };
+                    self.x2 = x;
+                    Some((x, y))
+                }
+            );
         }
 
-        impl<const FX: bool, const FY: bool> Iterator for Diagonal<FX, FY, $T> {
-            type Item = Point<$T>;
-
-            #[inline]
-            fn next(&mut self) -> Option<Self::Item> {
-                return_if!(self.is_done());
-                let (x, y) = (self.x1, self.y1);
-                self.x1 = fx!(self.x1.wrapping_add(1), self.x1.wrapping_sub(1));
-                self.y1 = fy!(self.y1.wrapping_add(1), self.y1.wrapping_sub(1));
-                Some((x, y))
-            }
-
-            #[inline]
-            fn size_hint(&self) -> (usize, Option<usize>) {
+        impl_iters!(
+            Diagonal<const FX, const FY, $T>,
+            self,
+            next = self.pop_head(),
+            next_back = self.pop_tail(),
+            size_hint = {
                 match usize::try_from(self.length()) {
                     Ok(length) => (length, Some(length)),
                     Err(_) => (usize::MAX, None),
                 }
-            }
-        }
-
-        impl<const FX: bool, const FY: bool> core::iter::FusedIterator for Diagonal<FX, FY, $T> {}
+            },
+            is_empty = self.is_done()
+            $(, cfg_esi = $cfg_esi)?
+        );
     };
 }
 
-diagonal_impl!(i8);
-diagonal_impl!(u8);
-diagonal_impl!(i16);
-diagonal_impl!(u16);
-diagonal_impl!(i32);
-diagonal_impl!(u32);
-diagonal_impl!(i64);
-diagonal_impl!(u64);
-diagonal_impl!(isize);
-diagonal_impl!(usize);
-
-macro_rules! diagonal_exact_size_iter_impl {
-    ($T:ty) => {
-        impl<const FX: bool, const FY: bool> ExactSizeIterator for Diagonal<FX, FY, $T> {
-            #[cfg(feature = "is_empty")]
-            #[inline]
-            fn is_empty(&self) -> bool {
-                self.is_done()
-            }
-        }
-    };
-}
-
-diagonal_exact_size_iter_impl!(i8);
-diagonal_exact_size_iter_impl!(u8);
-diagonal_exact_size_iter_impl!(i16);
-diagonal_exact_size_iter_impl!(u16);
-#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-diagonal_exact_size_iter_impl!(i32);
-#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-diagonal_exact_size_iter_impl!(u32);
-#[cfg(target_pointer_width = "64")]
-diagonal_exact_size_iter_impl!(i64);
-#[cfg(target_pointer_width = "64")]
-diagonal_exact_size_iter_impl!(u64);
-diagonal_exact_size_iter_impl!(isize);
-diagonal_exact_size_iter_impl!(usize);
+all_nums!(diagonal_impl);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Arbitrary diagonal iterator
@@ -202,17 +177,6 @@ pub enum AnyDiagonal<T> {
     Diagonal3(Diagonal3<T>),
 }
 
-macro_rules! delegate {
-    ($self:ident, $me:ident => $call:expr) => {
-        match $self {
-            Self::Diagonal0($me) => $call,
-            Self::Diagonal1($me) => $call,
-            Self::Diagonal2($me) => $call,
-            Self::Diagonal3($me) => $call,
-        }
-    };
-}
-
 macro_rules! quadrant {
     ($Quadrant:ident, $T:ty, $p1:expr, $x2:expr) => {
         Self::$Quadrant($Quadrant::<$T>::new_inner($p1, $x2))
@@ -224,8 +188,8 @@ macro_rules! quadrant {
 
 pub(crate) use quadrant;
 
-macro_rules! any_diagonal_impl {
-    ($T:ty) => {
+macro_rules! impl_any_diagonal {
+    ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
         impl AnyDiagonal<$T> {
             /// Returns an iterator over a *half-open* line segment
             /// if it is diagonal, otherwise returns [`None`].
@@ -296,96 +260,17 @@ macro_rules! any_diagonal_impl {
                 return quadrant!(Diagonal3, $T, (x1, y1), (x2, y2), clip);
             }
 
-            /// Returns `true` if the iterator has terminated.
-            #[inline]
-            #[must_use]
-            pub const fn is_done(&self) -> bool {
-                delegate!(self, me => me.is_done())
-            }
-
-            /// Returns the remaining length of this iterator.
-            #[inline]
-            #[must_use]
-            pub const fn length(&self) -> <$T as Num>::U {
-                delegate!(self, me => me.length())
-            }
+            impl_methods!($T, Self::{Diagonal0, Diagonal1, Diagonal2, Diagonal3});
         }
 
-        impl Iterator for AnyDiagonal<$T> {
-            type Item = Point<$T>;
-
-            #[inline]
-            fn next(&mut self) -> Option<Self::Item> {
-                delegate!(self, me => me.next())
-            }
-
-            #[inline]
-            fn size_hint(&self) -> (usize, Option<usize>) {
-                delegate!(self, me => me.size_hint())
-            }
-
-            #[cfg(feature = "try_fold")]
-            #[inline]
-            fn try_fold<B, F, R>(&mut self, init: B, f: F) -> R
-            where
-                Self: Sized,
-                F: FnMut(B, Self::Item) -> R,
-                R: core::ops::Try<Output = B>,
-            {
-                delegate!(self, me => me.try_fold(init, f))
-            }
-
-            #[inline]
-            fn fold<B, F>(self, init: B, f: F) -> B
-            where
-                Self: Sized,
-                F: FnMut(B, Self::Item) -> B,
-            {
-                delegate!(self, me => me.fold(init, f))
-            }
-        }
-
-        impl core::iter::FusedIterator for AnyDiagonal<$T> {}
+        impl_iters!(
+            AnyDiagonal<$T>::{Diagonal0, Diagonal1, Diagonal2, Diagonal3}
+            $(, cfg_esi = $cfg_esi)?
+        );
     };
 }
 
-any_diagonal_impl!(i8);
-any_diagonal_impl!(u8);
-any_diagonal_impl!(i16);
-any_diagonal_impl!(u16);
-any_diagonal_impl!(i32);
-any_diagonal_impl!(u32);
-any_diagonal_impl!(i64);
-any_diagonal_impl!(u64);
-any_diagonal_impl!(isize);
-any_diagonal_impl!(usize);
-
-macro_rules! any_diagonal_exact_size_iter_impl {
-    ($T:ty) => {
-        impl ExactSizeIterator for AnyDiagonal<$T> {
-            #[cfg(feature = "is_empty")]
-            #[inline]
-            fn is_empty(&self) -> bool {
-                delegate!(self, me => me.is_empty())
-            }
-        }
-    };
-}
-
-any_diagonal_exact_size_iter_impl!(i8);
-any_diagonal_exact_size_iter_impl!(u8);
-any_diagonal_exact_size_iter_impl!(i16);
-any_diagonal_exact_size_iter_impl!(u16);
-#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-any_diagonal_exact_size_iter_impl!(i32);
-#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-any_diagonal_exact_size_iter_impl!(u32);
-#[cfg(target_pointer_width = "64")]
-any_diagonal_exact_size_iter_impl!(i64);
-#[cfg(target_pointer_width = "64")]
-any_diagonal_exact_size_iter_impl!(u64);
-any_diagonal_exact_size_iter_impl!(isize);
-any_diagonal_exact_size_iter_impl!(usize);
+all_nums!(impl_any_diagonal);
 
 #[cfg(test)]
 mod static_tests {
