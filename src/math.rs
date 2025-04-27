@@ -1,7 +1,7 @@
 //! ## Math types
 
 /// Numeric type representing a coordinate.
-pub trait Num {
+pub trait Num: Copy + Eq + Ord + core::fmt::Debug {
     /// Wide signed type for differences of [`Self::U`] values.
     type I2: Copy + Eq + Ord + core::fmt::Debug;
     /// Unsigned type for absolute offsets.

@@ -15,8 +15,8 @@ pub mod clip;
 /// A quadrant is defined by its symmetries relative to [`Diagonal0`]:
 /// - `FX`: flip the `x` axis if `true`.
 /// - `FY`: flip the `y` axis if `true`.
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub struct Diagonal<const FX: bool, const FY: bool, T> {
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub struct Diagonal<const FX: bool, const FY: bool, T: Num> {
     x1: T,
     y1: T,
     x2: T,
@@ -45,6 +45,16 @@ pub type Diagonal2<T> = Diagonal<true, false, T>;
 ///
 /// Covers line segments oriented at `225°`.
 pub type Diagonal3<T> = Diagonal<true, true, T>;
+
+impl<const FX: bool, const FY: bool, T: Num> core::fmt::Debug for Diagonal<FX, FY, T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct(fx!(fy!("Diagonal0", "Diagonal1"), fy!("Diagonal2", "Diagonal3")))
+            .field("x1", &self.x1)
+            .field("y1", &self.y1)
+            .field("x2", &self.x2)
+            .finish()
+    }
+}
 
 macro_rules! diagonal_impl {
     ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
@@ -163,8 +173,8 @@ all_nums!(diagonal_impl);
 /// **Note**: an optimized implementation of [`Iterator::fold`] is provided.
 /// This makes [`Iterator::for_each`] faster than a `for` loop, since it checks
 /// the orientation only once instead of on every call to [`Iterator::next`].
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub enum AnyDiagonal<T> {
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub enum AnyDiagonal<T: Num> {
     /// Diagonal line segment at `45°`, see [`Diagonal0`].
     Diagonal0(Diagonal0<T>),
     /// Diagonal line segment at `135°`, see [`Diagonal1`].
@@ -173,6 +183,13 @@ pub enum AnyDiagonal<T> {
     Diagonal2(Diagonal2<T>),
     /// Diagonal line segment at `315°`, see [`Diagonal3`].
     Diagonal3(Diagonal3<T>),
+}
+
+impl<T: Num> core::fmt::Debug for AnyDiagonal<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("AnyDiagonal::")?;
+        variant!(Self::{Diagonal0, Diagonal1, Diagonal2, Diagonal3}, self, me => me.fmt(f))
+    }
 }
 
 macro_rules! quadrant {

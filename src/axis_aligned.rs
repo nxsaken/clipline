@@ -28,8 +28,8 @@ mod convert;
 ///
 /// - If the direction is determined at runtime, see [`Axis`].
 /// - If the orientation is determined at runtime too, see [`AnyAxis`].
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub struct SignedAxis<const F: bool, const V: bool, T> {
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub struct SignedAxis<const F: bool, const V: bool, T: Num> {
     u: T,
     v1: T,
     v2: T,
@@ -94,6 +94,19 @@ pub type PositiveAxis1<T> = PositiveAxis<true, T>;
 /// - Covers line segments oriented at `270°`.
 /// - `x = u`, `v1 >= y > v2`
 pub type NegativeAxis1<T> = NegativeAxis<true, T>;
+
+impl<const F: bool, const V: bool, T: Num> core::fmt::Debug for SignedAxis<F, V, T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct(f!(
+            hv!("PositiveAxis0", "PositiveAxis1"),
+            hv!("NegativeAxis0", "NegativeAxis1")
+        ))
+        .field(hv!("y", "x"), &self.u)
+        .field(hv!("x1", "y1"), &self.v1)
+        .field(hv!("x2", "y2"), &self.v2)
+        .finish()
+    }
+}
 
 macro_rules! impl_signed_axis {
     ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
@@ -203,8 +216,8 @@ all_nums!(impl_signed_axis);
 ///
 /// **Note**: optimized [`Iterator::fold`] checks the direction once, not on every call
 /// to [`Iterator::next`]. This makes [`Iterator::for_each`] faster than a `for` loop.
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub enum Axis<const V: bool, T> {
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub enum Axis<const V: bool, T: Num> {
     /// See [`PositiveAxis`].
     Positive(PositiveAxis<V, T>),
     /// See [`NegativeAxis`].
@@ -228,6 +241,13 @@ pub type Axis0<T> = Axis<false, T>;
 /// **Note**: optimized [`Iterator::fold`] checks the direction once, not on every call
 /// to [`Iterator::next`]. This makes [`Iterator::for_each`] faster than a `for` loop.
 pub type Axis1<T> = Axis<true, T>;
+
+impl<const V: bool, T: Num> core::fmt::Debug for Axis<V, T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str(hv!("Axis0::", "Axis1::"))?;
+        variant!(Self::{Positive, Negative}, self, me => me.fmt(f))
+    }
+}
 
 macro_rules! impl_axis {
     ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
@@ -282,8 +302,8 @@ all_nums!(impl_axis);
 ///
 /// **Note**: optimized [`Iterator::fold`] checks the direction once, not on every call
 /// to [`Iterator::next`]. This makes [`Iterator::for_each`] faster than a `for` loop.
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
-pub enum AnyAxis<T> {
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub enum AnyAxis<T: Num> {
     /// See [`PositiveAxis0`].
     PositiveAxis0(PositiveAxis0<T>),
     /// See [`PositiveAxis1`].
@@ -292,6 +312,13 @@ pub enum AnyAxis<T> {
     NegativeAxis0(NegativeAxis0<T>),
     /// See [`NegativeAxis1`].
     NegativeAxis1(NegativeAxis1<T>),
+}
+
+impl<T: Num> core::fmt::Debug for AnyAxis<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("AnyAxis::")?;
+        variant!(Self::{PositiveAxis0, PositiveAxis1, NegativeAxis0, NegativeAxis1}, self, me => me.fmt(f))
+    }
 }
 
 macro_rules! impl_any_axis {

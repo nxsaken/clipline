@@ -1,7 +1,7 @@
 //! ## Octant iterators
 
 use crate::clip::Clip;
-use crate::macros::{fx, fy, map, return_if, xy};
+use crate::macros::{fx, fy, map, return_if, variant, xy};
 use crate::math::{Delta, Math, Num, Point};
 use crate::{axis_aligned, diagonal};
 
@@ -20,7 +20,7 @@ mod clip;
 /// - `SWAP`: swap the `x` and `y` axes if `true`.
 ///
 /// [1]: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
-#[derive(Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Octant<const FX: bool, const FY: bool, const SWAP: bool, T: Num> {
     x: T,
     y: T,
@@ -85,6 +85,24 @@ pub type Octant6<T> = Octant<true, true, false, T>;
 ///
 /// Covers line segments spanning the `(225°, 270°)` sector.
 pub type Octant7<T> = Octant<true, true, true, T>;
+
+impl<const FX: bool, const FY: bool, const SWAP: bool, T: Num> core::fmt::Debug
+    for Octant<FX, FY, SWAP, T>
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct(fx!(
+            fy!(xy!("Octant0", "Octant1"), xy!("Octant2", "Octant3"),),
+            fy!(xy!("Octant4", "Octant5"), xy!("Octant6", "Octant7"),),
+        ))
+        .field("x", &self.x)
+        .field("y", &self.y)
+        .field("error", &self.error)
+        .field("dx", &self.dx)
+        .field("dy", &self.dy)
+        .field("end", &self.end)
+        .finish()
+    }
+}
 
 macro_rules! octant_impl {
     ($T:ty) => {
@@ -289,7 +307,7 @@ octant_exact_size_iter_impl!(usize);
 /// **Note**: an optimized implementation of [`Iterator::fold`] is provided.
 /// This makes [`Iterator::for_each`] faster than a `for` loop, since it chooses
 /// the underlying iterator only once instead of on every call to [`Iterator::next`].
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum AnyOctant<T: Num> {
     /// Horizontal line segment at `0°`, see [`PositiveAxis0`](crate::PositiveAxis0).
     PositiveAxis0(axis_aligned::PositiveAxis0<T>),
@@ -307,22 +325,35 @@ pub enum AnyOctant<T: Num> {
     Diagonal2(diagonal::Diagonal2<T>),
     /// Diagonal line segment at `225°`, see [`Diagonal3`](crate::Diagonal3).
     Diagonal3(diagonal::Diagonal3<T>),
-    /// Gently-sloped line segment in `(0°, 45°)`, see [`Octant0`].
+    /// Gently sloped line segment in `(0°, 45°)`, see [`Octant0`].
     Octant0(Octant0<T>),
-    /// Steeply-sloped line segment in `(45°, 90°)`, see [`Octant1`].
+    /// Steeply sloped line segment in `(45°, 90°)`, see [`Octant1`].
     Octant1(Octant1<T>),
-    /// Gently-sloped line segment in `(315°, 360°)`, see [`Octant2`].
+    /// Gently sloped line segment in `(315°, 360°)`, see [`Octant2`].
     Octant2(Octant2<T>),
-    /// Steeply-sloped line segment in `(270°, 315°)`, see [`Octant3`].
+    /// Steeply sloped line segment in `(270°, 315°)`, see [`Octant3`].
     Octant3(Octant3<T>),
-    /// Gently-sloped line segment in `(135°, 180°)`, see [`Octant4`].
+    /// Gently sloped line segment in `(135°, 180°)`, see [`Octant4`].
     Octant4(Octant4<T>),
-    /// Steeply-sloped line segment in `(90°, 135°)`, see [`Octant5`].
+    /// Steeply sloped line segment in `(90°, 135°)`, see [`Octant5`].
     Octant5(Octant5<T>),
-    /// Gently-sloped line segment in `(180°, 225°)`, see [`Octant6`].
+    /// Gently sloped line segment in `(180°, 225°)`, see [`Octant6`].
     Octant6(Octant6<T>),
-    /// Steeply-sloped line segment in `(225°, 270°)`, see [`Octant7`].
+    /// Steeply sloped line segment in `(225°, 270°)`, see [`Octant7`].
     Octant7(Octant7<T>),
+}
+
+impl<T: Num> core::fmt::Debug for AnyOctant<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.write_str("AnyOctant::")?;
+        variant!(Self::{
+            PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1,
+            Diagonal0, Diagonal1, Diagonal2, Diagonal3,
+            Octant0, Octant1, Octant2, Octant3, Octant4, Octant5, Octant6, Octant7,
+        },
+        self,
+        me => me.fmt(f))
+    }
 }
 
 macro_rules! delegate {

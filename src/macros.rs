@@ -2,7 +2,7 @@
 
 /// Delegates `$call` to all `$Enum::$Variant($me)`.
 macro_rules! variant {
-    ($Enum:ident::{$($Variant:ident),*}, $self:ident, $me:ident => $call:expr) => {
+    ($Enum:ident::{$($Variant:ident),* $(,)?}, $self:ident, $me:ident => $call:expr) => {
         match $self {
             $($Enum::$Variant($me) => $call,)*
         }

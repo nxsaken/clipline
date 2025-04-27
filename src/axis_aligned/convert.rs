@@ -2,18 +2,16 @@
 
 use super::{AnyAxis, Axis, SignedAxis};
 use crate::macros::{f, hv};
+use crate::math::Num;
 
-impl<const F: bool, const V: bool, T> SignedAxis<F, V, T> {
+impl<const F: bool, const V: bool, T: Num> SignedAxis<F, V, T> {
     /// Transmutes the direction and orientation of this [`SignedAxis`].
     ///
     /// ## Safety
     ///
     /// The caller must ensure that `F0` and `V0` are equal to `F` and `V`.
     #[inline]
-    const unsafe fn transmute<const F0: bool, const V0: bool>(self) -> SignedAxis<F0, V0, T>
-    where
-        T: Copy,
-    {
+    const unsafe fn transmute<const F0: bool, const V0: bool>(self) -> SignedAxis<F0, V0, T> {
         SignedAxis { u: self.u, v1: self.v1, v2: self.v2 }
     }
 
@@ -21,10 +19,7 @@ impl<const F: bool, const V: bool, T> SignedAxis<F, V, T> {
     ///
     /// Returns [`None`] if [`Axis`] is not aligned with `F`.
     #[inline]
-    pub const fn from_axis(axis: Axis<V, T>) -> Option<Self>
-    where
-        T: Copy,
-    {
+    pub const fn from_axis(axis: Axis<V, T>) -> Option<Self> {
         // SAFETY: match sets the correct F for transmute(), or returns None; V is reused.
         unsafe {
             match axis {
@@ -39,10 +34,7 @@ impl<const F: bool, const V: bool, T> SignedAxis<F, V, T> {
     ///
     /// Returns [`None`] if [`AnyAxis`] is not aligned with `F` and `V`.
     #[inline]
-    pub const fn from_any_axis(axis: AnyAxis<T>) -> Option<Self>
-    where
-        T: Copy,
-    {
+    pub const fn from_any_axis(axis: AnyAxis<T>) -> Option<Self> {
         // SAFETY: match sets the correct F and V for transmute(), or returns None.
         unsafe {
             match axis {
@@ -57,10 +49,7 @@ impl<const F: bool, const V: bool, T> SignedAxis<F, V, T> {
 
     /// Erases the direction of this [`SignedAxis`], returning an [`Axis`].
     #[inline]
-    pub const fn into_axis(self) -> Axis<V, T>
-    where
-        T: Copy,
-    {
+    pub const fn into_axis(self) -> Axis<V, T> {
         // SAFETY: f! sets up the correct F for transmute(); V is reused.
         unsafe {
             f! {
@@ -72,10 +61,7 @@ impl<const F: bool, const V: bool, T> SignedAxis<F, V, T> {
 
     /// Erases the direction and orientation of this [`SignedAxis`], returning an [`AnyAxis`].
     #[inline]
-    pub const fn into_any_axis(self) -> AnyAxis<T>
-    where
-        T: Copy,
-    {
+    pub const fn into_any_axis(self) -> AnyAxis<T> {
         // SAFETY: f! and hv! set the correct F and V for transmute().
         unsafe {
             f! {
@@ -92,13 +78,10 @@ impl<const F: bool, const V: bool, T> SignedAxis<F, V, T> {
     }
 }
 
-impl<const V: bool, T> Axis<V, T> {
+impl<const V: bool, T: Num> Axis<V, T> {
     /// Constructs an [`Axis`] by erasing the direction of a [`SignedAxis`].
     #[inline]
-    pub const fn from_signed_axis<const F: bool>(axis: SignedAxis<F, V, T>) -> Self
-    where
-        T: Copy,
-    {
+    pub const fn from_signed_axis<const F: bool>(axis: SignedAxis<F, V, T>) -> Self {
         axis.into_axis()
     }
 
@@ -106,10 +89,7 @@ impl<const V: bool, T> Axis<V, T> {
     ///
     /// Returns [`None`] if the [`AnyAxis`] is not aligned with `V`.
     #[inline]
-    pub const fn from_any_axis(axis: AnyAxis<T>) -> Option<Self>
-    where
-        T: Copy,
-    {
+    pub const fn from_any_axis(axis: AnyAxis<T>) -> Option<Self> {
         // SAFETY: match sets the correct F and V for transmute(), or returns an error.
         unsafe {
             match axis {
@@ -126,19 +106,13 @@ impl<const V: bool, T> Axis<V, T> {
     ///
     /// Returns [`None`] if this [`Axis`] is not aligned with `F`.
     #[inline]
-    pub const fn into_signed_axis<const F: bool>(self) -> Option<SignedAxis<F, V, T>>
-    where
-        T: Copy,
-    {
+    pub const fn into_signed_axis<const F: bool>(self) -> Option<SignedAxis<F, V, T>> {
         SignedAxis::from_axis(self)
     }
 
     /// Erases the direction of this [`Axis`], returning an [`Axis`].
     #[inline]
-    pub const fn into_any_axis(self) -> AnyAxis<T>
-    where
-        T: Copy,
-    {
+    pub const fn into_any_axis(self) -> AnyAxis<T> {
         // SAFETY: hv! sets the correct V for transmute(); match sets the correct F at runtime.
         unsafe {
             match self {
@@ -155,22 +129,16 @@ impl<const V: bool, T> Axis<V, T> {
     }
 }
 
-impl<T> AnyAxis<T> {
+impl<T: Num> AnyAxis<T> {
     /// Constructs an [`AnyAxis`] by erasing the direction and orientation of a [`SignedAxis`].
     #[inline]
-    pub const fn from_signed_axis<const F: bool, const V: bool>(axis: SignedAxis<F, V, T>) -> Self
-    where
-        T: Copy,
-    {
+    pub const fn from_signed_axis<const F: bool, const V: bool>(axis: SignedAxis<F, V, T>) -> Self {
         axis.into_any_axis()
     }
 
     /// Constructs an [`AnyAxis`] by erasing the orientation of an [`Axis`].
     #[inline]
-    pub const fn from_axis<const V: bool>(axis: Axis<V, T>) -> Self
-    where
-        T: Copy,
-    {
+    pub const fn from_axis<const V: bool>(axis: Axis<V, T>) -> Self {
         axis.into_any_axis()
     }
 
@@ -178,10 +146,9 @@ impl<T> AnyAxis<T> {
     ///
     /// Returns [`None`] if this [`AnyAxis`] is not aligned with `F` and `V`.
     #[inline]
-    pub const fn into_signed_axis<const F: bool, const V: bool>(self) -> Option<SignedAxis<F, V, T>>
-    where
-        T: Copy,
-    {
+    pub const fn into_signed_axis<const F: bool, const V: bool>(
+        self,
+    ) -> Option<SignedAxis<F, V, T>> {
         SignedAxis::from_any_axis(self)
     }
 
@@ -189,48 +156,33 @@ impl<T> AnyAxis<T> {
     ///
     /// Returns [`None`] if this [`AnyAxis`] is not aligned with `V`.
     #[inline]
-    pub const fn into_axis<const V: bool>(self) -> Option<Axis<V, T>>
-    where
-        T: Copy,
-    {
+    pub const fn into_axis<const V: bool>(self) -> Option<Axis<V, T>> {
         Axis::from_any_axis(self)
     }
 }
 
-impl<const F: bool, const V: bool, T> From<SignedAxis<F, V, T>> for Axis<V, T>
-where
-    T: Copy,
-{
+impl<const F: bool, const V: bool, T: Num> From<SignedAxis<F, V, T>> for Axis<V, T> {
     #[inline]
     fn from(axis: SignedAxis<F, V, T>) -> Self {
         axis.into_axis()
     }
 }
 
-impl<const F: bool, const V: bool, T> From<SignedAxis<F, V, T>> for AnyAxis<T>
-where
-    T: Copy,
-{
+impl<const F: bool, const V: bool, T: Num> From<SignedAxis<F, V, T>> for AnyAxis<T> {
     #[inline]
     fn from(axis: SignedAxis<F, V, T>) -> Self {
         axis.into_any_axis()
     }
 }
 
-impl<const V: bool, T> From<Axis<V, T>> for AnyAxis<T>
-where
-    T: Copy,
-{
+impl<const V: bool, T: Num> From<Axis<V, T>> for AnyAxis<T> {
     #[inline]
     fn from(axis: Axis<V, T>) -> Self {
         axis.into_any_axis()
     }
 }
 
-impl<const F: bool, const V: bool, T> TryFrom<Axis<V, T>> for SignedAxis<F, V, T>
-where
-    T: Copy,
-{
+impl<const F: bool, const V: bool, T: Num> TryFrom<Axis<V, T>> for SignedAxis<F, V, T> {
     type Error = ();
 
     #[inline]
@@ -239,10 +191,7 @@ where
     }
 }
 
-impl<const V: bool, T> TryFrom<AnyAxis<T>> for Axis<V, T>
-where
-    T: Copy,
-{
+impl<const V: bool, T: Num> TryFrom<AnyAxis<T>> for Axis<V, T> {
     type Error = ();
 
     #[inline]
@@ -251,10 +200,7 @@ where
     }
 }
 
-impl<const F: bool, const V: bool, T> TryFrom<AnyAxis<T>> for SignedAxis<F, V, T>
-where
-    T: Copy,
-{
+impl<const F: bool, const V: bool, T: Num> TryFrom<AnyAxis<T>> for SignedAxis<F, V, T> {
     type Error = ();
 
     #[inline]
