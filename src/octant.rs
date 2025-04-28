@@ -17,11 +17,11 @@ mod clip;
 /// An octant is defined by its symmetries relative to [`Octant0`]:
 /// - `FX`: flip the `x` axis if `true`.
 /// - `FY`: flip the `y` axis if `true`.
-/// - `SWAP`: swap the `x` and `y` axes if `true`.
+/// - `YX`: swap the `x` and `y` axes if `true`.
 ///
 /// [1]: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub struct Octant<const FX: bool, const FY: bool, const SWAP: bool, T: Num> {
+pub struct Octant<const FX: bool, const FY: bool, const YX: bool, T: Num> {
     x: T,
     y: T,
     error: T::I2,
@@ -86,13 +86,13 @@ pub type Octant6<T> = Octant<true, true, false, T>;
 /// Covers line segments spanning the `(225°, 270°)` sector.
 pub type Octant7<T> = Octant<true, true, true, T>;
 
-impl<const FX: bool, const FY: bool, const SWAP: bool, T: Num> core::fmt::Debug
-    for Octant<FX, FY, SWAP, T>
+impl<const FX: bool, const FY: bool, const YX: bool, T: Num> core::fmt::Debug
+    for Octant<FX, FY, YX, T>
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct(fx!(
-            fy!(xy!("Octant0", "Octant1"), xy!("Octant2", "Octant3"),),
-            fy!(xy!("Octant4", "Octant5"), xy!("Octant6", "Octant7"),),
+            fy!(yx!("Octant0", "Octant1"), yx!("Octant2", "Octant3"),),
+            fy!(yx!("Octant4", "Octant5"), yx!("Octant6", "Octant7"),),
         ))
         .field("x", &self.x)
         .field("y", &self.y)
@@ -106,7 +106,7 @@ impl<const FX: bool, const FY: bool, const SWAP: bool, T: Num> core::fmt::Debug
 
 macro_rules! impl_octant {
     ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
-        impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<FX, FY, SWAP, $T> {
+        impl<const FX: bool, const FY: bool, const YX: bool> Octant<FX, FY, YX, $T> {
             #[inline(always)]
             #[must_use]
             const fn new_inner(
@@ -114,23 +114,21 @@ macro_rules! impl_octant {
                 (x2, y2): Point<$T>,
                 (dx, dy): Delta<$T>,
             ) -> Self {
-                let (half_du, r) = Math::<$T>::half(xy!(dx, dy));
-                let error = Math::<$T>::error(xy!(dy, dx), half_du.wrapping_add(r));
-                let end = xy!(x2, y2);
+                let (half_du, r) = Math::<$T>::half(yx!(dx, dy));
+                let error = Math::<$T>::error(yx!(dy, dx), half_du.wrapping_add(r));
+                let end = yx!(x2, y2);
                 Self { x: x1, y: y1, error, dx, dy, end }
             }
 
             #[inline(always)]
             #[must_use]
             const fn covers((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Delta<$T>> {
-                let (u1, u2) = fx!((x1, x2), (x2, x1));
-                return_if!(u2 <= u1);
-                let dx = Math::<$T>::delta(u2, u1);
-                let (v1, v2) = fy!((y1, y2), (y2, y1));
-                return_if!(v2 <= v1);
-                let dy = Math::<$T>::delta(v2, v1);
-                return_if!(xy!(dx < dy, dy <= dx));
-                Some((dx, dy))
+                return_if!(fx!(x2 <= x1, x1 <= x2));
+                return_if!(fy!(y2 <= y1, y1 <= y2));
+                let du = Math::<$T>::delta(fx!(x2, x1), fx!(x1, x2));
+                let dv = Math::<$T>::delta(fy!(y2, y1), fy!(y1, y2));
+                return_if!(yx!(du < dv, dv <= du));
+                Some((du, dv))
             }
 
             /// Returns an iterator over a *half-open* line segment
@@ -165,9 +163,9 @@ macro_rules! impl_octant {
                 let &Clip { wx1, wy1, wx2, wy2 } = clip;
                 let (u1, u2) = fx!((x1, x2), (x2, x1));
                 // TODO: strict comparison for closed line segments
-                return_if!(xy!(u2 <= wx1, u2 < wx1) || wx2 < u1);
+                return_if!(yx!(u2 <= wx1, u2 < wx1) || wx2 < u1);
                 let (v1, v2) = fy!((y1, y2), (y2, y1));
-                return_if!(xy!(v2 < wy1, v2 <= wy1) || wy2 < v1);
+                return_if!(yx!(v2 < wy1, v2 <= wy1) || wy2 < v1);
                 let Some(delta) = Self::covers((x1, y1), (x2, y2)) else {
                     return None;
                 };
@@ -178,14 +176,14 @@ macro_rules! impl_octant {
                 self,
                 $T,
                 is_done = {
-                    let (a, b) = xy!(
+                    let (a, b) = yx!(
                         fx!((self.end, self.x), (self.x, self.end)),
                         fy!((self.end, self.y), (self.y, self.end))
                     );
                     a <= b
                 },
                 length = {
-                    let (a, b) = xy!(
+                    let (a, b) = yx!(
                         fx!((self.end, self.x), (self.x, self.end)),
                         fy!((self.end, self.y), (self.y, self.end))
                     );
@@ -200,24 +198,24 @@ macro_rules! impl_octant {
                         return None;
                     };
                     if 0 <= self.error {
-                        xy!(
+                        yx!(
                             self.y = fy!(self.y.wrapping_add(1), self.y.wrapping_sub(1)),
                             self.x = fx!(self.x.wrapping_add(1), self.x.wrapping_sub(1)),
                         );
-                        self.error = self.error.wrapping_sub_unsigned(xy!(self.dx, self.dy) as _);
+                        self.error = self.error.wrapping_sub_unsigned(yx!(self.dx, self.dy) as _);
                     }
-                    xy!(
+                    yx!(
                         self.x = fx!(self.x.wrapping_add(1), self.x.wrapping_sub(1)),
                         self.y = fy!(self.y.wrapping_add(1), self.y.wrapping_sub(1)),
                     );
-                    self.error = self.error.wrapping_add_unsigned(xy!(self.dy, self.dx) as _);
+                    self.error = self.error.wrapping_add_unsigned(yx!(self.dy, self.dx) as _);
                     Some((x, y))
                 },
             );
         }
 
         impl_iter_fwd!(
-            Octant<const FX, const FY, const SWAP, $T>,
+            Octant<const FX, const FY, const YX, $T>,
             self,
             next = self.pop_head(),
             size_hint = {

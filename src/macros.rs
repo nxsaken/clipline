@@ -232,7 +232,7 @@ macro_rules! all_nums {
 pub(crate) use {all_nums, impl_fwd, impl_iter_fwd, impl_iter_rev, impl_rev, variant};
 
 /// Selects an expression based on `V`.
-macro_rules! hv {
+macro_rules! v {
     ($h:expr, $v:expr $(,)?) => {
         if !V {
             $h
@@ -242,10 +242,10 @@ macro_rules! hv {
     };
 }
 
-/// Selects an expression based on `SWAP`.
-macro_rules! xy {
+/// Selects an expression based on `YX`.
+macro_rules! yx {
     ($x:expr, $y:expr $(,)?) => {
-        if !SWAP {
+        if !YX {
             $x
         } else {
             $y
@@ -253,7 +253,7 @@ macro_rules! xy {
     };
     ($x_y:expr $(,)?) => {{
         let (x, y) = $x_y;
-        if !SWAP {
+        if !YX {
             x
         } else {
             y
@@ -294,7 +294,7 @@ macro_rules! fy {
     };
 }
 
-pub(crate) use {f, fx, fy, hv, xy};
+pub(crate) use {f, fx, fy, v, yx};
 
 /// An [`Option::map`] for `const` contexts.
 macro_rules! map {

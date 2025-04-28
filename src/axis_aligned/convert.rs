@@ -1,7 +1,7 @@
-//! Conversions between axis-aligned iterators.
+//! Conversions from and into axis-aligned iterators.
 
 use super::{AnyAxis, Axis, SignedAxis};
-use crate::macros::{f, hv};
+use crate::macros::{f, v};
 use crate::math::Num;
 
 impl<const F: bool, const V: bool, T: Num> SignedAxis<F, V, T> {
@@ -62,14 +62,14 @@ impl<const F: bool, const V: bool, T: Num> SignedAxis<F, V, T> {
     /// Erases the direction and orientation of this [`SignedAxis`], returning an [`AnyAxis`].
     #[inline]
     pub const fn into_any_axis(self) -> AnyAxis<T> {
-        // SAFETY: f! and hv! set the correct F and V for transmute().
+        // SAFETY: f! and v! set the correct F and V for transmute().
         unsafe {
             f! {
-                hv! {
+                v! {
                     AnyAxis::PositiveAxis0(self.transmute()),
                     AnyAxis::PositiveAxis1(self.transmute()),
                 },
-                hv! {
+                v! {
                     AnyAxis::NegativeAxis0(self.transmute()),
                     AnyAxis::NegativeAxis1(self.transmute()),
                 }
@@ -113,14 +113,14 @@ impl<const V: bool, T: Num> Axis<V, T> {
     /// Erases the direction of this [`Axis`], returning an [`Axis`].
     #[inline]
     pub const fn into_any_axis(self) -> AnyAxis<T> {
-        // SAFETY: hv! sets the correct V for transmute(); match sets the correct F at runtime.
+        // SAFETY: v! sets the correct V for transmute(); match sets the correct F at runtime.
         unsafe {
             match self {
-                Self::Positive(axis) => hv!(
+                Self::Positive(axis) => v!(
                     AnyAxis::PositiveAxis0(axis.transmute()),
                     AnyAxis::PositiveAxis1(axis.transmute()),
                 ),
-                Self::Negative(axis) => hv!(
+                Self::Negative(axis) => v!(
                     AnyAxis::NegativeAxis0(axis.transmute()),
                     AnyAxis::NegativeAxis1(axis.transmute()),
                 ),

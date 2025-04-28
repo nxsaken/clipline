@@ -98,12 +98,12 @@ pub type NegativeAxis1<T> = NegativeAxis<true, T>;
 impl<const F: bool, const V: bool, T: Num> core::fmt::Debug for SignedAxis<F, V, T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct(f!(
-            hv!("PositiveAxis0", "PositiveAxis1"),
-            hv!("NegativeAxis0", "NegativeAxis1")
+            v!("PositiveAxis0", "PositiveAxis1"),
+            v!("NegativeAxis0", "NegativeAxis1")
         ))
-        .field(hv!("y", "x"), &self.u)
-        .field(hv!("x1", "y1"), &self.v1)
-        .field(hv!("x2", "y2"), &self.v2)
+        .field(v!("y", "x"), &self.u)
+        .field(v!("x1", "y1"), &self.v1)
+        .field(v!("x2", "y2"), &self.v2)
         .finish()
     }
 }
@@ -156,7 +156,7 @@ macro_rules! impl_signed_axis {
                 length = Math::<$T>::delta(f!(self.v2, self.v1), f!(self.v1, self.v2)),
                 head = {
                     return_if!(self.is_done());
-                    let (x, y) = hv!((self.v1, self.u), (self.u, self.v1));
+                    let (x, y) = v!((self.v1, self.u), (self.u, self.v1));
                     Some((x, y))
                 },
                 pop_head = {
@@ -174,14 +174,14 @@ macro_rules! impl_signed_axis {
                 tail = {
                     return_if!(self.is_done());
                     let v2 = f!(self.v2.wrapping_sub(1), self.v2.wrapping_add(1));
-                    let (x, y) = hv!((v2, self.u), (self.u, v2));
+                    let (x, y) = v!((v2, self.u), (self.u, v2));
                     Some((x, y))
                 },
                 pop_tail = {
                     let Some((x, y)) = self.tail() else {
                         return None;
                     };
-                    self.v2 = hv!(x, y);
+                    self.v2 = v!(x, y);
                     Some((x, y))
                 },
             );
@@ -253,7 +253,7 @@ pub type Axis1<T> = Axis<true, T>;
 
 impl<const V: bool, T: Num> core::fmt::Debug for Axis<V, T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str(hv!("Axis0::", "Axis1::"))?;
+        f.write_str(v!("Axis0::", "Axis1::"))?;
         variant!(Self::{Positive, Negative}, self, me => me.fmt(f))
     }
 }

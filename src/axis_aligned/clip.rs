@@ -2,7 +2,7 @@
 
 use super::SignedAxis;
 use crate::clip::Clip;
-use crate::macros::{f, hv, return_if};
+use crate::macros::{f, return_if, v};
 
 macro_rules! clip_impl {
     ($T:ty) => {
@@ -16,7 +16,7 @@ macro_rules! clip_impl {
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> bool {
                 // TODO: strict comparison for closed line segments
-                hv!(
+                v!(
                     (u < wy1 || wy2 < u) || f!(v2 <= wx1 || wx2 < v1, v1 < wx1 || wx2 <= v2),
                     (u < wx1 || wx2 < u) || f!(v2 <= wy1 || wy2 < v1, v1 < wy1 || wy2 <= v2)
                 )

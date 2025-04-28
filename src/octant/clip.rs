@@ -2,7 +2,7 @@
 
 use super::Octant;
 use crate::clip::Clip;
-use crate::macros::{fx, fy, return_if, xy};
+use crate::macros::{fx, fy, return_if, yx};
 use crate::math::{Delta, Delta2, Math, Num, Point};
 
 const O: bool = false;
@@ -30,29 +30,29 @@ const UV_ENTRY_UV_EXIT: LineCode = (I, I, I, I);
 macro_rules! clip_impl {
     ($T:ty, $add:ident, $sub:ident) => {
         #[expect(non_snake_case)]
-        impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<FX, FY, SWAP, $T> {
+        impl<const FX: bool, const FY: bool, const YX: bool> Octant<FX, FY, YX, $T> {
             #[inline(always)]
             #[must_use]
             const fn enters_u(u1: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> bool {
-                xy!(fx!(u1 < wx1, wx2 < u1), fy!(u1 < wy1, wy2 < u1))
+                yx!(fx!(u1 < wx1, wx2 < u1), fy!(u1 < wy1, wy2 < u1))
             }
 
             #[inline(always)]
             #[must_use]
             const fn enters_v(v1: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> bool {
-                xy!(fy!(v1 < wy1, wy2 < v1), fx!(v1 < wx1, wx2 < v1))
+                yx!(fy!(v1 < wy1, wy2 < v1), fx!(v1 < wx1, wx2 < v1))
             }
 
             #[inline(always)]
             #[must_use]
             const fn exits_u(u2: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> bool {
-                xy!(fx!(wx2 < u2, u2 < wx1), fy!(wy2 < u2, u2 < wy1))
+                yx!(fx!(wx2 < u2, u2 < wx1), fy!(wy2 < u2, u2 < wy1))
             }
 
             #[inline(always)]
             #[must_use]
             const fn exits_v(v2: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> bool {
-                xy!(fy!(wy2 < v2, v2 < wy1), fx!(wx2 < v2, v2 < wx1))
+                yx!(fy!(wy2 < v2, v2 < wy1), fx!(wx2 < v2, v2 < wx1))
             }
 
             #[inline(always)]
@@ -62,7 +62,7 @@ macro_rules! clip_impl {
                 dv: <$T as Num>::U,
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
-                let Du1 = xy!(
+                let Du1 = yx!(
                     fx!(Math::<$T>::delta(wx1, u1), Math::<$T>::delta(u1, wx2)),
                     fy!(Math::<$T>::delta(wy1, u1), Math::<$T>::delta(u1, wy2)),
                 );
@@ -76,7 +76,7 @@ macro_rules! clip_impl {
                 dv: <$T as Num>::U,
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
-                let Du2 = xy!(
+                let Du2 = yx!(
                     fx!(Math::<$T>::delta(wx2, u1), Math::<$T>::delta(u1, wx1)),
                     fy!(Math::<$T>::delta(wy2, u1), Math::<$T>::delta(u1, wy1)),
                 );
@@ -91,7 +91,7 @@ macro_rules! clip_impl {
                 half_du: <$T as Num>::U,
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
-                let Dv1 = xy!(
+                let Dv1 = yx!(
                     fy!(Math::<$T>::delta(wy1, v1), Math::<$T>::delta(v1, wy2)),
                     fx!(Math::<$T>::delta(wx1, v1), Math::<$T>::delta(v1, wx2)),
                 );
@@ -106,7 +106,7 @@ macro_rules! clip_impl {
                 half_du: <$T as Num>::U,
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
-                let Dv2 = xy!(
+                let Dv2 = yx!(
                     fy!(Math::<$T>::delta(wy2, v1), Math::<$T>::delta(v1, wy1)),
                     fx!(Math::<$T>::delta(wx2, v1), Math::<$T>::delta(v1, wx1)),
                 );
@@ -126,13 +126,13 @@ macro_rules! clip_impl {
                 error = error.wrapping_sub(half_du as _).$sub(r as _);
                 #[allow(unused_comparisons)]
                 if 0 < r {
-                    q = xy!(
+                    q = yx!(
                         fx!(q.wrapping_add(1), q.wrapping_add(1)),
                         fy!(q.wrapping_add(1), q.wrapping_add(1))
                     );
                     error = error.$add(dv as _);
                 };
-                let cu1 = xy!(fx!(u1.$add(q), u1.$sub(q)), fy!(u1.$add(q), u1.$sub(q)),);
+                let cu1 = yx!(fx!(u1.$add(q), u1.$sub(q)), fy!(u1.$add(q), u1.$sub(q)),);
                 (cu1, error)
             }
 
@@ -155,7 +155,7 @@ macro_rules! clip_impl {
                     q = q.wrapping_add(1);
                     error = error.$sub(du as _);
                 };
-                let cv1 = xy!(fy!(v1.$add(q), v1.$sub(q)), fx!(v1.$add(q), v1.$sub(q)),);
+                let cv1 = yx!(fy!(v1.$add(q), v1.$sub(q)), fx!(v1.$add(q), v1.$sub(q)),);
                 (cv1, error)
             }
 
@@ -169,7 +169,7 @@ macro_rules! clip_impl {
                 error: <$T as Num>::I2,
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> (Point<$T>, <$T as Num>::I2) {
-                let cu1 = xy!(fx!(wx1, wx2), fy!(wy1, wy2));
+                let cu1 = yx!(fx!(wx1, wx2), fy!(wy1, wy2));
                 let (cv1, error) = Self::cv1_u(v1, tu1, du, error);
                 ((cu1, cv1), error)
             }
@@ -185,7 +185,7 @@ macro_rules! clip_impl {
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> (Point<$T>, <$T as Num>::I2) {
                 let (cu1, error) = Self::cu1_v(u1, tv1, (half_du, dv), error);
-                let cv1 = xy!(fy!(wy1, wy2), fx!(wx1, wx2));
+                let cv1 = yx!(fy!(wy1, wy2), fx!(wx1, wx2));
                 ((cu1, cv1), error)
             }
 
@@ -210,7 +210,7 @@ macro_rules! clip_impl {
             #[must_use]
             const fn cu2_u(&Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> $T {
                 // it is overflow-safe to add/sub 1 because of the exit condition
-                xy!(
+                yx!(
                     fx!(wx2.wrapping_add(1), wx1.wrapping_sub(1)),
                     fy!(wy2.wrapping_add(1), wy1.wrapping_sub(1))
                 )
@@ -230,7 +230,7 @@ macro_rules! clip_impl {
                     q = q.wrapping_sub(1);
                 }
                 // it is overflow-safe to add/sub 1 because of the exit condition
-                xy!(
+                yx!(
                     fx!(u1.$add(q).wrapping_add(1), u1.$sub(q).wrapping_sub(1)),
                     fy!(u1.$add(q).wrapping_add(1), u1.$sub(q).wrapping_sub(1)),
                 )
@@ -261,9 +261,9 @@ macro_rules! clip_impl {
                 (dx, dy): Delta<$T>,
                 clip: &Clip<$T>,
             ) -> Option<Self> {
-                let (u1, v1) = xy!((x1, y1), (y1, x1));
-                let (u2, v2) = xy!((x2, y2), (y2, x2));
-                let (du, dv) = xy!((dx, dy), (dy, dx));
+                let (u1, v1) = yx!((x1, y1), (y1, x1));
+                let (u2, v2) = yx!((x2, y2), (y2, x2));
+                let (du, dv) = yx!((dx, dy), (dy, dx));
                 let (half_du, r0) = Math::<$T>::half(du);
                 let error = Math::<$T>::error(dv, half_du.wrapping_add(r0)); // FIXME: check this
                 let (((cu1, cv1), error), end) = match (
@@ -370,7 +370,7 @@ macro_rules! clip_impl {
                         )
                     }
                 };
-                let (x, y) = xy!((cu1, cv1), (cv1, cu1));
+                let (x, y) = yx!((cu1, cv1), (cv1, cu1));
                 Some(Self { x, y, error, dx, dy, end })
             }
         }
