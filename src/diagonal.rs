@@ -1,7 +1,7 @@
 //! ## Diagonal iterators
 
 use crate::clip::Clip;
-use crate::macros::{all_nums, fx, fy, impl_iters, impl_methods, map, return_if, variant};
+use crate::macros::*;
 use crate::math::{Math, Num, Point};
 
 pub mod clip;
@@ -107,7 +107,7 @@ macro_rules! diagonal_impl {
                 Self::clip_inner((x1, y1), (x2, y2), clip)
             }
 
-            impl_methods!(
+            impl_fwd!(
                 self,
                 $T,
                 is_done = fx!(self.x2 <= self.x1, self.x1 <= self.x2),
@@ -115,13 +115,6 @@ macro_rules! diagonal_impl {
                 head = {
                     return_if!(self.is_done());
                     Some((self.x1, self.y1))
-                },
-                tail = {
-                    return_if!(self.is_done());
-                    let x2 = fx!(self.x2.wrapping_sub(1), self.x2.wrapping_add(1));
-                    let dx = Math::<$T>::delta(fx!(x2, self.x1), fx!(self.x1, x2));
-                    let y2 = fy!(Math::<$T>::add_delta(self.y1, dx), Math::<$T>::sub_delta(self.y1, dx));
-                    Some((x2, y2))
                 },
                 pop_head = {
                     let Some((x, y)) = self.head() else {
@@ -131,21 +124,32 @@ macro_rules! diagonal_impl {
                     self.y1 = fy!(self.y1.wrapping_add(1), self.y1.wrapping_sub(1));
                     Some((x, y))
                 },
+            );
+
+            impl_rev!(
+                self,
+                $T,
+                tail = {
+                    return_if!(self.is_done());
+                    let x2 = fx!(self.x2.wrapping_sub(1), self.x2.wrapping_add(1));
+                    let dx = Math::<$T>::delta(fx!(x2, self.x1), fx!(self.x1, x2));
+                    let y2 = fy!(Math::<$T>::add_delta(self.y1, dx), Math::<$T>::sub_delta(self.y1, dx));
+                    Some((x2, y2))
+                },
                 pop_tail = {
                     let Some((x, y)) = self.tail() else {
                         return None;
                     };
                     self.x2 = x;
                     Some((x, y))
-                }
+                },
             );
         }
 
-        impl_iters!(
+        impl_iter_fwd!(
             Diagonal<const FX, const FY, $T>,
             self,
             next = self.pop_head(),
-            next_back = self.pop_tail(),
             size_hint = {
                 match usize::try_from(self.length()) {
                     Ok(length) => (length, Some(length)),
@@ -154,6 +158,12 @@ macro_rules! diagonal_impl {
             },
             is_empty = self.is_done()
             $(, cfg_esi = $cfg_esi)?
+        );
+
+        impl_iter_rev!(
+            Diagonal<const FX, const FY, $T>,
+            self,
+            next_back = self.pop_tail(),
         );
     };
 }
@@ -275,13 +285,12 @@ macro_rules! impl_any_diagonal {
                 return quadrant!(Diagonal3, $T, (x1, y1), (x2, y2), clip);
             }
 
-            impl_methods!($T, Self::{Diagonal0, Diagonal1, Diagonal2, Diagonal3});
+            impl_fwd!($T, Self::{Diagonal0, Diagonal1, Diagonal2, Diagonal3});
+            impl_rev!($T, Self::{Diagonal0, Diagonal1, Diagonal2, Diagonal3});
         }
 
-        impl_iters!(
-            AnyDiagonal<$T>::{Diagonal0, Diagonal1, Diagonal2, Diagonal3}
-            $(, cfg_esi = $cfg_esi)?
-        );
+        impl_iter_fwd!(AnyDiagonal<$T>::{Diagonal0, Diagonal1, Diagonal2, Diagonal3} $(, cfg_esi = $cfg_esi)?);
+        impl_iter_rev!(AnyDiagonal<$T>::{Diagonal0, Diagonal1, Diagonal2, Diagonal3});
     };
 }
 

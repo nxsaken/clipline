@@ -1,7 +1,7 @@
 //! ## Octant iterators
 
 use crate::clip::Clip;
-use crate::macros::{fx, fy, map, return_if, variant, xy};
+use crate::macros::*;
 use crate::math::{Delta, Math, Num, Point};
 use crate::{axis_aligned, diagonal};
 
@@ -104,8 +104,8 @@ impl<const FX: bool, const FY: bool, const SWAP: bool, T: Num> core::fmt::Debug
     }
 }
 
-macro_rules! octant_impl {
-    ($T:ty) => {
+macro_rules! impl_octant {
+    ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
         impl<const FX: bool, const FY: bool, const SWAP: bool> Octant<FX, FY, SWAP, $T> {
             #[inline(always)]
             #[must_use]
@@ -174,123 +174,82 @@ macro_rules! octant_impl {
                 Self::clip_inner((x1, y1), (x2, y2), delta, clip)
             }
 
-            /// Returns `true` if the iterator has terminated.
-            #[inline]
-            #[must_use]
-            pub const fn is_done(&self) -> bool {
-                let (a, b) = xy!(
-                    fx!((self.end, self.x), (self.x, self.end)),
-                    fy!((self.end, self.y), (self.y, self.end))
-                );
-                a <= b
-            }
-
-            /// Returns the remaining length of this iterator.
-            #[inline]
-            #[must_use]
-            pub const fn length(&self) -> <$T as Num>::U {
-                let (a, b) = xy!(
-                    fx!((self.end, self.x), (self.x, self.end)),
-                    fy!((self.end, self.y), (self.y, self.end))
-                );
-                #[allow(clippy::cast_sign_loss)]
-                <$T as Num>::U::wrapping_sub(a as _, b as _)
-            }
+            impl_fwd!(
+                self,
+                $T,
+                is_done = {
+                    let (a, b) = xy!(
+                        fx!((self.end, self.x), (self.x, self.end)),
+                        fy!((self.end, self.y), (self.y, self.end))
+                    );
+                    a <= b
+                },
+                length = {
+                    let (a, b) = xy!(
+                        fx!((self.end, self.x), (self.x, self.end)),
+                        fy!((self.end, self.y), (self.y, self.end))
+                    );
+                    Math::<$T>::delta(a, b)
+                },
+                head = {
+                    return_if!(self.is_done());
+                    Some((self.x, self.y))
+                },
+                pop_head = {
+                    let Some((x, y)) = self.head() else {
+                        return None;
+                    };
+                    if 0 <= self.error {
+                        xy!(
+                            self.y = fy!(self.y.wrapping_add(1), self.y.wrapping_sub(1)),
+                            self.x = fx!(self.x.wrapping_add(1), self.x.wrapping_sub(1)),
+                        );
+                        self.error = self.error.wrapping_sub_unsigned(xy!(self.dx, self.dy) as _);
+                    }
+                    xy!(
+                        self.x = fx!(self.x.wrapping_add(1), self.x.wrapping_sub(1)),
+                        self.y = fy!(self.y.wrapping_add(1), self.y.wrapping_sub(1)),
+                    );
+                    self.error = self.error.wrapping_add_unsigned(xy!(self.dy, self.dx) as _);
+                    Some((x, y))
+                },
+            );
         }
 
-        impl<const FX: bool, const FY: bool, const SWAP: bool> Iterator
-            for Octant<FX, FY, SWAP, $T>
-        {
-            type Item = Point<$T>;
-
-            #[inline]
-            fn next(&mut self) -> Option<Self::Item> {
-                return_if!(self.is_done());
-                let (x, y) = (self.x, self.y);
-                if 0 <= self.error {
-                    xy!(
-                        self.y = fy!(self.y.wrapping_add(1), self.y.wrapping_sub(1)),
-                        self.x = fx!(self.x.wrapping_add(1), self.x.wrapping_sub(1)),
-                    );
-                    self.error = self.error.wrapping_sub_unsigned(xy!(self.dx, self.dy) as _);
-                }
-                xy!(
-                    self.x = fx!(self.x.wrapping_add(1), self.x.wrapping_sub(1)),
-                    self.y = fy!(self.y.wrapping_add(1), self.y.wrapping_sub(1)),
-                );
-                self.error = self.error.wrapping_add_unsigned(xy!(self.dy, self.dx) as _);
-                Some((x, y))
-            }
-
-            #[inline]
-            fn size_hint(&self) -> (usize, Option<usize>) {
+        impl_iter_fwd!(
+            Octant<const FX, const FY, const SWAP, $T>,
+            self,
+            next = self.pop_head(),
+            size_hint = {
                 match usize::try_from(self.length()) {
                     Ok(length) => (length, Some(length)),
                     Err(_) => (usize::MAX, None),
                 }
-            }
-        }
-
-        impl<const FX: bool, const FY: bool, const SWAP: bool> core::iter::FusedIterator
-            for Octant<FX, FY, SWAP, $T>
-        {
-        }
+            },
+            is_empty = self.is_done()
+            $(, cfg_esi = $cfg_esi)?
+        );
     };
 }
 
-octant_impl!(i8);
-octant_impl!(u8);
-octant_impl!(i16);
-octant_impl!(u16);
-octant_impl!(i32);
-octant_impl!(u32);
+impl_octant!(i8);
+impl_octant!(u8);
+impl_octant!(i16);
+impl_octant!(u16);
+impl_octant!(i32, cfg_esi = cfg(any(target_pointer_width = "32", target_pointer_width = "64")));
+impl_octant!(u32, cfg_esi = cfg(any(target_pointer_width = "32", target_pointer_width = "64")));
 #[cfg(feature = "octant_64")]
-octant_impl!(i64);
+impl_octant!(i64, cfg_esi = cfg(target_pointer_width = "64"));
 #[cfg(feature = "octant_64")]
-octant_impl!(u64);
+impl_octant!(u64, cfg_esi = cfg(target_pointer_width = "64"));
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-octant_impl!(isize);
+impl_octant!(isize);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-octant_impl!(usize);
+impl_octant!(usize);
 #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-octant_impl!(isize);
+impl_octant!(isize);
 #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-octant_impl!(usize);
-
-macro_rules! octant_exact_size_iter_impl {
-    ($T:ty) => {
-        impl<const FX: bool, const FY: bool, const SWAP: bool> ExactSizeIterator
-            for Octant<FX, FY, SWAP, $T>
-        {
-            #[cfg(feature = "is_empty")]
-            #[inline]
-            fn is_empty(&self) -> bool {
-                self.is_done()
-            }
-        }
-    };
-}
-
-octant_exact_size_iter_impl!(i8);
-octant_exact_size_iter_impl!(u8);
-octant_exact_size_iter_impl!(i16);
-octant_exact_size_iter_impl!(u16);
-#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-octant_exact_size_iter_impl!(i32);
-#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-octant_exact_size_iter_impl!(u32);
-#[cfg(feature = "octant_64")]
-octant_exact_size_iter_impl!(i64);
-#[cfg(feature = "octant_64")]
-octant_exact_size_iter_impl!(u64);
-#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-octant_exact_size_iter_impl!(isize);
-#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-octant_exact_size_iter_impl!(usize);
-#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-octant_exact_size_iter_impl!(isize);
-#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-octant_exact_size_iter_impl!(usize);
+impl_octant!(usize);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Arbitrary iterator
@@ -356,29 +315,6 @@ impl<T: Num> core::fmt::Debug for AnyOctant<T> {
     }
 }
 
-macro_rules! delegate {
-    ($self:ident, $me:ident => $call:expr) => {
-        match $self {
-            Self::PositiveAxis0($me) => $call,
-            Self::NegativeAxis0($me) => $call,
-            Self::PositiveAxis1($me) => $call,
-            Self::NegativeAxis1($me) => $call,
-            Self::Diagonal0($me) => $call,
-            Self::Diagonal1($me) => $call,
-            Self::Diagonal2($me) => $call,
-            Self::Diagonal3($me) => $call,
-            Self::Octant0($me) => $call,
-            Self::Octant1($me) => $call,
-            Self::Octant2($me) => $call,
-            Self::Octant3($me) => $call,
-            Self::Octant4($me) => $call,
-            Self::Octant5($me) => $call,
-            Self::Octant6($me) => $call,
-            Self::Octant7($me) => $call,
-        }
-    };
-}
-
 macro_rules! octant {
     ($Octant:ident, $T:ty, $p1:expr, $p2:expr, $delta:expr) => {
         Self::$Octant($Octant::<$T>::new_inner($p1, $p2, $delta))
@@ -388,8 +324,8 @@ macro_rules! octant {
     };
 }
 
-macro_rules! any_octant_impl {
-    ($T:ty) => {
+macro_rules! impl_any_octant {
+    ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
         impl AnyOctant<$T> {
             /// Returns an iterator over an arbitrary *half-open* line segment.
             #[inline]
@@ -542,110 +478,85 @@ macro_rules! any_octant_impl {
                 return diagonal::quadrant!(Diagonal3, $T, (x1, y1), (x2, y2), clip);
             }
 
-            /// Returns `true` if the iterator has terminated.
-            #[inline]
-            #[must_use]
-            pub const fn is_done(&self) -> bool {
-                delegate!(self, me => me.is_done())
-            }
-
-            /// Returns the remaining length of this iterator.
-            #[inline]
-            #[must_use]
-            pub const fn length(&self) -> <$T as Num>::U {
-                delegate!(self, me => me.length())
-            }
+            impl_fwd!(
+                $T,
+                Self::{
+                    PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1,
+                    Diagonal0, Diagonal1, Diagonal2, Diagonal3,
+                    Octant0, Octant1, Octant2, Octant3, Octant4, Octant5, Octant6, Octant7,
+                }
+            );
         }
 
-        impl Iterator for AnyOctant<$T> {
-            type Item = Point<$T>;
-
-            #[inline]
-            fn next(&mut self) -> Option<Self::Item> {
-                delegate!(self, me => me.next())
+        impl_iter_fwd!(
+            AnyOctant<$T>::{
+                PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1,
+                Diagonal0, Diagonal1, Diagonal2, Diagonal3,
+                Octant0, Octant1, Octant2, Octant3, Octant4, Octant5, Octant6, Octant7,
             }
-
-            #[inline]
-            fn size_hint(&self) -> (usize, Option<usize>) {
-                delegate!(self, me => me.size_hint())
-            }
-
-            #[cfg(feature = "try_fold")]
-            #[inline]
-            fn try_fold<B, F, R>(&mut self, init: B, f: F) -> R
-            where
-                Self: Sized,
-                F: FnMut(B, Self::Item) -> R,
-                R: core::ops::Try<Output = B>,
-            {
-                delegate!(self, me => me.try_fold(init, f))
-            }
-
-            #[inline]
-            fn fold<B, F>(self, init: B, f: F) -> B
-            where
-                Self: Sized,
-                F: FnMut(B, Self::Item) -> B,
-            {
-                delegate!(self, me => me.fold(init, f))
-            }
-        }
-
-        impl core::iter::FusedIterator for AnyOctant<$T> {}
+            $(, cfg_esi = $cfg_esi)?
+        );
     };
 }
 
-any_octant_impl!(i8);
-any_octant_impl!(u8);
-any_octant_impl!(i16);
-any_octant_impl!(u16);
-any_octant_impl!(i32);
-any_octant_impl!(u32);
+impl_any_octant!(i8);
+impl_any_octant!(u8);
+impl_any_octant!(i16);
+impl_any_octant!(u16);
+impl_any_octant!(i32, cfg_esi = cfg(any(target_pointer_width = "32", target_pointer_width = "64")));
+impl_any_octant!(u32, cfg_esi = cfg(any(target_pointer_width = "32", target_pointer_width = "64")));
 #[cfg(feature = "octant_64")]
-any_octant_impl!(i64);
+impl_any_octant!(i64, cfg_esi = cfg(target_pointer_width = "64"));
 #[cfg(feature = "octant_64")]
-any_octant_impl!(u64);
+impl_any_octant!(u64, cfg_esi = cfg(target_pointer_width = "64"));
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-any_octant_impl!(isize);
+impl_any_octant!(isize);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-any_octant_impl!(usize);
+impl_any_octant!(usize);
 #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-any_octant_impl!(isize);
+impl_any_octant!(isize);
 #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-any_octant_impl!(usize);
+impl_any_octant!(usize);
 
-macro_rules! any_octant_exact_size_iter_impl {
-    ($T:ty) => {
-        impl ExactSizeIterator for AnyOctant<$T> {
-            #[cfg(feature = "is_empty")]
-            #[inline]
-            fn is_empty(&self) -> bool {
-                delegate!(self, me => me.is_empty())
-            }
-        }
-    };
-}
+// impl_any_octant!(i8);
+// impl_any_octant!(u8);
+// impl_any_octant!(i16);
+// impl_any_octant!(u16);
+// impl_any_octant!(i32);
+// impl_any_octant!(u32);
+// #[cfg(feature = "octant_64")]
+// impl_any_octant!(i64);
+// #[cfg(feature = "octant_64")]
+// impl_any_octant!(u64);
+// #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+// impl_any_octant!(isize);
+// #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+// impl_any_octant!(usize);
+// #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
+// impl_any_octant!(isize);
+// #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
+// impl_any_octant!(usize);
 
-any_octant_exact_size_iter_impl!(i8);
-any_octant_exact_size_iter_impl!(u8);
-any_octant_exact_size_iter_impl!(i16);
-any_octant_exact_size_iter_impl!(u16);
-#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-any_octant_exact_size_iter_impl!(i32);
-#[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-any_octant_exact_size_iter_impl!(u32);
-#[cfg(feature = "octant_64")]
-any_octant_exact_size_iter_impl!(i64);
-#[cfg(feature = "octant_64")]
-any_octant_exact_size_iter_impl!(u64);
-#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-any_octant_exact_size_iter_impl!(isize);
-#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-any_octant_exact_size_iter_impl!(usize);
-#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-any_octant_exact_size_iter_impl!(isize);
-#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-any_octant_exact_size_iter_impl!(usize);
+// any_octant_exact_size_iter_impl!(i8);
+// any_octant_exact_size_iter_impl!(u8);
+// any_octant_exact_size_iter_impl!(i16);
+// any_octant_exact_size_iter_impl!(u16);
+// #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
+// any_octant_exact_size_iter_impl!(i32);
+// #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
+// any_octant_exact_size_iter_impl!(u32);
+// #[cfg(feature = "octant_64")]
+// any_octant_exact_size_iter_impl!(i64);
+// #[cfg(feature = "octant_64")]
+// any_octant_exact_size_iter_impl!(u64);
+// #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+// any_octant_exact_size_iter_impl!(isize);
+// #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
+// any_octant_exact_size_iter_impl!(usize);
+// #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
+// any_octant_exact_size_iter_impl!(isize);
+// #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
+// any_octant_exact_size_iter_impl!(usize);
 
 #[cfg(test)]
 mod static_tests {

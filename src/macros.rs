@@ -10,16 +10,14 @@ macro_rules! variant {
 }
 
 /// Implements inherent iterator methods or delegates to variants.
-macro_rules! impl_methods {
+macro_rules! impl_fwd {
     (
         $self:ident,
         $T:ty,
         is_done = $is_done:expr,
         length = $length:expr,
         head = $head:expr,
-        tail = $tail:expr,
         pop_head = $pop_head:expr,
-        pop_tail = $pop_tail:expr
     ) => {
         /// Returns `true` if the iterator has terminated.
         #[inline]
@@ -39,6 +37,33 @@ macro_rules! impl_methods {
         #[must_use]
         pub const fn head(&$self) -> Option<Point<$T>> { $head }
 
+        /// Consumes and returns the point at the start of the iterator.
+        ///
+        /// Returns [`None`] if the iterator has terminated.
+        #[inline]
+        #[must_use]
+        pub const fn pop_head(&mut $self) -> Option<Point<$T>> { $pop_head }
+    };
+    ($T:ty, $Enum:ident::{$($Variant:ident),*}) => {
+        impl_fwd!(
+            self,
+            $T,
+            is_done = variant!($Enum::{$($Variant),*}, self, me => me.is_done()),
+            length = variant!($Enum::{$($Variant),*}, self, me => me.length()),
+            head = variant!($Enum::{$($Variant),*}, self, me => me.head()),
+            pop_head = variant!($Enum::{$($Variant),*}, self, me => me.pop_head()),
+        );
+    };
+}
+
+/// Implements inherent reversed iterator methods or delegates to variants.
+macro_rules! impl_rev {
+    (
+        $self:ident,
+        $T:ty,
+        tail = $tail:expr,
+        pop_tail = $pop_tail:expr$(,)?
+    ) => {
         /// Returns the point immediately before the end of the iterator.
         /// Does not advance the iterator.
         ///
@@ -50,13 +75,6 @@ macro_rules! impl_methods {
         #[must_use]
         pub const fn tail(&$self) -> Option<Point<$T>> { $tail }
 
-        /// Consumes and returns the point at the start of the iterator.
-        ///
-        /// Returns [`None`] if the iterator has terminated.
-        #[inline]
-        #[must_use]
-        pub const fn pop_head(&mut $self) -> Option<Point<$T>> { $pop_head }
-
         /// Consumes the point at the end of the iterator, and returns the point immediately before.
         ///
         /// Returns [`None`] if the iterator has terminated.
@@ -65,40 +83,32 @@ macro_rules! impl_methods {
         pub const fn pop_tail(&mut $self) -> Option<Point<$T>> { $pop_tail }
     };
     ($T:ty, $Enum:ident::{$($Variant:ident),*}) => {
-        impl_methods!(
+        impl_rev!(
             self,
             $T,
-            is_done = variant!($Enum::{$($Variant),*}, self, me => me.is_done()),
-            length = variant!($Enum::{$($Variant),*}, self, me => me.length()),
-            head = variant!($Enum::{$($Variant),*}, self, me => me.head()),
             tail = variant!($Enum::{$($Variant),*}, self, me => me.tail()),
-            pop_head = variant!($Enum::{$($Variant),*}, self, me => me.pop_head()),
-            pop_tail = variant!($Enum::{$($Variant),*}, self, me => me.pop_tail())
+            pop_tail = variant!($Enum::{$($Variant),*}, self, me => me.pop_tail()),
         );
-    }
+    };
 }
 
-/// Implements [`Iterator`] family traits or delegates to variants.
+/// Implements [`Iterator`] or delegates to variants.
 ///
-/// - [`Iterator`]
-/// - [`DoubleEndedIterator`]
+/// Also implements:
 /// - [`core::iter::FusedIterator`]
 /// - [`ExactSizeIterator`] (conditionally on `cfg_esi`)
-macro_rules! impl_iters {
+macro_rules! impl_iter_fwd {
     (
         $Iter:ident<$(const $BOOL:ident,)* $T:ty>,
         $self:ident,
         next = $next:expr,
-        next_back = $next_back:expr,
         size_hint = $size_hint:expr,
         is_empty = $is_empty:expr
         $(, |$init:ident, $f:ident| {
             fold = $fold:expr,
-            try_fold = $try_fold:expr,
-            rfold = $rfold:expr,
-            try_rfold = $try_rfold:expr
+            try_fold = $try_fold:expr $(,)?
         })?
-        $(, cfg_esi = $cfg_esi:meta)?
+        $(, cfg_esi = $cfg_esi:meta)? $(,)?
     ) => {
         impl<$(const $BOOL: bool),*> Iterator for $Iter<$($BOOL,)? $T> {
             type Item = Point<$T>;
@@ -128,6 +138,45 @@ macro_rules! impl_iters {
             )?
         }
 
+        impl<$(const $BOOL: bool),*> core::iter::FusedIterator for $Iter<$($BOOL,)? $T> {}
+
+        $(#[$cfg_esi])?
+        impl<$(const $BOOL: bool),*> ExactSizeIterator for $Iter<$($BOOL,)? $T> {
+            #[cfg(feature = "is_empty")]
+            #[inline]
+            fn is_empty(&$self) -> bool { $is_empty }
+        }
+    };
+    (
+        $Enum:ident<$(const $BOOL:ident,)* $T:ty>::{$($Variant:ident),* $(,)?}
+        $(, cfg_esi = $cfg_esi:meta)? $(,)?
+    ) => {
+        impl_iter_fwd!(
+            $Enum<$(const $BOOL,)* $T>,
+            self,
+            next = variant!($Enum::{$($Variant),*}, self, me => me.next()),
+            size_hint = variant!($Enum::{$($Variant),*}, self, me => me.size_hint()),
+            is_empty = variant!($Enum::{$($Variant),*}, self, me => me.is_empty()),
+            |init, f| {
+                fold = variant!($Enum::{$($Variant),*}, self, me => me.fold(init, f)),
+                try_fold = variant!($Enum::{$($Variant),*}, self, me => me.try_fold(init, f)),
+            }
+            $(, cfg_esi = $cfg_esi)?
+        );
+    };
+}
+
+/// Implements [`DoubleEndedIterator`] or delegates to variants.
+macro_rules! impl_iter_rev {
+    (
+        $Iter:ident<$(const $BOOL:ident,)* $T:ty>,
+        $self:ident,
+        next_back = $next_back:expr
+        $(, |$init:ident, $f:ident| {
+            rfold = $rfold:expr,
+            try_rfold = $try_rfold:expr $(,)?
+        })? $(,)?
+    ) => {
         impl<$(const $BOOL: bool),*> DoubleEndedIterator for $Iter<$($BOOL,)? $T> {
             #[inline]
             fn next_back(&mut $self) -> Option<Self::Item> { $next_back }
@@ -150,36 +199,18 @@ macro_rules! impl_iters {
             { $try_rfold }
             )?
         }
-
-        impl<$(const $BOOL: bool),*> core::iter::FusedIterator for $Iter<$($BOOL,)? $T> {}
-
-        $(#[$cfg_esi])?
-        impl<$(const $BOOL: bool),*> ExactSizeIterator for $Iter<$($BOOL,)? $T> {
-            #[cfg(feature = "is_empty")]
-            #[inline]
-            fn is_empty(&$self) -> bool { $is_empty }
-        }
     };
-    (
-        $Enum:ident<$(const $BOOL:ident,)* $T:ty>::{$($Variant:ident),*}
-        $(, cfg_esi = $cfg_esi:meta)?
-    ) => {
-        impl_iters!(
+    ($Enum:ident<$(const $BOOL:ident,)* $T:ty>::{$($Variant:ident),* $(,)?}) => {
+        impl_iter_rev!(
             $Enum<$(const $BOOL,)* $T>,
             self,
-            next = variant!($Enum::{$($Variant),*}, self, me => me.next()),
             next_back = variant!($Enum::{$($Variant),*}, self, me => me.next_back()),
-            size_hint = variant!($Enum::{$($Variant),*}, self, me => me.size_hint()),
-            is_empty = variant!($Enum::{$($Variant),*}, self, me => me.is_empty()),
             |init, f| {
-                fold = variant!($Enum::{$($Variant),*}, self, me => me.fold(init, f)),
-                try_fold = variant!($Enum::{$($Variant),*}, self, me => me.try_fold(init, f)),
                 rfold = variant!($Enum::{$($Variant),*}, self, me => me.rfold(init, f)),
                 try_rfold = variant!($Enum::{$($Variant),*}, self, me => me.try_rfold(init, f))
             }
-            $(, cfg_esi = $cfg_esi)?
         );
-    }
+    };
 }
 
 /// Applies the macro `m` to multiple integer types.
@@ -198,7 +229,7 @@ macro_rules! all_nums {
     };
 }
 
-pub(crate) use {all_nums, impl_iters, impl_methods, variant};
+pub(crate) use {all_nums, impl_fwd, impl_iter_fwd, impl_iter_rev, impl_rev, variant};
 
 /// Selects an expression based on `V`.
 macro_rules! hv {

@@ -1,7 +1,7 @@
 //! ## Axis-aligned iterators
 
 use crate::clip::Clip;
-use crate::macros::{all_nums, f, hv, impl_iters, impl_methods, map, return_if, variant};
+use crate::macros::*;
 use crate::math::{Math, Num, Point};
 
 mod clip;
@@ -149,7 +149,7 @@ macro_rules! impl_signed_axis {
                 Self::clip_inner(u, v1, v2, clip)
             }
 
-            impl_methods!(
+            impl_fwd!(
                 self,
                 $T,
                 is_done = f!(self.v2 <= self.v1, self.v1 <= self.v2),
@@ -159,17 +159,22 @@ macro_rules! impl_signed_axis {
                     let (x, y) = hv!((self.v1, self.u), (self.u, self.v1));
                     Some((x, y))
                 },
-                tail = {
-                    return_if!(self.is_done());
-                    let v2 = f!(self.v2.wrapping_sub(1), self.v2.wrapping_add(1));
-                    let (x, y) = hv!((v2, self.u), (self.u, v2));
-                    Some((x, y))
-                },
                 pop_head = {
                     let Some((x, y)) = self.head() else {
                         return None;
                     };
                     self.v1 = f!(self.v1.wrapping_add(1), self.v1.wrapping_sub(1));
+                    Some((x, y))
+                },
+            );
+
+            impl_rev!(
+                self,
+                $T,
+                tail = {
+                    return_if!(self.is_done());
+                    let v2 = f!(self.v2.wrapping_sub(1), self.v2.wrapping_add(1));
+                    let (x, y) = hv!((v2, self.u), (self.u, v2));
                     Some((x, y))
                 },
                 pop_tail = {
@@ -178,15 +183,14 @@ macro_rules! impl_signed_axis {
                     };
                     self.v2 = hv!(x, y);
                     Some((x, y))
-                }
+                },
             );
         }
 
-        impl_iters!(
+        impl_iter_fwd!(
             SignedAxis<const F, const V, $T>,
             self,
             next = self.pop_head(),
-            next_back = self.pop_tail(),
             size_hint = {
                 match usize::try_from(self.length()) {
                     Ok(length) => (length, Some(length)),
@@ -195,6 +199,11 @@ macro_rules! impl_signed_axis {
             },
             is_empty = self.is_done()
             $(, cfg_esi = $cfg_esi)?
+        );
+        impl_iter_rev!(
+            SignedAxis<const F, const V, $T>,
+            self,
+            next_back = self.pop_tail(),
         );
     };
 }
@@ -275,16 +284,12 @@ macro_rules! impl_axis {
                 return map!(NegativeAxis::<V, $T>::clip_inner(u, v1, v2, clip), Self::Negative)
             }
 
-            impl_methods!(
-                $T,
-                Self::{Positive, Negative}
-            );
+            impl_fwd!($T, Self::{Positive, Negative});
+            impl_rev!($T, Self::{Positive, Negative});
         }
 
-        impl_iters!(
-            Axis<const V, $T>::{Positive, Negative}
-            $(, cfg_esi = $cfg_esi)?
-        );
+        impl_iter_fwd!(Axis<const V, $T>::{Positive, Negative} $(, cfg_esi = $cfg_esi)?);
+        impl_iter_rev!(Axis<const V, $T>::{Positive, Negative});
     };
 }
 
@@ -374,16 +379,12 @@ macro_rules! impl_any_axis {
                 None
             }
 
-            impl_methods!(
-                $T,
-                Self::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1}
-            );
+            impl_fwd!($T, Self::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1});
+            impl_rev!($T, Self::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1});
         }
 
-        impl_iters!(
-            AnyAxis<$T>::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1}
-            $(, cfg_esi = $cfg_esi)?
-        );
+        impl_iter_fwd!(AnyAxis<$T>::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1} $(, cfg_esi = $cfg_esi)?);
+        impl_iter_rev!(AnyAxis<$T>::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1});
     };
 }
 
