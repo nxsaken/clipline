@@ -44,7 +44,7 @@ macro_rules! impl_fwd {
         #[must_use]
         pub const fn pop_head(&mut $self) -> Option<Point<$T>> { $pop_head }
     };
-    ($T:ty, $Enum:ident::{$($Variant:ident),*}) => {
+    ($T:ty, $Enum:ident::{$($Variant:ident),* $(,)?}) => {
         impl_fwd!(
             self,
             $T,
@@ -82,7 +82,7 @@ macro_rules! impl_rev {
         #[must_use]
         pub const fn pop_tail(&mut $self) -> Option<Point<$T>> { $pop_tail }
     };
-    ($T:ty, $Enum:ident::{$($Variant:ident),*}) => {
+    ($T:ty, $Enum:ident::{$($Variant:ident),* $(,)?}) => {
         impl_rev!(
             self,
             $T,
@@ -251,7 +251,7 @@ macro_rules! yx {
             $y
         }
     };
-    ($x_y:expr $(,)?) => {{
+    ($x_y:expr) => {{
         let (x, y) = $x_y;
         if !YX {
             x
