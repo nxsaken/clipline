@@ -99,11 +99,12 @@ macro_rules! diagonal_impl {
                 (x2, y2): Point<$T>,
                 clip: &Clip<$T>,
             ) -> Option<Self> {
+                return_if!(!Self::covers((x1, y1), (x2, y2)));
                 let &Clip { wx1, wy1, wx2, wy2 } = clip;
                 let (u1, u2) = fx!((x1, x2), (x2, x1));
                 return_if!(u2 <= wx1 || wx2 < u1);
                 let (v1, v2) = fx!((y1, y2), (y2, y1));
-                return_if!(v2 <= wy1 || wy2 < v1 || !Self::covers((x1, y1), (x2, y2)));
+                return_if!(v2 <= wy1 || wy2 < v1);
                 Self::clip_inner((x1, y1), (x2, y2), clip)
             }
 
@@ -256,11 +257,11 @@ macro_rules! impl_any_diagonal {
                 clip: &Clip<$T>
             ) -> Option<Self> {
                 let &Clip { wx1, wy1, wx2, wy2 } = clip;
-                if x1 < x2 {
+                if x1 <= x2 {
                     // TODO: strict comparison for closed line segments
                     return_if!(x2 <= wx1 || wx2 < x1);
                     let dx = Math::<$T>::delta(x2, x1);
-                    if y1 < y2 {
+                    if y1 <= y2 {
                         return_if!(y2 <= wy1 || wy2 < y1);
                         let dy = Math::<$T>::delta(y2, y1);
                         return_if!(dx != dy);
@@ -273,7 +274,7 @@ macro_rules! impl_any_diagonal {
                 }
                 return_if!(x1 < wx1 || wx2 <= x2);
                 let dx = Math::<$T>::delta(x1, x2);
-                if y1 < y2 {
+                if y1 <= y2 {
                     return_if!(y2 <= wy1 || wy2 < y1);
                     let dy = Math::<$T>::delta(y2, y1);
                     return_if!(dx != dy);
