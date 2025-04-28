@@ -4,7 +4,7 @@ mod bounds {
     use clipline::*;
 
     #[test]
-    fn all_octants_exclude_empty_line() {
+    fn empty_line_segments_are_rejected() {
         assert!(Octant0::<i8>::new((0, 0), (0, 0)).is_none());
         assert!(Octant1::<i8>::new((0, 0), (0, 0)).is_none());
         assert!(Octant2::<i8>::new((0, 0), (0, 0)).is_none());
@@ -16,51 +16,36 @@ mod bounds {
     }
 
     #[test]
-    fn octant_0_excludes_0_and_includes_45_degrees() {
+    fn axis_aligned_line_segments_are_rejected() {
         assert!(Octant0::<i8>::new((0, 0), (1, 0)).is_none());
-        assert!(Octant0::<i8>::new((0, 0), (1, 1)).is_some());
-    }
-
-    #[test]
-    fn octant_1_excludes_45_degrees_and_excludes_90_degrees() {
-        assert!(Octant1::<i8>::new((0, 0), (1, 1)).is_none());
-        assert!(Octant1::<i8>::new((0, 0), (0, 1)).is_none());
-    }
-
-    #[test]
-    fn octant_2_includes_315_degrees_and_excludes_0_degrees() {
-        assert!(Octant2::<i8>::new((0, 0), (1, -1)).is_some());
-        assert!(Octant2::<i8>::new((0, 0), (1, 0)).is_none());
-    }
-
-    #[test]
-    fn octant_3_excludes_270_degrees_and_excludes_315_degrees() {
-        assert!(Octant3::<i8>::new((0, 0), (0, -1)).is_none());
-        assert!(Octant3::<i8>::new((0, 0), (1, -1)).is_none());
-    }
-
-    #[test]
-    fn octant_4_includes_135_and_excludes_180_degrees() {
-        assert!(Octant4::<i8>::new((0, 0), (-1, 1)).is_some());
-        assert!(Octant4::<i8>::new((0, 0), (-1, 0)).is_none());
-    }
-
-    #[test]
-    fn octant_5_excludes_90_and_excludes_135_degrees() {
-        assert!(Octant5::<i8>::new((0, 0), (0, 1)).is_none());
-        assert!(Octant5::<i8>::new((0, 0), (-1, 1)).is_none());
-    }
-
-    #[test]
-    fn octant_6_excludes_180_degrees_and_includes_225_degrees() {
+        assert!(Octant1::<i8>::new((0, 0), (1, 0)).is_none());
+        assert!(Octant2::<i8>::new((0, 0), (-1, 0)).is_none());
+        assert!(Octant3::<i8>::new((0, 0), (-1, 0)).is_none());
+        assert!(Octant4::<i8>::new((0, 0), (1, 0)).is_none());
+        assert!(Octant5::<i8>::new((0, 0), (1, 0)).is_none());
         assert!(Octant6::<i8>::new((0, 0), (-1, 0)).is_none());
-        assert!(Octant6::<i8>::new((0, 0), (-1, -1)).is_some());
+        assert!(Octant7::<i8>::new((0, 0), (-1, 0)).is_none());
+
+        assert!(Octant0::<i8>::new((0, 0), (0, 1)).is_none());
+        assert!(Octant1::<i8>::new((0, 0), (0, -1)).is_none());
+        assert!(Octant2::<i8>::new((0, 0), (0, 1)).is_none());
+        assert!(Octant3::<i8>::new((0, 0), (0, -1)).is_none());
+        assert!(Octant4::<i8>::new((0, 0), (0, 1)).is_none());
+        assert!(Octant5::<i8>::new((0, 0), (0, -1)).is_none());
+        assert!(Octant6::<i8>::new((0, 0), (0, 1)).is_none());
+        assert!(Octant7::<i8>::new((0, 0), (0, -1)).is_none());
     }
 
     #[test]
-    fn octant_7_excludes_225_degrees_and_excludes_270_degrees() {
+    fn diagonal_line_segments_are_rejected() {
+        assert!(Octant0::<i8>::new((0, 0), (1, 1)).is_none());
+        assert!(Octant1::<i8>::new((0, 0), (1, 1)).is_none());
+        assert!(Octant2::<i8>::new((0, 0), (1, -1)).is_none());
+        assert!(Octant3::<i8>::new((0, 0), (1, -1)).is_none());
+        assert!(Octant4::<i8>::new((0, 0), (-1, 1)).is_none());
+        assert!(Octant5::<i8>::new((0, 0), (-1, 1)).is_none());
+        assert!(Octant6::<i8>::new((0, 0), (-1, -1)).is_none());
         assert!(Octant7::<i8>::new((0, 0), (-1, -1)).is_none());
-        assert!(Octant7::<i8>::new((0, 0), (0, -1)).is_none());
     }
 }
 

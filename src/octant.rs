@@ -34,7 +34,7 @@ pub struct Octant<const FX: bool, const FY: bool, const YX: bool, T: Num> {
 /// [octant](Octant) where `x` and `y` **both increase**,
 /// with `x` changing faster than `y` *(gentle slope)*.
 ///
-/// Covers line segments spanning the `(0°, 45°]` sector.
+/// Covers line segments spanning the `(0°, 45°)` sector.
 pub type Octant0<T> = Octant<false, false, false, T>;
 
 /// Iterator over a line segment in the
@@ -48,7 +48,7 @@ pub type Octant1<T> = Octant<false, false, true, T>;
 /// [octant](Octant) where `x` **increases** and `y` **decreases**,
 /// with `x` changing faster than `y` *(gentle slope)*.
 ///
-/// Covers line segments spanning the `[315°, 360°)` sector.
+/// Covers line segments spanning the `(315°, 360°)` sector.
 pub type Octant2<T> = Octant<false, true, false, T>;
 
 /// Iterator over a line segment in the
@@ -62,7 +62,7 @@ pub type Octant3<T> = Octant<false, true, true, T>;
 /// [octant](Octant) where `x` **decreases** and `y` **increases**,
 /// with `x` changing faster than `y` *(gentle slope)*.
 ///
-/// Covers line segments spanning the `[135°, 180°)` sector.
+/// Covers line segments spanning the `(135°, 180°)` sector.
 pub type Octant4<T> = Octant<true, false, false, T>;
 
 /// Iterator over a line segment in the
@@ -76,7 +76,7 @@ pub type Octant5<T> = Octant<true, false, true, T>;
 /// [octant](Octant) where `x` and `y` **both decrease**,
 /// with `x` changing faster than `y` *(gentle slope)*.
 ///
-/// Covers line segments spanning the `(180°, 225°]` sector.
+/// Covers line segments spanning the `(180°, 225°)` sector.
 pub type Octant6<T> = Octant<true, true, false, T>;
 
 /// Iterator over a line segment in the
@@ -127,7 +127,7 @@ macro_rules! impl_octant {
                 return_if!(fy!(y2 <= y1, y1 <= y2));
                 let du = Math::<$T>::delta(fx!(x2, x1), fx!(x1, x2));
                 let dv = Math::<$T>::delta(fy!(y2, y1), fy!(y1, y2));
-                return_if!(yx!(du < dv, dv <= du));
+                return_if!(yx!(du <= dv, dv <= du));
                 Some((du, dv))
             }
 
