@@ -4,9 +4,11 @@ mod bounds {
     use clipline::*;
 
     #[test]
-    fn empty_is_positive() {
+    fn empty_line_segments_are_positive() {
         assert!(PositiveAxis0::<u8>::new(0, 0, 0).is_some_and(|me| me.is_done()));
+        assert!(PositiveAxis1::<u8>::new(0, 0, 0).is_some_and(|me| me.is_done()));
         assert!(NegativeAxis0::<u8>::new(0, 0, 0).is_none());
+        assert!(NegativeAxis1::<u8>::new(0, 0, 0).is_none());
     }
 }
 
