@@ -202,6 +202,7 @@
 #![deny(missing_docs)]
 #![warn(clippy::nursery, clippy::cargo, clippy::pedantic)]
 #![allow(
+    clippy::wildcard_imports,
     clippy::module_name_repetitions,
     clippy::inline_always,
     clippy::similar_names,

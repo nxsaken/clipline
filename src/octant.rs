@@ -6,6 +6,7 @@ use crate::math::{Delta, Math, Num, Point};
 use crate::{axis_aligned, diagonal};
 
 mod clip;
+mod convert;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Octant iterators
@@ -329,20 +330,13 @@ macro_rules! impl_any_octant {
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Self {
+                use axis_aligned::{Axis0, Axis1};
                 use diagonal::{Diagonal0, Diagonal1, Diagonal2, Diagonal3};
                 if y1 == y2 {
-                    use axis_aligned::Axis0;
-                    return match Axis0::<$T>::new(y1, x1, x2) {
-                        Axis0::Positive(me) => Self::PositiveAxis0(me),
-                        Axis0::Negative(me) => Self::NegativeAxis0(me),
-                    };
+                    return Axis0::<$T>::new(y1, x1, x2).into_any_octant();
                 }
                 if x1 == x2 {
-                    use axis_aligned::Axis1;
-                    return match Axis1::<$T>::new(x1, y1, y2) {
-                        Axis1::Positive(me) => Self::PositiveAxis1(me),
-                        Axis1::Negative(me) => Self::NegativeAxis1(me),
-                    };
+                    return Axis1::<$T>::new(x1, y1, y2).into_any_octant();
                 }
                 if x1 < x2 {
                     let dx = Math::<$T>::delta(x2, x1);
@@ -397,26 +391,13 @@ macro_rules! impl_any_octant {
                 (x2, y2): Point<$T>,
                 clip: &Clip<$T>,
             ) -> Option<Self> {
+                use axis_aligned::{Axis0, Axis1};
                 use diagonal::{Diagonal0, Diagonal1, Diagonal2, Diagonal3};
                 if y1 == y2 {
-                    use axis_aligned::Axis0;
-                    return map!(
-                        Axis0::<$T>::clip(y1, x1, x2, clip),
-                        |me| match me {
-                            Axis0::Positive(me) => Self::PositiveAxis0(me),
-                            Axis0::Negative(me) => Self::NegativeAxis0(me),
-                        }
-                    );
+                    return map!(Axis0::<$T>::clip(y1, x1, x2, clip), Self::from_axis);
                 }
                 if x1 == x2 {
-                    use axis_aligned::Axis1;
-                    return map!(
-                        Axis1::<$T>::clip(x1, y1, y2, clip),
-                        |me| match me {
-                            Axis1::Positive(me) => Self::PositiveAxis1(me),
-                            Axis1::Negative(me) => Self::NegativeAxis1(me),
-                        }
-                    );
+                    return map!(Axis1::<$T>::clip(x1, y1, y2, clip), Self::from_axis);
                 }
                 let &Clip { wx1, wy1, wx2, wy2 } = clip;
                 if x1 < x2 {
@@ -515,46 +496,6 @@ impl_any_octant!(usize);
 impl_any_octant!(isize);
 #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
 impl_any_octant!(usize);
-
-// impl_any_octant!(i8);
-// impl_any_octant!(u8);
-// impl_any_octant!(i16);
-// impl_any_octant!(u16);
-// impl_any_octant!(i32);
-// impl_any_octant!(u32);
-// #[cfg(feature = "octant_64")]
-// impl_any_octant!(i64);
-// #[cfg(feature = "octant_64")]
-// impl_any_octant!(u64);
-// #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-// impl_any_octant!(isize);
-// #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-// impl_any_octant!(usize);
-// #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-// impl_any_octant!(isize);
-// #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-// impl_any_octant!(usize);
-
-// any_octant_exact_size_iter_impl!(i8);
-// any_octant_exact_size_iter_impl!(u8);
-// any_octant_exact_size_iter_impl!(i16);
-// any_octant_exact_size_iter_impl!(u16);
-// #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-// any_octant_exact_size_iter_impl!(i32);
-// #[cfg(any(target_pointer_width = "32", target_pointer_width = "64"))]
-// any_octant_exact_size_iter_impl!(u32);
-// #[cfg(feature = "octant_64")]
-// any_octant_exact_size_iter_impl!(i64);
-// #[cfg(feature = "octant_64")]
-// any_octant_exact_size_iter_impl!(u64);
-// #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-// any_octant_exact_size_iter_impl!(isize);
-// #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-// any_octant_exact_size_iter_impl!(usize);
-// #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-// any_octant_exact_size_iter_impl!(isize);
-// #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-// any_octant_exact_size_iter_impl!(usize);
 
 #[cfg(test)]
 mod static_tests {

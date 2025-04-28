@@ -4,7 +4,8 @@ use crate::clip::Clip;
 use crate::macros::*;
 use crate::math::{Math, Num, Point};
 
-pub mod clip;
+mod clip;
+mod convert;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Diagonal quadrant iterators

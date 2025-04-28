@@ -336,16 +336,10 @@ macro_rules! impl_any_axis {
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Self> {
                 if y1 == y2 {
-                    return match Axis0::<$T>::new(y1, x1, x2) {
-                        Axis::Positive(me) => Some(Self::PositiveAxis0(me)),
-                        Axis::Negative(me) => Some(Self::NegativeAxis0(me)),
-                    };
+                    return Some(Axis0::<$T>::new(y1, x1, x2).into_any_axis());
                 }
                 if x1 == x2 {
-                    return match Axis1::<$T>::new(x1, y1, y2) {
-                        Axis::Positive(me) => Some(Self::PositiveAxis1(me)),
-                        Axis::Negative(me) => Some(Self::NegativeAxis1(me)),
-                    };
+                    return Some(Axis1::<$T>::new(x1, y1, y2).into_any_axis());
                 }
                 None
             }
@@ -359,22 +353,10 @@ macro_rules! impl_any_axis {
             #[must_use]
             pub const fn clip((x1, y1): Point<$T>, (x2, y2): Point<$T>, clip: &Clip<$T>) -> Option<Self> {
                 if y1 == y2 {
-                    return map!(
-                        Axis0::<$T>::clip(y1, x1, x2, clip),
-                        |me| match me {
-                            Axis::Positive(me) => Self::PositiveAxis0(me),
-                            Axis::Negative(me) => Self::NegativeAxis0(me),
-                        }
-                    );
+                    return map!(Axis0::<$T>::clip(y1, x1, x2, clip), Self::from_axis);
                 }
                 if x1 == x2 {
-                    return map!(
-                        Axis1::<$T>::clip(x1, y1, y2, clip),
-                        |me| match me {
-                            Axis::Positive(me) => Self::PositiveAxis1(me),
-                            Axis::Negative(me) => Self::NegativeAxis1(me),
-                        }
-                    );
+                    return map!(Axis1::<$T>::clip(x1, y1, y2, clip), Self::from_axis);
                 }
                 None
             }
