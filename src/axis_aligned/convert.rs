@@ -19,7 +19,7 @@ impl<const F: bool, const V: bool, T: Num> SignedAxis<F, V, T> {
     ///
     /// Returns [`None`] if [`Axis`] is not aligned with `F`.
     #[inline]
-    pub const fn from_axis(axis: Axis<V, T>) -> Option<Self> {
+    pub const fn try_from_axis(axis: Axis<V, T>) -> Option<Self> {
         // SAFETY: match sets the correct F for transmute(), or returns None; V is reused.
         unsafe {
             match axis {
@@ -34,13 +34,13 @@ impl<const F: bool, const V: bool, T: Num> SignedAxis<F, V, T> {
     ///
     /// Returns [`None`] if [`AnyAxis`] is not aligned with `F` and `V`.
     #[inline]
-    pub const fn from_any_axis(axis: AnyAxis<T>) -> Option<Self> {
+    pub const fn try_from_any_axis(axis: AnyAxis<T>) -> Option<Self> {
         // SAFETY: match sets the correct F and V for transmute(), or returns None.
         unsafe {
             match axis {
                 AnyAxis::PositiveAxis0(me) if !F && !V => Some(me.transmute()),
-                AnyAxis::NegativeAxis0(me) if F && !V => Some(me.transmute()),
                 AnyAxis::PositiveAxis1(me) if !F && V => Some(me.transmute()),
+                AnyAxis::NegativeAxis0(me) if F && !V => Some(me.transmute()),
                 AnyAxis::NegativeAxis1(me) if F && V => Some(me.transmute()),
                 _ => None,
             }
@@ -89,7 +89,7 @@ impl<const V: bool, T: Num> Axis<V, T> {
     ///
     /// Returns [`None`] if the [`AnyAxis`] is not aligned with `V`.
     #[inline]
-    pub const fn from_any_axis(axis: AnyAxis<T>) -> Option<Self> {
+    pub const fn try_from_any_axis(axis: AnyAxis<T>) -> Option<Self> {
         // SAFETY: match sets the correct F and V for transmute(), or returns an error.
         unsafe {
             match axis {
@@ -106,8 +106,8 @@ impl<const V: bool, T: Num> Axis<V, T> {
     ///
     /// Returns [`None`] if this [`Axis`] is not aligned with `F`.
     #[inline]
-    pub const fn into_signed_axis<const F: bool>(self) -> Option<SignedAxis<F, V, T>> {
-        SignedAxis::from_axis(self)
+    pub const fn try_into_signed_axis<const F: bool>(self) -> Option<SignedAxis<F, V, T>> {
+        SignedAxis::try_from_axis(self)
     }
 
     /// Erases the direction of this [`Axis`], returning an [`Axis`].
@@ -146,18 +146,18 @@ impl<T: Num> AnyAxis<T> {
     ///
     /// Returns [`None`] if this [`AnyAxis`] is not aligned with `F` and `V`.
     #[inline]
-    pub const fn into_signed_axis<const F: bool, const V: bool>(
+    pub const fn try_into_signed_axis<const F: bool, const V: bool>(
         self,
     ) -> Option<SignedAxis<F, V, T>> {
-        SignedAxis::from_any_axis(self)
+        SignedAxis::try_from_any_axis(self)
     }
 
     /// Fixes the orientation of this [`AnyAxis`], returning an [`Axis`].
     ///
     /// Returns [`None`] if this [`AnyAxis`] is not aligned with `V`.
     #[inline]
-    pub const fn into_axis<const V: bool>(self) -> Option<Axis<V, T>> {
-        Axis::from_any_axis(self)
+    pub const fn try_into_axis<const V: bool>(self) -> Option<Axis<V, T>> {
+        Axis::try_from_any_axis(self)
     }
 }
 
@@ -196,7 +196,7 @@ impl<const V: bool, T: Num> TryFrom<AnyAxis<T>> for Axis<V, T> {
 
     #[inline]
     fn try_from(axis: AnyAxis<T>) -> Result<Self, Self::Error> {
-        axis.into_axis().ok_or(())
+        axis.try_into_axis().ok_or(())
     }
 }
 

@@ -167,15 +167,15 @@ mod convert {
 
     #[test]
     fn axis_into_signed_axis() {
-        assert_eq!(PA0_AXIS.into_signed_axis::<false>(), Some(PA0_SIGNED));
-        assert_eq!(NA0_AXIS.into_signed_axis::<true>(), Some(NA0_SIGNED));
-        assert_eq!(PA1_AXIS.into_signed_axis::<false>(), Some(PA1_SIGNED));
-        assert_eq!(NA1_AXIS.into_signed_axis::<true>(), Some(NA1_SIGNED));
+        assert_eq!(PA0_AXIS.try_into_signed_axis::<false>(), Some(PA0_SIGNED));
+        assert_eq!(NA0_AXIS.try_into_signed_axis::<true>(), Some(NA0_SIGNED));
+        assert_eq!(PA1_AXIS.try_into_signed_axis::<false>(), Some(PA1_SIGNED));
+        assert_eq!(NA1_AXIS.try_into_signed_axis::<true>(), Some(NA1_SIGNED));
 
-        assert_eq!(PA0_AXIS.into_signed_axis::<true>(), None);
-        assert_eq!(NA0_AXIS.into_signed_axis::<false>(), None);
-        assert_eq!(PA1_AXIS.into_signed_axis::<true>(), None);
-        assert_eq!(NA1_AXIS.into_signed_axis::<false>(), None);
+        assert_eq!(PA0_AXIS.try_into_signed_axis::<true>(), None);
+        assert_eq!(NA0_AXIS.try_into_signed_axis::<false>(), None);
+        assert_eq!(PA1_AXIS.try_into_signed_axis::<true>(), None);
+        assert_eq!(NA1_AXIS.try_into_signed_axis::<false>(), None);
     }
 
     #[test]
@@ -188,28 +188,28 @@ mod convert {
 
     #[test]
     fn any_axis_into_signed_axis() {
-        assert_eq!(PA0_ANY.into_signed_axis::<false, false>(), Some(PA0_SIGNED));
-        assert_eq!(NA0_ANY.into_signed_axis::<true, false>(), Some(NA0_SIGNED));
-        assert_eq!(PA1_ANY.into_signed_axis::<false, true>(), Some(PA1_SIGNED));
-        assert_eq!(NA1_ANY.into_signed_axis::<true, true>(), Some(NA1_SIGNED));
+        assert_eq!(PA0_ANY.try_into_signed_axis::<false, false>(), Some(PA0_SIGNED));
+        assert_eq!(NA0_ANY.try_into_signed_axis::<true, false>(), Some(NA0_SIGNED));
+        assert_eq!(PA1_ANY.try_into_signed_axis::<false, true>(), Some(PA1_SIGNED));
+        assert_eq!(NA1_ANY.try_into_signed_axis::<true, true>(), Some(NA1_SIGNED));
 
-        assert_eq!(PA0_ANY.into_signed_axis::<true, false>(), None);
-        assert_eq!(NA0_ANY.into_signed_axis::<false, false>(), None);
-        assert_eq!(PA1_ANY.into_signed_axis::<true, true>(), None);
-        assert_eq!(NA1_ANY.into_signed_axis::<false, true>(), None);
+        assert_eq!(PA0_ANY.try_into_signed_axis::<true, false>(), None);
+        assert_eq!(NA0_ANY.try_into_signed_axis::<false, false>(), None);
+        assert_eq!(PA1_ANY.try_into_signed_axis::<true, true>(), None);
+        assert_eq!(NA1_ANY.try_into_signed_axis::<false, true>(), None);
     }
 
     #[test]
     fn any_axis_into_axis() {
-        assert_eq!(PA0_ANY.into_axis::<false>(), Some(PA0_AXIS));
-        assert_eq!(NA0_ANY.into_axis::<false>(), Some(NA0_AXIS));
-        assert_eq!(PA1_ANY.into_axis::<true>(), Some(PA1_AXIS));
-        assert_eq!(NA1_ANY.into_axis::<true>(), Some(NA1_AXIS));
+        assert_eq!(PA0_ANY.try_into_axis::<false>(), Some(PA0_AXIS));
+        assert_eq!(NA0_ANY.try_into_axis::<false>(), Some(NA0_AXIS));
+        assert_eq!(PA1_ANY.try_into_axis::<true>(), Some(PA1_AXIS));
+        assert_eq!(NA1_ANY.try_into_axis::<true>(), Some(NA1_AXIS));
 
-        assert_eq!(PA0_ANY.into_axis::<true>(), None);
-        assert_eq!(NA0_ANY.into_axis::<true>(), None);
-        assert_eq!(PA1_ANY.into_axis::<false>(), None);
-        assert_eq!(NA1_ANY.into_axis::<false>(), None);
+        assert_eq!(PA0_ANY.try_into_axis::<true>(), None);
+        assert_eq!(NA0_ANY.try_into_axis::<true>(), None);
+        assert_eq!(PA1_ANY.try_into_axis::<false>(), None);
+        assert_eq!(NA1_ANY.try_into_axis::<false>(), None);
     }
 
     #[test]
