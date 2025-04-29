@@ -53,6 +53,16 @@ mod iter {
     use clipline::*;
 
     #[test]
+    fn forward_does_not_match_backward() {
+        let (p, q) = ((0, 0), (8, 3));
+        let fwd = AnyOctant::<i8>::new(p, q).nth(4);
+        let bwd = AnyOctant::<i8>::new(q, p).nth(4);
+        assert_eq!(fwd, Some((4, 2)));
+        assert_eq!(bwd, Some((4, 1)));
+        assert_ne!(fwd, bwd, "https://github.com/nxsaken/clipline/issues/25")
+    }
+
+    #[test]
     fn octant_0_produces_correct_points() {
         let points = vec![(0, 0), (1, 0), (2, 1), (3, 1), (4, 2)];
         assert_eq!(Octant0::<i8>::new((0, 0), (5, 2)).unwrap().collect::<Vec<_>>(), points);
