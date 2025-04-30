@@ -1,13 +1,29 @@
 //! ## Math types
 
+/// Primitive numeric type.
+pub trait Prim
+where
+    Self: Copy + Eq + Ord + Default,
+    Self: core::hash::Hash + core::fmt::Debug,
+{
+}
+
+macro_rules! impl_prim {
+    ($($prim:ty),+) => {
+        $(impl Prim for $prim {})+
+    };
+}
+
+impl_prim!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
+
 /// Numeric type representing a coordinate.
-pub trait Num: Copy + Eq + Ord + core::fmt::Debug {
+pub trait Num: Prim {
     /// Wide signed type for differences of [`Self::U`] values.
-    type I2: Copy + Eq + Ord + core::fmt::Debug;
+    type I2: Prim;
     /// Unsigned type for absolute offsets.
-    type U: Copy + Eq + Ord + core::fmt::Debug;
+    type U: Prim;
     /// Wide unsigned type for multiplying offsets.
-    type U2: Copy + Eq + Ord + core::fmt::Debug;
+    type U2: Prim;
 }
 
 /// A generic 2D point.
