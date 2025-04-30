@@ -15,16 +15,23 @@ mod convert;
 // Octant iterators
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Iterator over a line segment in the given **octant**,
-/// backed by one of the eight cases of [Bresenham's algorithm][1].
+/// An iterator over an oblique line segment whose *directions* along `x` and `y`,
+/// and *orientation* are known at compile-time.
 ///
-/// An octant is defined by its symmetries relative to [`Octant0`]:
-/// - `FX`: flip the `x` axis if `true`.
-/// - `FY`: flip the `y` axis if `true`.
-/// - `YX`: swap the `x` and `y` axes if `true`.
+/// - `FX` fixes the direction of the covered line segments along `x`:
+///   * `false` – *increasing*, see [`Octant0`], [`Octant1`], [`Octant2`], [`Octant3`].
+///   * `true` – *decreasing*, see [`Octant4`], [`Octant5`], [`Octant6`], [`Octant7`].
 ///
-/// [1]: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
-#[derive(Clone, Eq, PartialEq, Hash)]
+/// - `FY` fixes the direction of the covered line segments along `y`:
+///   * `false` – *increasing*, see [`Octant0`], [`Octant1`], [`Octant4`], [`Octant5`].
+///   * `true` – *decreasing*, see [`Octant2`], [`Octant3`], [`Octant6`], [`Octant7`].
+///
+/// - `YX` fixes the orientation of the covered line segments:
+///   * `false` – *gentle*, `dy < dx`, see [`Octant0`], [`Octant2`], [`Octant4`], [`Octant6`].
+///   * `true` – *steep*, `dx < dy`, see [`Octant1`], [`Octant3`], [`Octant5`], [`Octant7`].
+///
+/// - If the directions and orientation are determined at runtime, see [`AnyOctant`].
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Octant<const FX: bool, const FY: bool, const YX: bool, T: Num> {
     x: T,
     y: T,
@@ -34,60 +41,60 @@ pub struct Octant<const FX: bool, const FY: bool, const YX: bool, T: Num> {
     end: T,
 }
 
-/// Iterator over a line segment in the
-/// [octant](Octant) where `x` and `y` **both increase**,
-/// with `x` changing faster than `y` *(gentle slope)*.
+/// An iterator over an oblique line segment in the octant
+/// where `x` and `y` *both increase*, and `x` changes faster than `y`.
 ///
-/// Covers line segments spanning the `(0°, 45°)` sector.
+/// - Covers line segments spanning the `(0°, 45°)` sector.
+/// - `x1 < x2`, `y1 < y2`, `dy < dx`
 pub type Octant0<T> = Octant<false, false, false, T>;
 
-/// Iterator over a line segment in the
-/// [octant](Octant) where `x` and `y` **both increase**,
-/// with `y` changing faster than `x` *(steep slope)*.
+/// An iterator over an oblique line segment in the octant
+/// where `x` and `y` *both increase*, and `y` changes faster than `x`.
 ///
-/// Covers line segments spanning the `(45°, 90°)` sector.
+/// - Covers line segments spanning the `(45°, 90°)` sector.
+/// - `x1 < x2`, `y1 < y2`, `dx < dy`
 pub type Octant1<T> = Octant<false, false, true, T>;
 
-/// Iterator over a line segment in the
-/// [octant](Octant) where `x` **increases** and `y` **decreases**,
-/// with `x` changing faster than `y` *(gentle slope)*.
+/// An iterator over an oblique line segment in the octant
+/// where `x` *increases*, `y` *decreases*, and `x` changes faster than `y`.
 ///
-/// Covers line segments spanning the `(315°, 360°)` sector.
+/// - Covers line segments spanning the `(315°, 360°)` sector.
+/// - `x1 < x2`, `y2 < y1`, `dy < dx`
 pub type Octant2<T> = Octant<false, true, false, T>;
 
-/// Iterator over a line segment in the
-/// [octant](Octant) where `x` **increases** and `y` **decreases**,
-/// with `y` changing faster than `x` *(steep slope)*.
+/// An iterator over an oblique line segment in the octant
+/// where `x` *increases*, `y` *decreases*, and `y` changes faster than `x`.
 ///
-/// Covers line segments spanning the `(270°, 315°)` sector.
+/// - Covers line segments spanning the `(270°, 315°)` sector.
+/// - `x1 < x2`, `y2 < y1`, `dx < dy`
 pub type Octant3<T> = Octant<false, true, true, T>;
 
-/// Iterator over a line segment in the
-/// [octant](Octant) where `x` **decreases** and `y` **increases**,
-/// with `x` changing faster than `y` *(gentle slope)*.
+/// An iterator over an oblique line segment in the octant
+/// where `x` *decreases*, `y` *increases*, and `x` changes faster than `y`.
 ///
-/// Covers line segments spanning the `(135°, 180°)` sector.
+/// - Covers line segments spanning the `(135°, 180°)` sector.
+/// - `x2 < x1`, `y1 < y2`, `dy < dx`
 pub type Octant4<T> = Octant<true, false, false, T>;
 
-/// Iterator over a line segment in the
-/// [octant](Octant) where `x` **decreases** and `y` **increases**,
-/// with `y` changing faster than `x` *(steep slope)*.
+/// An iterator over an oblique line segment in the octant
+/// where `x` *decreases*, `y` *increases*, and `y` changes faster than `x`.
 ///
-/// Covers line segments spanning the `(90°, 135°)` sector.
+/// - Covers line segments spanning the `(90°, 135°)` sector.
+/// - `x2 < x1`, `y1 < y2`, `dx < dy`
 pub type Octant5<T> = Octant<true, false, true, T>;
 
-/// Iterator over a line segment in the
-/// [octant](Octant) where `x` and `y` **both decrease**,
-/// with `x` changing faster than `y` *(gentle slope)*.
+/// An iterator over an oblique line segment in the octant
+/// where `x` and `y` *both decrease*, and `x` changes faster than `y`.
 ///
-/// Covers line segments spanning the `(180°, 225°)` sector.
+/// - Covers line segments spanning the `(180°, 225°)` sector.
+/// - `x2 < x1`, `y2 < y1`, `dy < dx`
 pub type Octant6<T> = Octant<true, true, false, T>;
 
-/// Iterator over a line segment in the
-/// [octant](Octant) where `x` and `y` **both decrease**,
-/// with `y` changing faster than `x` *(steep slope)*.
+/// An iterator over an oblique line segment in the octant
+/// where `x` and `y` *both decrease*, and `y` changes faster than `x`.
 ///
-/// Covers line segments spanning the `(225°, 270°)` sector.
+/// - Covers line segments spanning the `(225°, 270°)` sector.
+/// - `x2 < x1`, `y2 < y1`, `dx < dy`
 pub type Octant7<T> = Octant<true, true, true, T>;
 
 impl<const FX: bool, const FY: bool, const YX: bool, T: Num> core::fmt::Debug
@@ -135,11 +142,9 @@ macro_rules! impl_octant {
                 Some((du, dv))
             }
 
-            /// Returns an iterator over a *half-open* line segment
-            /// if it is covered by the given [octant](Octant),
-            /// otherwise returns [`None`].
+            /// Constructs an [`Octant`] over a half-open line segment.
             ///
-            /// **Note**: `(x2, y2)` is not included.
+            /// Returns [`None`] if the line segment is not covered by the octant.
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Self> {
@@ -147,14 +152,11 @@ macro_rules! impl_octant {
                 Some(Self::new_inner((x1, y1), (x2, y2), delta))
             }
 
-            /// Returns an iterator over a *half-open* line segment,
-            /// if it is covered by the [octant](Octant),
-            /// clipped to the [rectangular region](Clip).
+            /// Clips a half-open line segment to a rectangular region
+            /// and constructs an [`Octant`] over the portion inside the clip.
             ///
             /// Returns [`None`] if the line segment is not covered by the octant,
-            /// or if the line segment does not intersect the clipping region.
-            ///
-            /// **Note**: `(x2, y2)` is not included.
+            /// or lies outside the clipping region.
             #[inline]
             #[must_use]
             pub const fn clip(
@@ -251,18 +253,15 @@ impl_octant!(usize);
 // Arbitrary iterator
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Iterator over an arbitrary line segment.
+/// An iterator over a line segment whose type is determined at runtime.
 ///
-/// Chooses a specialized iterator variant **at runtime** based
-/// on the orientation and direction of the line segment.
+/// - If the line segment is axis-aligned, see [`Axis`](crate::Axis) or [`AnyAxis`](crate::AnyAxis).
+/// - If the line segment is diagonal, see [`AnyDiagonal`](crate::AnyDiagonal).
+/// - If the line segment is oblique, and its octant is known at compile-time, see [`Octant`].
 ///
-/// If you know the orientation of the line segment, use one of the [octant](Octant),
-/// [diagonal](crate::Diagonal), or [axis-aligned](crate::Axis) iterators.
-///
-/// **Note**: an optimized implementation of [`Iterator::fold`] is provided.
-/// This makes [`Iterator::for_each`] faster than a `for` loop, since it chooses
-/// the underlying iterator only once instead of on every call to [`Iterator::next`].
-#[derive(Clone, PartialEq, Eq)]
+/// **Note**: optimized [`Iterator::fold`] checks the type once, not on every call
+/// to [`Iterator::next`]. This makes [`Iterator::for_each`] faster than a `for` loop.
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub enum AnyOctant<T: Num> {
     /// See [`PositiveAxis0`].
     PositiveAxis0(PositiveAxis0<T>),
@@ -323,7 +322,7 @@ macro_rules! octant {
 macro_rules! impl_any_octant {
     ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
         impl AnyOctant<$T> {
-            /// Returns an iterator over an arbitrary *half-open* line segment.
+            /// Constructs an [`AnyOctant`] over a half-open line segment.
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Self {
@@ -375,10 +374,10 @@ macro_rules! impl_any_octant {
                 return quadrant!(Diagonal3, $T, (x1, y1), x2);
             }
 
-            /// Clips an arbitrary *half-open* line segment to a [rectangular region](Clip),
-            /// and returns an iterator over it.
+            /// Clips a half-open line segment to a rectangular region
+            /// and constructs an [`AnyOctant`] over the portion inside the clip.
             ///
-            /// Returns [`None`] if the line segment does not intersect the clipping region.
+            /// Returns [`None`] if the line segment lies outside the clipping region.
             #[inline]
             #[must_use]
             pub const fn clip(
@@ -605,7 +604,7 @@ mod static_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::axis_aligned::{NegativeAxis0, NegativeAxis1, PositiveAxis0, PositiveAxis1};
+    use crate::axis::{NegativeAxis0, NegativeAxis1, PositiveAxis0, PositiveAxis1};
     use crate::diagonal::{Diagonal0, Diagonal1, Diagonal2, Diagonal3};
 
     #[test]

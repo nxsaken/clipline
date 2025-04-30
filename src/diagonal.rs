@@ -13,11 +13,18 @@ mod convert;
 // Diagonal quadrant iterators
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Iterator over a diagonal line segment in the given **quadrant**.
+/// An iterator over a diagonal line segment whose
+/// *directions* along `x` and `y` are known at compile-time.
 ///
-/// A quadrant is defined by its symmetries relative to [`Diagonal0`]:
-/// - `FX`: flip the `x` axis if `true`.
-/// - `FY`: flip the `y` axis if `true`.
+/// - `FX` fixes the direction of the covered line segments along `x`:
+///   * `false` – *increasing*, see [`Diagonal0`] and [`Diagonal1`].
+///   * `true` – *decreasing*, see [`Diagonal2`] and [`Diagonal3`].
+///
+/// - `FY` fixes the direction along `y`:
+///   * `false` – *increasing*, see [`Diagonal0`] and [`Diagonal2`].
+///   * `true` – *decreasing*, see [`Diagonal1`] and [`Diagonal3`].
+///
+/// - If the directions are determined at runtime, see [`AnyDiagonal`].
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Diagonal<const FX: bool, const FY: bool, T: Num> {
     x1: T,
@@ -25,28 +32,33 @@ pub struct Diagonal<const FX: bool, const FY: bool, T: Num> {
     x2: T,
 }
 
-/// Iterator over a [diagonal](Diagonal) line segment in the
-/// [quadrant](Diagonal) where `x` and `y` **both increase**.
+/// An iterator over a diagonal line segment
+/// in the quadrant where `x` and `y` *both increase*.
 ///
-/// Covers line segments oriented at `45°`.
+/// - Covers line segments oriented at `45°`.
+/// - Covers empty line segments.
+/// - `x1 < x2`, `y1 < y2`
 pub type Diagonal0<T> = Diagonal<false, false, T>;
 
-/// Iterator over a [diagonal](Diagonal) line segment in the
-/// [quadrant](Diagonal) where `x` **increases** and `y` **decreases**.
+/// An iterator over a diagonal line segment
+/// in the quadrant where `x` *increases* and `y` *decreases*.
 ///
-/// Covers line segments oriented at `315°`.
+/// - Covers line segments oriented at `315°`.
+/// - `x1 < x2`, `y2 < y1`
 pub type Diagonal1<T> = Diagonal<false, true, T>;
 
-/// Iterator over a [diagonal](Diagonal) line segment in the
-/// [quadrant](Diagonal) where `x` **decreases** and `y` **increases**.
+/// An iterator over a diagonal line segment
+/// in the quadrant where `x` *decreases* and `y` *increases*.
 ///
-/// Covers line segments oriented at `135°`.
+/// - Covers line segments oriented at `135°`.
+/// - `x2 < x1`, `y1 < y2`
 pub type Diagonal2<T> = Diagonal<true, false, T>;
 
-/// Iterator over a [diagonal](Diagonal) line segment in the
-/// [quadrant](Diagonal) where `x` and `y` **both decrease**.
+/// An iterator over a diagonal line segment
+/// in the quadrant where `x` and `y` *both decrease*.
 ///
-/// Covers line segments oriented at `225°`.
+/// - Covers line segments oriented at `225°`.
+/// - `x2 < x1`, `y2 < y1`
 pub type Diagonal3<T> = Diagonal<true, true, T>;
 
 impl<const FX: bool, const FY: bool, T: Num> core::fmt::Debug for Diagonal<FX, FY, T> {
@@ -78,10 +90,10 @@ macro_rules! diagonal_impl {
                 du == dv
             }
 
-            /// Returns an iterator over a *half-open* line segment
-            /// if it is diagonal and covered by the given [quadrant](Diagonal).
+            /// Constructs a [`Diagonal`] over a half-open line segment.
             ///
-            /// Returns [`None`] if the line segment is not diagonal or covered by the quadrant.
+            /// Returns [`None`] if the line segment is not diagonal,
+            /// or not covered by the quadrant.
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Self> {
@@ -89,12 +101,11 @@ macro_rules! diagonal_impl {
                 Some(Self::new_inner((x1, y1), x2))
             }
 
-            /// Clips a *half-open* line segment to a [rectangular region](Clip)
-            /// if it is diagonal and covered by the given [quadrant](Diagonal),
-            /// and returns an iterator over it.
+            /// Clips a half-open line segment to a rectangular region
+            /// and constructs a [`Diagonal`] over the portion inside the clip.
             ///
-            /// Returns [`None`] if the line segment is not diagonal or covered by the quadrant,
-            /// or if it does not intersect the clipping region.
+            /// Returns [`None`] if the line segment is not diagonal,
+            /// not covered by the quadrant, or lies outside the clipping region.
             #[inline]
             #[must_use]
             pub const fn clip(
@@ -174,24 +185,22 @@ all_nums!(diagonal_impl);
 // Arbitrary diagonal iterator
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// Iterator over any [diagonal](Diagonal) line segment,
-/// with the orientation determined at runtime.
+/// An iterator over a diagonal line segment whose
+/// *directions* along `x` and `y` are determined at runtime.
 ///
-/// If you know the orientation of the line segment beforehand,
-/// use an iterator from the [`Diagonal`] family.
+/// If the directions are known at compile-time, see [`Diagonal`].
 ///
-/// **Note**: an optimized implementation of [`Iterator::fold`] is provided.
-/// This makes [`Iterator::for_each`] faster than a `for` loop, since it checks
-/// the orientation only once instead of on every call to [`Iterator::next`].
+/// **Note**: optimized [`Iterator::fold`] checks the quadrant once, not on every call
+/// to [`Iterator::next`]. This makes [`Iterator::for_each`] faster than a `for` loop.
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub enum AnyDiagonal<T: Num> {
-    /// Diagonal line segment at `45°`, see [`Diagonal0`].
+    /// See [`Diagonal0`].
     Diagonal0(Diagonal0<T>),
-    /// Diagonal line segment at `135°`, see [`Diagonal1`].
+    /// See [`Diagonal1`].
     Diagonal1(Diagonal1<T>),
-    /// Diagonal line segment at `225°`, see [`Diagonal2`].
+    /// See [`Diagonal2`].
     Diagonal2(Diagonal2<T>),
-    /// Diagonal line segment at `315°`, see [`Diagonal3`].
+    /// See [`Diagonal3`].
     Diagonal3(Diagonal3<T>),
 }
 
@@ -216,8 +225,9 @@ pub(crate) use quadrant;
 macro_rules! impl_any_diagonal {
     ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
         impl AnyDiagonal<$T> {
-            /// Returns an iterator over a *half-open* line segment
-            /// if it is diagonal, otherwise returns [`None`].
+            /// Constructs an [`AnyDiagonal`] over a half-open line segment.
+            ///
+            /// Returns [`None`] if the line segment is not diagonal.
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Self> {
@@ -243,11 +253,11 @@ macro_rules! impl_any_diagonal {
                 return Some(quadrant!(Diagonal3, $T, (x1, y1), x2));
             }
 
-            /// Clips a *half-open* line segment to a [rectangular region](Clip)
-            /// if it is diagonal, and returns an iterator over it.
+            /// Clips a half-open line segment to a rectangular region
+            /// and constructs an [`AnyDiagonal`] over the portion inside the clip.
             ///
-            /// Returns [`None`] if the given line segment is not diagonal,
-            /// or if it does not intersect the clipping region.
+            /// Returns [`None`] if the line segment is not diagonal,
+            /// or lies outside the clipping region.
             #[inline]
             #[must_use]
             pub const fn clip(
