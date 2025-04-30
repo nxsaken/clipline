@@ -99,8 +99,7 @@
 //! fn main() {
 //!     let mut buffer = [0_u32; WIDTH * HEIGHT];
 //!
-//!     // The clipping region is closed/inclusive, thus 1 needs to be subtracted from the size.
-//!     let clip = Clip::<i8>::new((0, 0), (WIDTH as i8 - 1, HEIGHT as i8 - 1)).unwrap();
+//!     let clip = Clip::<i8>::from_size(WIDTH as i8, HEIGHT as i8).unwrap();
 //!
 //!     // `Clip` has convenience methods for the general iterators.
 //!     clip.any_octant((-128, -100), (100, 80))
@@ -141,7 +140,7 @@
 //!         });
 //!
 //!     // Unclipped iterators are also available.
-//!     // (-2, -2) -> (12, 12) is covered by Diagonal0, we can construct it directly.
+//!     // (-2, -2) -> (12, 12) is covered by Diagonal0, thus we can construct it directly.
 //!     Diagonal0::<i8>::new((-2, -2), (12, 12))
 //!         .unwrap()
 //!         // Need to check every pixel to avoid going out of bounds.
@@ -217,7 +216,7 @@ mod math;
 mod octant;
 
 pub use clip::Clip;
-pub use math::Point;
+pub use math::{Delta, Point};
 
 pub use octant::AnyOctant;
 pub use octant::Octant;

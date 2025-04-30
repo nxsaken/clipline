@@ -89,7 +89,7 @@ mod iter {
 mod clip {
     use clipline::Clip;
 
-    const CLIP: Clip<i8> = Clip::<i8>::new((0, 0), (63, 47)).unwrap();
+    const CLIP: Clip<i8> = Clip::<i8>::from_min_max((0, 0), (63, 47)).unwrap();
 
     #[test]
     fn axis_0_correct() {

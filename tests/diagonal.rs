@@ -14,7 +14,7 @@ mod bounds {
             Diagonal0::<i8>::new((0, 0), (0, 0))
         );
         assert_eq!(
-            Clip::<i8>::new((-1, -1), (1, 1))
+            Clip::<i8>::from_min_max((-1, -1), (1, 1))
                 .unwrap()
                 .any_diagonal((0, 0), (0, 0))
                 .and_then(|me| me.try_into_diagonal()),

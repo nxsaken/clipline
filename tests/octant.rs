@@ -178,8 +178,8 @@ mod proptest {
                 clip in proptest::sample::select(&CLIPS),
                 ((p1, p2)): (Point<u8>, Point<u8>)
             ) {
-                let (_, w1, w2) = clip;
-                let clip = Clip::<u8>::new(w1, w2).unwrap();
+                let (_label, w1, w2) = clip;
+                let clip = Clip::<u8>::from_min_max(w1, w2).unwrap();
                 let clipped = clip.any_octant(p1, p2).into_iter().flatten();
                 let naive_clipped = AnyOctant::<u8>::new(p1, p2).filter(|&xy| clip.point(xy));
                 prop_assert!(clipped.eq(naive_clipped));
@@ -246,8 +246,8 @@ mod proptest {
                 clip in proptest::sample::select(&CLIPS),
                 ((p1, p2)): (Point<i8>, Point<i8>)
             ) {
-                let (_, w1, w2) = clip;
-                let clip = Clip::<i8>::new(w1, w2).unwrap();
+                let (_label, w1, w2) = clip;
+                let clip = Clip::<i8>::from_min_max(w1, w2).unwrap();
                 let clipped = clip.any_octant(p1, p2).into_iter().flatten();
                 let naive_clipped = AnyOctant::<i8>::new(p1, p2).filter(|&xy| clip.point(xy));
                 prop_assert!(clipped.eq(naive_clipped));
