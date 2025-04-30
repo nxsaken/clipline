@@ -1,9 +1,9 @@
 //! Conversions from and into axis-aligned iterators.
 
 use super::{AnyAxis, Axis, SignedAxis};
-use crate::macros::{f, v};
+use crate::macros::symmetry::{f, v};
 use crate::math::Num;
-use crate::AnyOctant;
+use crate::octant::AnyOctant;
 
 impl<const F: bool, const V: bool, T: Num> SignedAxis<F, V, T> {
     /// Transmutes the direction and orientation of this [`SignedAxis`].

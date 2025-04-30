@@ -1,8 +1,9 @@
 //! Conversions from and into diagonal iterators.
 
-use crate::macros::{fx, fy};
+use super::{AnyDiagonal, Diagonal};
+use crate::macros::symmetry::{fx, fy};
 use crate::math::Num;
-use crate::{AnyDiagonal, AnyOctant, Diagonal};
+use crate::octant::AnyOctant;
 
 impl<const FX: bool, const FY: bool, T: Num> Diagonal<FX, FY, T> {
     /// Transmutes the directions of this [`Diagonal`].

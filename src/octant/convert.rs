@@ -1,8 +1,10 @@
 //! Conversions from and into octant iterators.
 
-use crate::macros::{fx, fy, yx};
+use super::{AnyOctant, Octant};
+use crate::axis::{AnyAxis, Axis, SignedAxis};
+use crate::diagonal::{AnyDiagonal, Diagonal};
+use crate::macros::symmetry::{fx, fy, yx};
 use crate::math::Num;
-use crate::{AnyAxis, AnyDiagonal, AnyOctant, Axis, Diagonal, Octant, SignedAxis};
 
 impl<const FX: bool, const FY: bool, const YX: bool, T: Num> Octant<FX, FY, YX, T> {
     /// Transmutes the directions and orientation of this [`Octant`].

@@ -1,8 +1,9 @@
 //! ### Diagonal clipping
 
+use super::Diagonal;
 use crate::clip::Clip;
-use crate::diagonal::Diagonal;
-use crate::macros::{fx, fy, return_if};
+use crate::macros::control_flow::return_if;
+use crate::macros::symmetry::{fx, fy};
 use crate::math::{Delta, Math, Num, Point};
 
 const O: bool = false;

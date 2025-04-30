@@ -3,9 +3,9 @@
 //! This module provides the [`Clip`] type representing a rectangular clipping region,
 //! as well as methods for constructing iterators over clipped line segments of common types.
 
-use crate::axis_aligned::{AnyAxis, Axis0, Axis1};
+use crate::axis::{AnyAxis, Axis0, Axis1};
 use crate::diagonal::AnyDiagonal;
-use crate::macros::return_if;
+use crate::macros::control_flow::return_if;
 use crate::math::Point;
 use crate::octant::AnyOctant;
 

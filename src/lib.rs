@@ -202,7 +202,6 @@
 #![deny(missing_docs)]
 #![warn(clippy::nursery, clippy::cargo, clippy::pedantic)]
 #![allow(
-    clippy::wildcard_imports,
     clippy::module_name_repetitions,
     clippy::inline_always,
     clippy::similar_names,
@@ -210,7 +209,7 @@
     clippy::cast_lossless
 )]
 
-mod axis_aligned;
+mod axis;
 mod clip;
 mod diagonal;
 mod macros;
@@ -238,16 +237,16 @@ pub use diagonal::Diagonal1;
 pub use diagonal::Diagonal2;
 pub use diagonal::Diagonal3;
 
-pub use axis_aligned::AnyAxis;
-pub use axis_aligned::Axis;
-pub use axis_aligned::Axis0;
-pub use axis_aligned::Axis1;
-pub use axis_aligned::NegativeAxis;
-pub use axis_aligned::NegativeAxis0;
-pub use axis_aligned::NegativeAxis1;
-pub use axis_aligned::PositiveAxis;
-pub use axis_aligned::PositiveAxis0;
-pub use axis_aligned::PositiveAxis1;
-pub use axis_aligned::SignedAxis;
-pub use axis_aligned::SignedAxis0;
-pub use axis_aligned::SignedAxis1;
+pub use axis::AnyAxis;
+pub use axis::Axis;
+pub use axis::Axis0;
+pub use axis::Axis1;
+pub use axis::NegativeAxis;
+pub use axis::NegativeAxis0;
+pub use axis::NegativeAxis1;
+pub use axis::PositiveAxis;
+pub use axis::PositiveAxis0;
+pub use axis::PositiveAxis1;
+pub use axis::SignedAxis;
+pub use axis::SignedAxis0;
+pub use axis::SignedAxis1;

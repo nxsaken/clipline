@@ -2,7 +2,8 @@
 
 use super::Octant;
 use crate::clip::Clip;
-use crate::macros::{fx, fy, return_if, yx};
+use crate::macros::control_flow::return_if;
+use crate::macros::symmetry::{fx, fy, yx};
 use crate::math::{Delta, Delta2, Math, Num, Point};
 
 const O: bool = false;

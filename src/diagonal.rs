@@ -1,7 +1,9 @@
 //! ## Diagonal iterators
 
 use crate::clip::Clip;
-use crate::macros::*;
+use crate::macros::control_flow::{map, return_if, unwrap_or_return, variant};
+use crate::macros::derive::{all_nums, impl_fwd, impl_iter_fwd, impl_iter_rev, impl_rev};
+use crate::macros::symmetry::{fx, fy};
 use crate::math::{Math, Num, Point};
 
 mod clip;
@@ -119,12 +121,10 @@ macro_rules! diagonal_impl {
                     Some((self.x1, self.y1))
                 },
                 pop_head = {
-                    let Some((x, y)) = self.head() else {
-                        return None;
-                    };
+                    let (x1, y1) = unwrap_or_return!(self.head());
                     self.x1 = fx!(self.x1.wrapping_add(1), self.x1.wrapping_sub(1));
                     self.y1 = fy!(self.y1.wrapping_add(1), self.y1.wrapping_sub(1));
-                    Some((x, y))
+                    Some((x1, y1))
                 },
             );
 
@@ -139,11 +139,9 @@ macro_rules! diagonal_impl {
                     Some((x2, y2))
                 },
                 pop_tail = {
-                    let Some((x, y)) = self.tail() else {
-                        return None;
-                    };
-                    self.x2 = x;
-                    Some((x, y))
+                    let (x2, y2) = unwrap_or_return!(self.tail());
+                    self.x2 = x2;
+                    Some((x2, y2))
                 },
             );
         }

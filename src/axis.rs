@@ -1,7 +1,9 @@
 //! ## Axis-aligned iterators
 
 use crate::clip::Clip;
-use crate::macros::*;
+use crate::macros::control_flow::{map, return_if, unwrap_or_return, variant};
+use crate::macros::derive::{all_nums, impl_fwd, impl_iter_fwd, impl_iter_rev, impl_rev};
+use crate::macros::symmetry::{f, v};
 use crate::math::{Math, Num, Point};
 
 mod clip;
@@ -156,15 +158,13 @@ macro_rules! impl_signed_axis {
                 length = Math::<$T>::delta(f!(self.v2, self.v1), f!(self.v1, self.v2)),
                 head = {
                     return_if!(self.is_done());
-                    let (x, y) = v!((self.v1, self.u), (self.u, self.v1));
-                    Some((x, y))
+                    let (x1, y1) = v!((self.v1, self.u), (self.u, self.v1));
+                    Some((x1, y1))
                 },
                 pop_head = {
-                    let Some((x, y)) = self.head() else {
-                        return None;
-                    };
+                    let (x1, y1) = unwrap_or_return!(self.head());
                     self.v1 = f!(self.v1.wrapping_add(1), self.v1.wrapping_sub(1));
-                    Some((x, y))
+                    Some((x1, y1))
                 },
             );
 
@@ -174,15 +174,13 @@ macro_rules! impl_signed_axis {
                 tail = {
                     return_if!(self.is_done());
                     let v2 = f!(self.v2.wrapping_sub(1), self.v2.wrapping_add(1));
-                    let (x, y) = v!((v2, self.u), (self.u, v2));
-                    Some((x, y))
+                    let (x2, y2) = v!((v2, self.u), (self.u, v2));
+                    Some((x2, y2))
                 },
                 pop_tail = {
-                    let Some((x, y)) = self.tail() else {
-                        return None;
-                    };
-                    self.v2 = v!(x, y);
-                    Some((x, y))
+                    let (x2, y2) = unwrap_or_return!(self.tail());
+                    self.v2 = v!(x2, y2);
+                    Some((x2, y2))
                 },
             );
         }

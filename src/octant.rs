@@ -1,9 +1,12 @@
 //! ## Octant iterators
 
+use crate::axis::{Axis0, Axis1, NegativeAxis0, NegativeAxis1, PositiveAxis0, PositiveAxis1};
 use crate::clip::Clip;
-use crate::macros::*;
+use crate::diagonal::{quadrant, Diagonal0, Diagonal1, Diagonal2, Diagonal3};
+use crate::macros::control_flow::{map, return_if, unwrap_or_return, variant};
+use crate::macros::derive::{impl_fwd, impl_iter_fwd};
+use crate::macros::symmetry::{fx, fy, yx};
 use crate::math::{Delta, Math, Num, Point};
-use crate::{axis_aligned, diagonal};
 
 mod clip;
 mod convert;
@@ -140,9 +143,7 @@ macro_rules! impl_octant {
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Self> {
-                let Some(delta) = Self::covers((x1, y1), (x2, y2)) else {
-                    return None;
-                };
+                let delta = unwrap_or_return!(Self::covers((x1, y1), (x2, y2)));
                 Some(Self::new_inner((x1, y1), (x2, y2), delta))
             }
 
@@ -167,9 +168,7 @@ macro_rules! impl_octant {
                 return_if!(yx!(u2 <= wx1, u2 < wx1) || wx2 < u1);
                 let (v1, v2) = fy!((y1, y2), (y2, y1));
                 return_if!(yx!(v2 < wy1, v2 <= wy1) || wy2 < v1);
-                let Some(delta) = Self::covers((x1, y1), (x2, y2)) else {
-                    return None;
-                };
+                let delta = unwrap_or_return!(Self::covers((x1, y1), (x2, y2)));
                 Self::clip_inner((x1, y1), (x2, y2), delta, clip)
             }
 
@@ -195,9 +194,7 @@ macro_rules! impl_octant {
                     Some((self.x, self.y))
                 },
                 pop_head = {
-                    let Some((x, y)) = self.head() else {
-                        return None;
-                    };
+                    let (x1, y1) = unwrap_or_return!(self.head());
                     if 0 <= self.error {
                         yx!(
                             self.y = fy!(self.y.wrapping_add(1), self.y.wrapping_sub(1)),
@@ -210,7 +207,7 @@ macro_rules! impl_octant {
                         self.y = fy!(self.y.wrapping_add(1), self.y.wrapping_sub(1)),
                     );
                     self.error = self.error.wrapping_add_unsigned(yx!(self.dy, self.dx) as _);
-                    Some((x, y))
+                    Some((x1, y1))
                 },
             );
         }
@@ -267,37 +264,37 @@ impl_octant!(usize);
 /// the underlying iterator only once instead of on every call to [`Iterator::next`].
 #[derive(Clone, PartialEq, Eq)]
 pub enum AnyOctant<T: Num> {
-    /// Horizontal line segment at `0°`, see [`PositiveAxis0`](crate::PositiveAxis0).
-    PositiveAxis0(axis_aligned::PositiveAxis0<T>),
-    /// Vertical line segment at `90°`, see [`NegativeAxis0`](crate::NegativeAxis0).
-    NegativeAxis0(axis_aligned::NegativeAxis0<T>),
-    /// Horizontal line segment at `180°`, see [`PositiveAxis1`](crate::PositiveAxis1).
-    PositiveAxis1(axis_aligned::PositiveAxis1<T>),
-    /// Vertical line segment at `270°`, see [`NegativeAxis1`](crate::NegativeAxis1).
-    NegativeAxis1(axis_aligned::NegativeAxis1<T>),
-    /// Diagonal line segment at `45°`, see [`Diagonal0`](crate::Diagonal0).
-    Diagonal0(diagonal::Diagonal0<T>),
-    /// Diagonal line segment at `315°`, see [`Diagonal1`](crate::Diagonal1).
-    Diagonal1(diagonal::Diagonal1<T>),
-    /// Diagonal line segment at `135°`, see [`Diagonal2`](crate::Diagonal2).
-    Diagonal2(diagonal::Diagonal2<T>),
-    /// Diagonal line segment at `225°`, see [`Diagonal3`](crate::Diagonal3).
-    Diagonal3(diagonal::Diagonal3<T>),
-    /// Gently sloped line segment in `(0°, 45°)`, see [`Octant0`].
+    /// See [`PositiveAxis0`].
+    PositiveAxis0(PositiveAxis0<T>),
+    /// See [`NegativeAxis0`].
+    NegativeAxis0(NegativeAxis0<T>),
+    /// See [`PositiveAxis1`].
+    PositiveAxis1(PositiveAxis1<T>),
+    /// See [`NegativeAxis1`].
+    NegativeAxis1(NegativeAxis1<T>),
+    /// See [`Diagonal0`].
+    Diagonal0(Diagonal0<T>),
+    /// See [`Diagonal1`].
+    Diagonal1(Diagonal1<T>),
+    /// See[`Diagonal2`].
+    Diagonal2(Diagonal2<T>),
+    /// See [`Diagonal3`].
+    Diagonal3(Diagonal3<T>),
+    /// See [`Octant0`].
     Octant0(Octant0<T>),
-    /// Steeply sloped line segment in `(45°, 90°)`, see [`Octant1`].
+    /// See [`Octant1`].
     Octant1(Octant1<T>),
-    /// Gently sloped line segment in `(315°, 360°)`, see [`Octant2`].
+    /// See [`Octant2`].
     Octant2(Octant2<T>),
-    /// Steeply sloped line segment in `(270°, 315°)`, see [`Octant3`].
+    /// See [`Octant3`].
     Octant3(Octant3<T>),
-    /// Gently sloped line segment in `(135°, 180°)`, see [`Octant4`].
+    /// See [`Octant4`].
     Octant4(Octant4<T>),
-    /// Steeply sloped line segment in `(90°, 135°)`, see [`Octant5`].
+    /// See [`Octant5`].
     Octant5(Octant5<T>),
-    /// Gently sloped line segment in `(180°, 225°)`, see [`Octant6`].
+    /// See [`Octant6`].
     Octant6(Octant6<T>),
-    /// Steeply sloped line segment in `(225°, 270°)`, see [`Octant7`].
+    /// See [`Octant7`].
     Octant7(Octant7<T>),
 }
 
@@ -330,8 +327,6 @@ macro_rules! impl_any_octant {
             #[inline]
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Self {
-                use axis_aligned::{Axis0, Axis1};
-                use diagonal::{Diagonal0, Diagonal1, Diagonal2, Diagonal3};
                 if y1 == y2 {
                     return Axis0::<$T>::new(y1, x1, x2).into_any_octant();
                 }
@@ -348,7 +343,7 @@ macro_rules! impl_any_octant {
                         if dx < dy {
                              return octant!(Octant1, $T, (x1, y1), (x2, y2), (dx, dy));
                         }
-                        return diagonal::quadrant!(Diagonal0, $T, (x1, y1), x2);
+                        return quadrant!(Diagonal0, $T, (x1, y1), x2);
                     }
                     let dy = Math::<$T>::delta(y1, y2);
                     if dy < dx {
@@ -357,7 +352,7 @@ macro_rules! impl_any_octant {
                     if dx < dy {
                         return octant!(Octant3, $T, (x1, y1), (x2, y2), (dx, dy));
                     }
-                    return diagonal::quadrant!(Diagonal1, $T, (x1, y1), x2);
+                    return quadrant!(Diagonal1, $T, (x1, y1), x2);
                 }
                 let dx = Math::<$T>::delta(x1, x2);
                 if y1 < y2 {
@@ -368,7 +363,7 @@ macro_rules! impl_any_octant {
                     if dx < dy {
                         return octant!(Octant5, $T, (x1, y1), (x2, y2), (dx, dy));
                     }
-                    return diagonal::quadrant!(Diagonal2, $T, (x1, y1), x2);
+                    return quadrant!(Diagonal2, $T, (x1, y1), x2);
                 }
                 let dy = Math::<$T>::delta(y1, y2);
                 if dy < dx {
@@ -377,7 +372,7 @@ macro_rules! impl_any_octant {
                 if dx < dy {
                     return octant!(Octant7, $T, (x1, y1), (x2, y2), (dx, dy));
                 }
-                return diagonal::quadrant!(Diagonal3, $T, (x1, y1), x2);
+                return quadrant!(Diagonal3, $T, (x1, y1), x2);
             }
 
             /// Clips an arbitrary *half-open* line segment to a [rectangular region](Clip),
@@ -391,8 +386,6 @@ macro_rules! impl_any_octant {
                 (x2, y2): Point<$T>,
                 clip: &Clip<$T>,
             ) -> Option<Self> {
-                use axis_aligned::{Axis0, Axis1};
-                use diagonal::{Diagonal0, Diagonal1, Diagonal2, Diagonal3};
                 if y1 == y2 {
                     return map!(Axis0::<$T>::clip(y1, x1, x2, clip), Self::from_axis);
                 }
@@ -415,7 +408,7 @@ macro_rules! impl_any_octant {
                             return_if!(y2 == wy1);
                             return octant!(Octant1, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                         }
-                        return diagonal::quadrant!(Diagonal0, $T, (x1, y1), (x2, y2), clip);
+                        return quadrant!(Diagonal0, $T, (x1, y1), (x2, y2), clip);
                     }
                     return_if!(y1 < wy1 || wy2 < y2);
                     let dy = Math::<$T>::delta(y1, y2);
@@ -427,7 +420,7 @@ macro_rules! impl_any_octant {
                         return_if!(y2 == wy2);
                         return octant!(Octant3, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                     }
-                    return diagonal::quadrant!(Diagonal1, $T, (x1, y1), (x2, y2), clip);
+                    return quadrant!(Diagonal1, $T, (x1, y1), (x2, y2), clip);
                 }
                 return_if!(x1 < wx1 || wx2 < x2);
                 let dx = Math::<$T>::delta(x1, x2);
@@ -442,7 +435,7 @@ macro_rules! impl_any_octant {
                         return_if!(y2 == wy1);
                         return octant!(Octant5, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                     }
-                    return diagonal::quadrant!(Diagonal2, $T, (x1, y1), (x2, y2), clip);
+                    return quadrant!(Diagonal2, $T, (x1, y1), (x2, y2), clip);
                 }
                 return_if!(y1 < wy1 || wy2 < y2);
                 let dy = Math::<$T>::delta(y1, y2);
@@ -454,7 +447,7 @@ macro_rules! impl_any_octant {
                     return_if!(y2 == wy2);
                     return octant!(Octant7, $T, (x1, y1), (x2, y2), (dx, dy), clip);
                 }
-                return diagonal::quadrant!(Diagonal3, $T, (x1, y1), (x2, y2), clip);
+                return quadrant!(Diagonal3, $T, (x1, y1), (x2, y2), clip);
             }
 
             impl_fwd!(

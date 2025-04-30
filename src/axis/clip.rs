@@ -2,7 +2,8 @@
 
 use super::SignedAxis;
 use crate::clip::Clip;
-use crate::macros::{f, return_if, v};
+use crate::macros::control_flow::return_if;
+use crate::macros::symmetry::{f, v};
 
 macro_rules! clip_impl {
     ($T:ty) => {
