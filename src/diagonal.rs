@@ -85,8 +85,8 @@ macro_rules! diagonal_impl {
             const fn covers((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> bool {
                 return_if!(fx!(x2 < x1, x1 <= x2), false);
                 return_if!(fy!(y2 < y1, y1 <= y2), false);
-                let du = Math::<$T>::delta(fx!(x2, x1), fx!(x1, x2));
-                let dv = Math::<$T>::delta(fy!(y2, y1), fy!(y1, y2));
+                let du = Math::<$T>::sub_tt(fx!(x2, x1), fx!(x1, x2));
+                let dv = Math::<$T>::sub_tt(fy!(y2, y1), fy!(y1, y2));
                 du == dv
             }
 
@@ -126,7 +126,7 @@ macro_rules! diagonal_impl {
                 self,
                 $T,
                 is_done = fx!(self.x2 <= self.x1, self.x1 <= self.x2),
-                length = Math::<$T>::delta(fx!(self.x2, self.x1), fx!(self.x1, self.x2)),
+                length = Math::<$T>::sub_tt(fx!(self.x2, self.x1), fx!(self.x1, self.x2)),
                 head = {
                     return_if!(self.is_done());
                     Some((self.x1, self.y1))
@@ -145,8 +145,8 @@ macro_rules! diagonal_impl {
                 tail = {
                     return_if!(self.is_done());
                     let x2 = fx!(self.x2.wrapping_sub(1), self.x2.wrapping_add(1));
-                    let dx = Math::<$T>::delta(fx!(x2, self.x1), fx!(self.x1, x2));
-                    let y2 = fy!(Math::<$T>::add_delta(self.y1, dx), Math::<$T>::sub_delta(self.y1, dx));
+                    let dx = Math::<$T>::sub_tt(fx!(x2, self.x1), fx!(self.x1, x2));
+                    let y2 = fy!(Math::<$T>::add_tu(self.y1, dx), Math::<$T>::sub_tu(self.y1, dx));
                     Some((x2, y2))
                 },
                 pop_tail = {
@@ -232,23 +232,23 @@ macro_rules! impl_any_diagonal {
             #[must_use]
             pub const fn new((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Self> {
                 if x1 <= x2 {
-                    let dx = Math::<$T>::delta(x2, x1);
+                    let dx = Math::<$T>::sub_tt(x2, x1);
                     if y1 <= y2 {
-                        let dy = Math::<$T>::delta(y2, y1);
+                        let dy = Math::<$T>::sub_tt(y2, y1);
                         return_if!(dx != dy);
                         return Some(quadrant!(Diagonal0, $T, (x1, y1), x2));
                     }
-                    let dy = Math::<$T>::delta(y1, y2);
+                    let dy = Math::<$T>::sub_tt(y1, y2);
                     return_if!(dx != dy);
                     return Some(quadrant!(Diagonal1, $T, (x1, y1), x2));
                 }
-                let dx = Math::<$T>::delta(x1, x2);
+                let dx = Math::<$T>::sub_tt(x1, x2);
                 if y1 <= y2 {
-                    let dy = Math::<$T>::delta(y2, y1);
+                    let dy = Math::<$T>::sub_tt(y2, y1);
                     return_if!(dx != dy);
                     return Some(quadrant!(Diagonal2, $T, (x1, y1), x2));
                 }
-                let dy = Math::<$T>::delta(y1, y2);
+                let dy = Math::<$T>::sub_tt(y1, y2);
                 return_if!(dx != dy);
                 return Some(quadrant!(Diagonal3, $T, (x1, y1), x2));
             }
@@ -269,28 +269,28 @@ macro_rules! impl_any_diagonal {
                 if x1 <= x2 {
                     // TODO: strict comparison for closed line segments
                     return_if!(x2 <= wx1 || wx2 < x1);
-                    let dx = Math::<$T>::delta(x2, x1);
+                    let dx = Math::<$T>::sub_tt(x2, x1);
                     if y1 <= y2 {
                         return_if!(y2 <= wy1 || wy2 < y1);
-                        let dy = Math::<$T>::delta(y2, y1);
+                        let dy = Math::<$T>::sub_tt(y2, y1);
                         return_if!(dx != dy);
                         return quadrant!(Diagonal0, $T, (x1, y1), (x2, y2), clip);
                     }
                     return_if!(y1 < wy1 || wy2 <= y2);
-                    let dy = Math::<$T>::delta(y1, y2);
+                    let dy = Math::<$T>::sub_tt(y1, y2);
                     return_if!(dx != dy);
                     return quadrant!(Diagonal1, $T, (x1, y1), (x2, y2), clip);
                 }
                 return_if!(x1 < wx1 || wx2 <= x2);
-                let dx = Math::<$T>::delta(x1, x2);
+                let dx = Math::<$T>::sub_tt(x1, x2);
                 if y1 <= y2 {
                     return_if!(y2 <= wy1 || wy2 < y1);
-                    let dy = Math::<$T>::delta(y2, y1);
+                    let dy = Math::<$T>::sub_tt(y2, y1);
                     return_if!(dx != dy);
                     return quadrant!(Diagonal2, $T, (x1, y1), (x2, y2), clip);
                 }
                 return_if!(y1 < wy1 || wy2 <= y2);
-                let dy = Math::<$T>::delta(y1, y2);
+                let dy = Math::<$T>::sub_tt(y1, y2);
                 return_if!(dx != dy);
                 return quadrant!(Diagonal3, $T, (x1, y1), (x2, y2), clip);
             }

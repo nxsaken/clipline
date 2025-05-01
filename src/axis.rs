@@ -155,7 +155,7 @@ macro_rules! impl_signed_axis {
                 self,
                 $T,
                 is_done = f!(self.v2 <= self.v1, self.v1 <= self.v2),
-                length = Math::<$T>::delta(f!(self.v2, self.v1), f!(self.v1, self.v2)),
+                length = Math::<$T>::sub_tt(f!(self.v2, self.v1), f!(self.v1, self.v2)),
                 head = {
                     return_if!(self.is_done());
                     let (x1, y1) = v!((self.v1, self.u), (self.u, self.v1));

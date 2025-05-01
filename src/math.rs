@@ -65,94 +65,70 @@ impl_num!(isize, i128, usize, u128);
 pub struct Math<T>(T);
 
 macro_rules! impl_math_base {
-    ($T:ty) => {
+    (i; $($T:ty),+ $(,)?) => {
+        $(impl_math_base!($T; wrapping_add_unsigned, wrapping_sub_unsigned);)+
+    };
+    (u; $($T:ty),+ $(,)?) => {
+        $(impl_math_base!($T; wrapping_add, wrapping_sub);)+
+    };
+    ($T:ty; $add:ident, $sub:ident) => {
         impl Math<$T> {
-            /// Subtracts two signed integers, returning the unsigned difference.
+            /// Subtracts two integers, returning the unsigned difference.
             ///
-            /// *`min` must be less or equal to `max`.*
+            /// Requirement: `min <= max`.
             #[inline(always)]
-            pub const fn delta(max: $T, min: $T) -> <$T as Num>::U {
+            #[allow(clippy::cast_sign_loss)]
+            pub const fn sub_tt(max: $T, min: $T) -> <$T as Num>::U {
                 debug_assert!(min <= max);
-                #[allow(clippy::cast_sign_loss)]
                 <$T as Num>::U::wrapping_sub(max as _, min as _)
             }
 
-            /// Adds an unsigned offset to a value of type `$T`, wrapping on overflow.
-            ///
-            /// This reinterprets the two’s-complement bits of `value` as `<$T as Num>::U`,
-            /// does the addition modulo 2ⁿ, then casts back to `$T`.
+            /// Adds an unsigned offset to an integer.
             #[inline(always)]
-            pub const fn add_delta(value: $T, delta: <$T as Num>::U) -> $T {
-                // reinterpret value’s bits as unsigned
-                #[allow(clippy::cast_sign_loss)]
-                let value: <$T as Num>::U = value as _;
-                // sanity-check: we only allow `bits + delta <= U::MAX`, so no real wrap occurs
-                debug_assert!(
-                    value <= <$T as Num>::U::MAX.wrapping_sub(delta),
-                    "overflow in add_delta"
-                );
-                // perform the addition mod 2ⁿ (but we know it won't actually wrap)
-                #[allow(clippy::cast_possible_wrap)]
-                let value = value.wrapping_add(delta) as _;
-                value
+            #[allow(clippy::cast_sign_loss)]
+            pub const fn add_tu(value: $T, delta: <$T as Num>::U) -> $T {
+                value.$add(delta)
             }
 
-            /// Subtracts an unsigned offset from a value of type `$T`, wrapping on underflow.
+            /// Subtracts an unsigned offset from an integer.
             ///
-            /// This reinterprets the two’s-complement bits of `val` as `<$T as Num>::U`,
-            /// does the subtraction modulo 2ⁿ, then casts back to `$T`.
+            /// Requirement: `delta <= value`.
             #[inline(always)]
-            pub const fn sub_delta(value: $T, delta: <$T as Num>::U) -> $T {
-                // reinterpret val’s bits as an unsigned
-                #[allow(clippy::cast_sign_loss)]
-                let value = value as <$T as Num>::U;
-                // sanity‐check: we only allow `bits >= off`, so no real wrap occurs
-                debug_assert!(value >= delta, "underflow in sub_delta");
-                // subtract the offset mod 2ⁿ
-                #[allow(clippy::cast_possible_wrap)]
-                let value = value.wrapping_sub(delta) as _;
-                // cast the two’s-complement result back to signed
-                value
+            #[allow(clippy::cast_sign_loss)]
+            pub const fn sub_tu(value: $T, delta: <$T as Num>::U) -> $T {
+                value.$sub(delta)
             }
         }
     };
 }
 
-impl_math_base!(i8);
-impl_math_base!(u8);
-impl_math_base!(i16);
-impl_math_base!(u16);
-impl_math_base!(i32);
-impl_math_base!(u32);
-impl_math_base!(i64);
-impl_math_base!(u64);
-impl_math_base!(isize);
-impl_math_base!(usize);
+impl_math_base!(i; i8, i16, i32, i64, isize);
+impl_math_base!(u; u8, u16, u32, u64, usize);
 
 macro_rules! impl_math_extended {
     ($T:ty) => {
         impl Math<$T> {
             /// Subtracts two unsigned integers, returning the wide signed difference.
             #[inline(always)]
-            pub const fn error(a: <$T as Num>::U, b: <$T as Num>::U) -> <$T as Num>::I2 {
+            pub const fn sub_uu(a: <$T as Num>::U, b: <$T as Num>::U) -> <$T as Num>::I2 {
                 <$T as Num>::I2::wrapping_sub(a as _, b as _)
             }
 
             /// Multiplies two narrow unsigned integers, widening the result.
             #[inline(always)]
-            pub const fn wide_mul(a: <$T as Num>::U, b: <$T as Num>::U) -> <$T as Num>::U2 {
+            pub const fn mul_uu(a: <$T as Num>::U, b: <$T as Num>::U) -> <$T as Num>::U2 {
                 <$T as Num>::U2::wrapping_mul(a as _, b as _)
             }
 
-            /// Doubles a narrow unsigned integer, widening the result.
+            /// Multiplies an unsigned integer by 2, widening the result.
             #[inline(always)]
-            pub const fn double(a: <$T as Num>::U) -> <$T as Num>::U2 {
+            pub const fn mul_2u(a: <$T as Num>::U) -> <$T as Num>::U2 {
                 <$T as Num>::U2::wrapping_shl(a as _, 1)
             }
 
             /// Divides an unsigned integer by 2 and returns the quotient with the remainder.
             #[inline(always)]
-            pub const fn half(a: <$T as Num>::U) -> (<$T as Num>::U, <$T as Num>::U) {
+            pub const fn div_2u(a: <$T as Num>::U) -> (<$T as Num>::U, <$T as Num>::U) {
                 (a.wrapping_shr(1), a & 1)
             }
 
@@ -162,7 +138,7 @@ macro_rules! impl_math_extended {
             /// ### Safety
             /// The divisor must be non-zero, and the quotient must fit into the narrow type.
             #[inline(always)]
-            pub const unsafe fn div_rem(
+            pub const unsafe fn div_u2u(
                 a: <$T as Num>::U2,
                 b: <$T as Num>::U,
             ) -> (<$T as Num>::U, <$T as Num>::U) {

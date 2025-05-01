@@ -28,8 +28,8 @@ const UV_ENTRY_V_EXIT: LineCode = (I, I, O, I);
 const UV_ENTRY_U_EXIT: LineCode = (I, I, I, O);
 const UV_ENTRY_UV_EXIT: LineCode = (I, I, I, I);
 
-macro_rules! clip_impl {
-    ($T:ty, $add:ident, $sub:ident) => {
+macro_rules! impl_clip {
+    ($T:ty) => {
         #[expect(non_snake_case)]
         impl<const FX: bool, const FY: bool, const YX: bool> Octant<FX, FY, YX, $T> {
             #[inline(always)]
@@ -64,10 +64,10 @@ macro_rules! clip_impl {
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
                 let Du1 = yx!(
-                    fx!(Math::<$T>::delta(wx1, u1), Math::<$T>::delta(u1, wx2)),
-                    fy!(Math::<$T>::delta(wy1, u1), Math::<$T>::delta(u1, wy2)),
+                    fx!(Math::<$T>::sub_tt(wx1, u1), Math::<$T>::sub_tt(u1, wx2)),
+                    fy!(Math::<$T>::sub_tt(wy1, u1), Math::<$T>::sub_tt(u1, wy2)),
                 );
-                Math::<$T>::wide_mul(Du1, dv)
+                Math::<$T>::mul_uu(Du1, dv)
             }
 
             #[inline(always)]
@@ -78,10 +78,10 @@ macro_rules! clip_impl {
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
                 let Du2 = yx!(
-                    fx!(Math::<$T>::delta(wx2, u1), Math::<$T>::delta(u1, wx1)),
-                    fy!(Math::<$T>::delta(wy2, u1), Math::<$T>::delta(u1, wy1)),
+                    fx!(Math::<$T>::sub_tt(wx2, u1), Math::<$T>::sub_tt(u1, wx1)),
+                    fy!(Math::<$T>::sub_tt(wy2, u1), Math::<$T>::sub_tt(u1, wy1)),
                 );
-                Math::<$T>::wide_mul(Du2, dv)
+                Math::<$T>::mul_uu(Du2, dv)
             }
 
             #[inline(always)]
@@ -93,10 +93,10 @@ macro_rules! clip_impl {
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
                 let Dv1 = yx!(
-                    fy!(Math::<$T>::delta(wy1, v1), Math::<$T>::delta(v1, wy2)),
-                    fx!(Math::<$T>::delta(wx1, v1), Math::<$T>::delta(v1, wx2)),
+                    fy!(Math::<$T>::sub_tt(wy1, v1), Math::<$T>::sub_tt(v1, wy2)),
+                    fx!(Math::<$T>::sub_tt(wx1, v1), Math::<$T>::sub_tt(v1, wx2)),
                 );
-                Math::<$T>::wide_mul(Dv1, du).wrapping_sub(half_du as _)
+                Math::<$T>::mul_uu(Dv1, du).wrapping_sub(half_du as _)
             }
 
             #[inline(always)]
@@ -108,10 +108,10 @@ macro_rules! clip_impl {
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
                 let Dv2 = yx!(
-                    fy!(Math::<$T>::delta(wy2, v1), Math::<$T>::delta(v1, wy1)),
-                    fx!(Math::<$T>::delta(wx2, v1), Math::<$T>::delta(v1, wx1)),
+                    fy!(Math::<$T>::sub_tt(wy2, v1), Math::<$T>::sub_tt(v1, wy1)),
+                    fx!(Math::<$T>::sub_tt(wx2, v1), Math::<$T>::sub_tt(v1, wx1)),
                 );
-                Math::<$T>::wide_mul(Dv2, du).wrapping_add(half_du as _)
+                Math::<$T>::mul_uu(Dv2, du).wrapping_add(half_du as _)
             }
 
             #[inline(always)]
@@ -123,17 +123,20 @@ macro_rules! clip_impl {
                 mut error: <$T as Num>::I2,
             ) -> ($T, <$T as Num>::I2) {
                 // SAFETY: the line segment is slanted and non-empty, thus dv != 0.
-                let (mut q, r) = unsafe { Math::<$T>::div_rem(tv1, dv) };
-                error = error.wrapping_sub(half_du as _).$sub(r as _);
+                let (mut q, r) = unsafe { Math::<$T>::div_u2u(tv1, dv) };
+                error = error.wrapping_sub_unsigned(half_du as _).wrapping_sub_unsigned(r as _);
                 #[allow(unused_comparisons)]
                 if 0 < r {
                     q = yx!(
                         fx!(q.wrapping_add(1), q.wrapping_add(1)),
                         fy!(q.wrapping_add(1), q.wrapping_add(1))
                     );
-                    error = error.$add(dv as _);
+                    error = error.wrapping_add_unsigned(dv as _);
                 };
-                let cu1 = yx!(fx!(u1.$add(q), u1.$sub(q)), fy!(u1.$add(q), u1.$sub(q)),);
+                let cu1 = yx!(
+                    fx!(Math::<$T>::add_tu(u1, q), Math::<$T>::sub_tu(u1, q)),
+                    fy!(Math::<$T>::add_tu(u1, q), Math::<$T>::sub_tu(u1, q)),
+                );
                 (cu1, error)
             }
 
@@ -146,17 +149,20 @@ macro_rules! clip_impl {
                 mut error: <$T as Num>::I2,
             ) -> ($T, <$T as Num>::I2) {
                 // SAFETY: the line segment is slanted and non-empty, thus dv != 0.
-                let (mut q, r) = unsafe { Math::<$T>::div_rem(tu1, du) };
-                error = error.$add(r as _);
+                let (mut q, r) = unsafe { Math::<$T>::div_u2u(tu1, du) };
+                error = error.wrapping_add_unsigned(r as _);
                 if {
                     let du = du as <$T as Num>::U2;
-                    let r2 = Math::<$T>::double(r);
+                    let r2 = Math::<$T>::mul_2u(r);
                     du <= r2
                 } {
                     q = q.wrapping_add(1);
-                    error = error.$sub(du as _);
+                    error = error.wrapping_sub_unsigned(du as _);
                 };
-                let cv1 = yx!(fy!(v1.$add(q), v1.$sub(q)), fx!(v1.$add(q), v1.$sub(q)),);
+                let cv1 = yx!(
+                    fy!(Math::<$T>::add_tu(v1, q), Math::<$T>::sub_tu(v1, q)),
+                    fx!(Math::<$T>::add_tu(v1, q), Math::<$T>::sub_tu(v1, q)),
+                );
                 (cv1, error)
             }
 
@@ -226,14 +232,20 @@ macro_rules! clip_impl {
                 r0: <$T as Num>::U,
             ) -> $T {
                 // SAFETY: the line segment is slanted and non-empty, thus dv != 0.
-                let (mut q, r) = unsafe { Math::<$T>::div_rem(tv2, dv) };
+                let (mut q, r) = unsafe { Math::<$T>::div_u2u(tv2, dv) };
                 if r == 0 && r0 == 0 {
                     q = q.wrapping_sub(1);
                 }
                 // it is overflow-safe to add/sub 1 because of the exit condition
                 yx!(
-                    fx!(u1.$add(q).wrapping_add(1), u1.$sub(q).wrapping_sub(1)),
-                    fy!(u1.$add(q).wrapping_add(1), u1.$sub(q).wrapping_sub(1)),
+                    fx!(
+                        Math::<$T>::add_tu(u1, q).wrapping_add(1),
+                        Math::<$T>::sub_tu(u1, q).wrapping_sub(1),
+                    ),
+                    fy!(
+                        Math::<$T>::add_tu(u1, q).wrapping_add(1),
+                        Math::<$T>::sub_tu(u1, q).wrapping_sub(1),
+                    ),
                 )
             }
 
@@ -265,8 +277,8 @@ macro_rules! clip_impl {
                 let (u1, v1) = yx!((x1, y1), (y1, x1));
                 let (u2, v2) = yx!((x2, y2), (y2, x2));
                 let (du, dv) = yx!((dx, dy), (dy, dx));
-                let (half_du, r0) = Math::<$T>::half(du);
-                let error = Math::<$T>::error(dv, half_du.wrapping_add(r0)); // FIXME: check this
+                let (half_du, r0) = Math::<$T>::div_2u(du);
+                let error = Math::<$T>::sub_uu(dv, half_du.wrapping_add(r0)); // FIXME: check this
                 let (((cu1, cv1), error), end) = match (
                     Self::enters_u(u1, clip),
                     Self::enters_v(v1, clip),
@@ -378,21 +390,21 @@ macro_rules! clip_impl {
     };
 }
 
-clip_impl!(i8, wrapping_add_unsigned, wrapping_sub_unsigned);
-clip_impl!(u8, wrapping_add, wrapping_sub);
-clip_impl!(i16, wrapping_add_unsigned, wrapping_sub_unsigned);
-clip_impl!(u16, wrapping_add, wrapping_sub);
-clip_impl!(i32, wrapping_add_unsigned, wrapping_sub_unsigned);
-clip_impl!(u32, wrapping_add, wrapping_sub);
+impl_clip!(i8);
+impl_clip!(u8);
+impl_clip!(i16);
+impl_clip!(u16);
+impl_clip!(i32);
+impl_clip!(u32);
 #[cfg(feature = "octant_64")]
-clip_impl!(i64, wrapping_add_unsigned, wrapping_sub_unsigned);
+impl_clip!(i64);
 #[cfg(feature = "octant_64")]
-clip_impl!(u64, wrapping_add, wrapping_sub);
+impl_clip!(u64);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-clip_impl!(isize, wrapping_add_unsigned, wrapping_sub_unsigned);
+impl_clip!(isize);
 #[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-clip_impl!(usize, wrapping_add, wrapping_sub);
+impl_clip!(usize);
 #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-clip_impl!(isize, wrapping_add_unsigned, wrapping_sub_unsigned);
+impl_clip!(isize);
 #[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-clip_impl!(usize, wrapping_add, wrapping_sub);
+impl_clip!(usize);

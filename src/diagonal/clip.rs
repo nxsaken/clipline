@@ -59,25 +59,25 @@ macro_rules! clip_impl {
             #[inline(always)]
             #[must_use]
             const fn Dx1(x1: $T, &Clip { wx1, wx2, .. }: &Clip<$T>) -> <$T as Num>::U {
-                fx!(Math::<$T>::delta(wx1, x1), Math::<$T>::delta(x1, wx2))
+                fx!(Math::<$T>::sub_tt(wx1, x1), Math::<$T>::sub_tt(x1, wx2))
             }
 
             #[inline(always)]
             #[must_use]
             const fn Dx2(x1: $T, &Clip { wx1, wx2, .. }: &Clip<$T>) -> <$T as Num>::U {
-                fx!(Math::<$T>::delta(wx2, x1), Math::<$T>::delta(x1, wx1))
+                fx!(Math::<$T>::sub_tt(wx2, x1), Math::<$T>::sub_tt(x1, wx1))
             }
 
             #[inline(always)]
             #[must_use]
             const fn Dy1(y1: $T, &Clip { wy1, wy2, .. }: &Clip<$T>) -> <$T as Num>::U {
-                fy!(Math::<$T>::delta(wy1, y1), Math::<$T>::delta(y1, wy2))
+                fy!(Math::<$T>::sub_tt(wy1, y1), Math::<$T>::sub_tt(y1, wy2))
             }
 
             #[inline(always)]
             #[must_use]
             const fn Dy2(y1: $T, &Clip { wy1, wy2, .. }: &Clip<$T>) -> <$T as Num>::U {
-                fy!(Math::<$T>::delta(wy2, y1), Math::<$T>::delta(y1, wy1))
+                fy!(Math::<$T>::sub_tt(wy2, y1), Math::<$T>::sub_tt(y1, wy1))
             }
 
             #[inline(always)]
