@@ -4,7 +4,7 @@ use crate::axis::{Axis0, Axis1, NegativeAxis0, NegativeAxis1, PositiveAxis0, Pos
 use crate::clip::Clip;
 use crate::diagonal::{quadrant, Diagonal0, Diagonal1, Diagonal2, Diagonal3};
 use crate::macros::control_flow::{map, return_if, unwrap_or_return, variant};
-use crate::macros::derive::{impl_fwd, impl_iter_fwd};
+use crate::macros::derive::{fwd, iter_esi, iter_fwd, nums};
 use crate::macros::symmetry::{fx, fy, yx};
 use crate::math::{Delta, Math, Num, Point};
 
@@ -116,7 +116,7 @@ impl<const FX: bool, const FY: bool, const YX: bool, T: Num> core::fmt::Debug
 }
 
 macro_rules! impl_octant {
-    ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
+    ($T:ty, cfg_size = $cfg_size:meta) => {
         impl<const FX: bool, const FY: bool, const YX: bool> Octant<FX, FY, YX, $T> {
             #[inline(always)]
             #[must_use]
@@ -174,7 +174,7 @@ macro_rules! impl_octant {
                 Self::clip_inner((x1, y1), (x2, y2), delta, clip)
             }
 
-            impl_fwd!(
+            fwd!(
                 self,
                 $T,
                 is_done = {
@@ -214,7 +214,7 @@ macro_rules! impl_octant {
             );
         }
 
-        impl_iter_fwd!(
+        iter_fwd!(
             Octant<const FX, const FY, const YX, $T>,
             self,
             next = self.pop_head(),
@@ -224,30 +224,18 @@ macro_rules! impl_octant {
                     Err(_) => (usize::MAX, None),
                 }
             },
-            is_empty = self.is_done()
-            $(, cfg_esi = $cfg_esi)?
+        );
+
+        #[$cfg_size]
+        iter_esi!(
+            Octant<const FX, const FY, const YX, $T>,
+            self,
+            is_empty = self.is_done(),
         );
     };
 }
 
-impl_octant!(i8);
-impl_octant!(u8);
-impl_octant!(i16);
-impl_octant!(u16);
-impl_octant!(i32, cfg_esi = cfg(any(target_pointer_width = "32", target_pointer_width = "64")));
-impl_octant!(u32, cfg_esi = cfg(any(target_pointer_width = "32", target_pointer_width = "64")));
-#[cfg(feature = "octant_64")]
-impl_octant!(i64, cfg_esi = cfg(target_pointer_width = "64"));
-#[cfg(feature = "octant_64")]
-impl_octant!(u64, cfg_esi = cfg(target_pointer_width = "64"));
-#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-impl_octant!(isize);
-#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-impl_octant!(usize);
-#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-impl_octant!(isize);
-#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-impl_octant!(usize);
+nums!(impl_octant, cfg_size, cfg_octant_64);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Arbitrary iterator
@@ -320,7 +308,7 @@ macro_rules! octant {
 }
 
 macro_rules! impl_any_octant {
-    ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
+    ($T:ty, cfg_size = $cfg_size:meta) => {
         impl AnyOctant<$T> {
             /// Constructs an [`AnyOctant`] over a half-open line segment.
             #[inline]
@@ -449,7 +437,7 @@ macro_rules! impl_any_octant {
                 return quadrant!(Diagonal3, $T, (x1, y1), (x2, y2), clip);
             }
 
-            impl_fwd!(
+            fwd!(
                 $T,
                 Self::{
                     PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1,
@@ -459,35 +447,26 @@ macro_rules! impl_any_octant {
             );
         }
 
-        impl_iter_fwd!(
+        iter_fwd!(
             AnyOctant<$T>::{
                 PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1,
                 Diagonal0, Diagonal1, Diagonal2, Diagonal3,
                 Octant0, Octant1, Octant2, Octant3, Octant4, Octant5, Octant6, Octant7,
-            }
-            $(, cfg_esi = $cfg_esi)?
+            },
+        );
+
+        #[$cfg_size]
+        iter_esi!(
+            AnyOctant<$T>::{
+                PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1,
+                Diagonal0, Diagonal1, Diagonal2, Diagonal3,
+                Octant0, Octant1, Octant2, Octant3, Octant4, Octant5, Octant6, Octant7,
+            },
         );
     };
 }
 
-impl_any_octant!(i8);
-impl_any_octant!(u8);
-impl_any_octant!(i16);
-impl_any_octant!(u16);
-impl_any_octant!(i32, cfg_esi = cfg(any(target_pointer_width = "32", target_pointer_width = "64")));
-impl_any_octant!(u32, cfg_esi = cfg(any(target_pointer_width = "32", target_pointer_width = "64")));
-#[cfg(feature = "octant_64")]
-impl_any_octant!(i64, cfg_esi = cfg(target_pointer_width = "64"));
-#[cfg(feature = "octant_64")]
-impl_any_octant!(u64, cfg_esi = cfg(target_pointer_width = "64"));
-#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-impl_any_octant!(isize);
-#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-impl_any_octant!(usize);
-#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-impl_any_octant!(isize);
-#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-impl_any_octant!(usize);
+nums!(impl_any_octant, cfg_size, cfg_octant_64);
 
 #[cfg(test)]
 mod static_tests {

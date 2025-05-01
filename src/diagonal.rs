@@ -2,7 +2,7 @@
 
 use crate::clip::Clip;
 use crate::macros::control_flow::{map, return_if, unwrap_or_return, variant};
-use crate::macros::derive::{all_nums, impl_fwd, impl_iter_fwd, impl_iter_rev, impl_rev};
+use crate::macros::derive::{fwd, iter_esi, iter_fwd, iter_rev, nums, rev};
 use crate::macros::symmetry::{fx, fy};
 use crate::math::{Math, Num, Point};
 
@@ -71,8 +71,8 @@ impl<const FX: bool, const FY: bool, T: Num> core::fmt::Debug for Diagonal<FX, F
     }
 }
 
-macro_rules! diagonal_impl {
-    ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
+macro_rules! impl_diagonal {
+    ($T:ty, cfg_size = $cfg_size:meta) => {
         impl<const FX: bool, const FY: bool> Diagonal<FX, FY, $T> {
             #[inline(always)]
             #[must_use]
@@ -122,7 +122,7 @@ macro_rules! diagonal_impl {
                 Self::clip_inner((x1, y1), (x2, y2), clip)
             }
 
-            impl_fwd!(
+            fwd!(
                 self,
                 $T,
                 is_done = fx!(self.x2 <= self.x1, self.x1 <= self.x2),
@@ -139,7 +139,7 @@ macro_rules! diagonal_impl {
                 },
             );
 
-            impl_rev!(
+            rev!(
                 self,
                 $T,
                 tail = {
@@ -157,7 +157,7 @@ macro_rules! diagonal_impl {
             );
         }
 
-        impl_iter_fwd!(
+        iter_fwd!(
             Diagonal<const FX, const FY, $T>,
             self,
             next = self.pop_head(),
@@ -167,11 +167,16 @@ macro_rules! diagonal_impl {
                     Err(_) => (usize::MAX, None),
                 }
             },
-            is_empty = self.is_done()
-            $(, cfg_esi = $cfg_esi)?
         );
 
-        impl_iter_rev!(
+        #[$cfg_size]
+        iter_esi!(
+            Diagonal<const FX, const FY, $T>,
+            self,
+            is_empty = self.is_done(),
+        );
+
+        iter_rev!(
             Diagonal<const FX, const FY, $T>,
             self,
             next_back = self.pop_tail(),
@@ -179,7 +184,7 @@ macro_rules! diagonal_impl {
     };
 }
 
-all_nums!(diagonal_impl);
+nums!(impl_diagonal, cfg_size);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Arbitrary diagonal iterator
@@ -223,7 +228,7 @@ macro_rules! quadrant {
 pub(crate) use quadrant;
 
 macro_rules! impl_any_diagonal {
-    ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
+    ($T:ty, cfg_size = $cfg_size:meta) => {
         impl AnyDiagonal<$T> {
             /// Constructs an [`AnyDiagonal`] over a half-open line segment.
             ///
@@ -295,16 +300,18 @@ macro_rules! impl_any_diagonal {
                 return quadrant!(Diagonal3, $T, (x1, y1), (x2, y2), clip);
             }
 
-            impl_fwd!($T, Self::{Diagonal0, Diagonal1, Diagonal2, Diagonal3});
-            impl_rev!($T, Self::{Diagonal0, Diagonal1, Diagonal2, Diagonal3});
+            fwd!($T, Self::{Diagonal0, Diagonal1, Diagonal2, Diagonal3});
+            rev!($T, Self::{Diagonal0, Diagonal1, Diagonal2, Diagonal3});
         }
 
-        impl_iter_fwd!(AnyDiagonal<$T>::{Diagonal0, Diagonal1, Diagonal2, Diagonal3} $(, cfg_esi = $cfg_esi)?);
-        impl_iter_rev!(AnyDiagonal<$T>::{Diagonal0, Diagonal1, Diagonal2, Diagonal3});
+        iter_fwd!(AnyDiagonal<$T>::{Diagonal0, Diagonal1, Diagonal2, Diagonal3});
+        #[$cfg_size]
+        iter_esi!(AnyDiagonal<$T>::{Diagonal0, Diagonal1, Diagonal2, Diagonal3});
+        iter_rev!(AnyDiagonal<$T>::{Diagonal0, Diagonal1, Diagonal2, Diagonal3});
     };
 }
 
-all_nums!(impl_any_diagonal);
+nums!(impl_any_diagonal, cfg_size);
 
 #[cfg(test)]
 mod static_tests {

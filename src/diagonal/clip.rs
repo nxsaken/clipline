@@ -3,6 +3,7 @@
 use super::Diagonal;
 use crate::clip::Clip;
 use crate::macros::control_flow::return_if;
+use crate::macros::derive::nums;
 use crate::macros::symmetry::{fx, fy};
 use crate::math::{Delta, Math, Num, Point};
 
@@ -28,8 +29,8 @@ const XY_ENTRY_Y_EXIT: LineCode = (I, I, O, I);
 const XY_ENTRY_X_EXIT: LineCode = (I, I, I, O);
 const XY_ENTRY_XY_EXIT: LineCode = (I, I, I, I);
 
-macro_rules! clip_impl {
-    ($T:ty, $add:ident, $sub:ident) => {
+macro_rules! impl_clip_diagonal {
+    ($T:ty) => {
         #[expect(non_snake_case)]
         impl<const FX: bool, const FY: bool> Diagonal<FX, FY, $T> {
             #[inline(always)]
@@ -88,7 +89,7 @@ macro_rules! clip_impl {
                 &Clip { wx1, wx2, .. }: &Clip<$T>,
             ) -> Point<$T> {
                 let cx1 = fx!(wx1, wx2);
-                let cy1 = fy!(y1.$add(Dx1), y1.$sub(Dx1));
+                let cy1 = fy!(Math::<$T>::add_tu(y1, Dx1), Math::<$T>::sub_tu(y1, Dx1));
                 (cx1, cy1)
             }
 
@@ -100,7 +101,7 @@ macro_rules! clip_impl {
                 &Clip { wy1, wy2, .. }: &Clip<$T>,
             ) -> Point<$T> {
                 let cy1 = fy!(wy1, wy2);
-                let cx1 = fx!(x1.$add(Dy1), x1.$sub(Dy1));
+                let cx1 = fx!(Math::<$T>::add_tu(x1, Dy1), Math::<$T>::sub_tu(x1, Dy1));
                 (cx1, cy1)
             }
 
@@ -123,7 +124,10 @@ macro_rules! clip_impl {
             #[inline(always)]
             #[must_use]
             const fn cx2_y(x1: $T, Dy2: <$T as Num>::U) -> $T {
-                fx!(x1.$add(Dy2).wrapping_add(1), x1.$sub(Dy2).wrapping_sub(1))
+                fx!(
+                    Math::<$T>::add_tu(x1, Dy2).wrapping_add(1),
+                    Math::<$T>::sub_tu(x1, Dy2).wrapping_sub(1)
+                )
             }
 
             #[inline(always)]
@@ -213,13 +217,4 @@ macro_rules! clip_impl {
     };
 }
 
-clip_impl!(i8, wrapping_add_unsigned, wrapping_sub_unsigned);
-clip_impl!(u8, wrapping_add, wrapping_sub);
-clip_impl!(i16, wrapping_add_unsigned, wrapping_sub_unsigned);
-clip_impl!(u16, wrapping_add, wrapping_sub);
-clip_impl!(i32, wrapping_add_unsigned, wrapping_sub_unsigned);
-clip_impl!(u32, wrapping_add, wrapping_sub);
-clip_impl!(i64, wrapping_add_unsigned, wrapping_sub_unsigned);
-clip_impl!(u64, wrapping_add, wrapping_sub);
-clip_impl!(isize, wrapping_add_unsigned, wrapping_sub_unsigned);
-clip_impl!(usize, wrapping_add, wrapping_sub);
+nums!(impl_clip_diagonal);

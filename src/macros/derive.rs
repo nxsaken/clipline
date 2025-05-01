@@ -1,5 +1,5 @@
-/// Implements inherent iterator methods or delegates to variants.
-macro_rules! impl_fwd {
+/// Implements inherent forward iterator methods or delegates to variants.
+macro_rules! fwd {
     (
         $self:ident,
         $T:ty,
@@ -34,7 +34,7 @@ macro_rules! impl_fwd {
         pub const fn pop_head(&mut $self) -> Option<Point<$T>> { $pop_head }
     };
     ($T:ty, $Enum:ident::{$($Variant:ident),* $(,)?}) => {
-        impl_fwd!(
+        fwd!(
             self,
             $T,
             is_done = variant!($Enum::{$($Variant),*}, self, me => me.is_done()),
@@ -46,7 +46,7 @@ macro_rules! impl_fwd {
 }
 
 /// Implements inherent reversed iterator methods or delegates to variants.
-macro_rules! impl_rev {
+macro_rules! rev {
     (
         $self:ident,
         $T:ty,
@@ -72,7 +72,7 @@ macro_rules! impl_rev {
         pub const fn pop_tail(&mut $self) -> Option<Point<$T>> { $pop_tail }
     };
     ($T:ty, $Enum:ident::{$($Variant:ident),* $(,)?}) => {
-        impl_rev!(
+        rev!(
             self,
             $T,
             tail = variant!($Enum::{$($Variant),*}, self, me => me.tail()),
@@ -83,21 +83,17 @@ macro_rules! impl_rev {
 
 /// Implements [`Iterator`] or delegates to variants.
 ///
-/// Also implements:
-/// - [`core::iter::FusedIterator`]
-/// - [`ExactSizeIterator`] (conditionally on `cfg_esi`)
-macro_rules! impl_iter_fwd {
+/// Also implements [`core::iter::FusedIterator`].
+macro_rules! iter_fwd {
     (
         $Iter:ident<$(const $BOOL:ident,)* $T:ty>,
         $self:ident,
         next = $next:expr,
-        size_hint = $size_hint:expr,
-        is_empty = $is_empty:expr
+        size_hint = $size_hint:expr
         $(, |$init:ident, $f:ident| {
             fold = $fold:expr,
             try_fold = $try_fold:expr $(,)?
-        })?
-        $(, cfg_esi = $cfg_esi:meta)? $(,)?
+        })? $(,)?
     ) => {
         impl<$(const $BOOL: bool),*> Iterator for $Iter<$($BOOL,)? $T> {
             type Item = Point<$T>;
@@ -128,35 +124,45 @@ macro_rules! impl_iter_fwd {
         }
 
         impl<$(const $BOOL: bool),*> core::iter::FusedIterator for $Iter<$($BOOL,)? $T> {}
+    };
+    ($Enum:ident<$(const $BOOL:ident,)* $T:ty>::{$($Variant:ident),* $(,)?} $(,)?) => {
+        iter_fwd!(
+            $Enum<$(const $BOOL,)* $T>,
+            self,
+            next = variant!($Enum::{$($Variant),*}, self, me => me.next()),
+            size_hint = variant!($Enum::{$($Variant),*}, self, me => me.size_hint()),
+            |init, f| {
+                fold = variant!($Enum::{$($Variant),*}, self, me => me.fold(init, f)),
+                try_fold = variant!($Enum::{$($Variant),*}, self, me => me.try_fold(init, f)),
+            },
+        );
+    };
+}
 
-        $(#[$cfg_esi])?
+/// Implements [`ExactSizeIterator`] or delegates to variants.
+macro_rules! iter_esi {
+    (
+        $Iter:ident<$(const $BOOL:ident,)* $T:ty>,
+        $self:ident,
+        is_empty = $is_empty:expr $(,)?
+    ) => {
         impl<$(const $BOOL: bool),*> ExactSizeIterator for $Iter<$($BOOL,)? $T> {
             #[cfg(feature = "is_empty")]
             #[inline]
             fn is_empty(&$self) -> bool { $is_empty }
         }
     };
-    (
-        $Enum:ident<$(const $BOOL:ident,)* $T:ty>::{$($Variant:ident),* $(,)?}
-        $(, cfg_esi = $cfg_esi:meta)? $(,)?
-    ) => {
-        impl_iter_fwd!(
+    ($Enum:ident<$(const $BOOL:ident,)* $T:ty>::{$($Variant:ident),* $(,)?} $(,)?) => {
+        iter_esi!(
             $Enum<$(const $BOOL,)* $T>,
             self,
-            next = variant!($Enum::{$($Variant),*}, self, me => me.next()),
-            size_hint = variant!($Enum::{$($Variant),*}, self, me => me.size_hint()),
             is_empty = variant!($Enum::{$($Variant),*}, self, me => me.is_empty()),
-            |init, f| {
-                fold = variant!($Enum::{$($Variant),*}, self, me => me.fold(init, f)),
-                try_fold = variant!($Enum::{$($Variant),*}, self, me => me.try_fold(init, f)),
-            }
-            $(, cfg_esi = $cfg_esi)?
         );
     };
 }
 
 /// Implements [`DoubleEndedIterator`] or delegates to variants.
-macro_rules! impl_iter_rev {
+macro_rules! iter_rev {
     (
         $Iter:ident<$(const $BOOL:ident,)* $T:ty>,
         $self:ident,
@@ -190,7 +196,7 @@ macro_rules! impl_iter_rev {
         }
     };
     ($Enum:ident<$(const $BOOL:ident,)* $T:ty>::{$($Variant:ident),* $(,)?}) => {
-        impl_iter_rev!(
+        iter_rev!(
             $Enum<$(const $BOOL,)* $T>,
             self,
             next_back = variant!($Enum::{$($Variant),*}, self, me => me.next_back()),
@@ -202,20 +208,80 @@ macro_rules! impl_iter_rev {
     };
 }
 
-/// Applies the macro `m` to multiple integer types.
-macro_rules! all_nums {
-    ($m:ident $(,)?) => {
+/// Applies the macro m to multiple integer types.
+macro_rules! nums {
+    ($m:ident) => {
         $m!(i8);
         $m!(u8);
         $m!(i16);
         $m!(u16);
-        $m!(i32, cfg_esi = cfg(any(target_pointer_width = "32", target_pointer_width = "64")));
-        $m!(u32, cfg_esi = cfg(any(target_pointer_width = "32", target_pointer_width = "64")));
-        $m!(i64, cfg_esi = cfg(target_pointer_width = "64"));
-        $m!(u64, cfg_esi = cfg(target_pointer_width = "64"));
+        $m!(i32);
+        $m!(u32);
+        $m!(i64);
+        $m!(u64);
         $m!(isize);
         $m!(usize);
     };
+    ($m:ident, cfg_size) => {
+        $m!(i8, cfg_size = cfg(all()));
+        $m!(u8, cfg_size = cfg(all()));
+        $m!(i16, cfg_size = cfg(all()));
+        $m!(u16, cfg_size = cfg(all()));
+        $m!(i32, cfg_size = cfg(any(target_pointer_width = "64", target_pointer_width = "32")));
+        $m!(u32, cfg_size = cfg(any(target_pointer_width = "64", target_pointer_width = "32")));
+        $m!(i64, cfg_size = cfg(any(target_pointer_width = "64")));
+        $m!(u64, cfg_size = cfg(any(target_pointer_width = "64")));
+        $m!(isize, cfg_size = cfg(all()));
+        $m!(usize, cfg_size = cfg(all()));
+    };
+    ($m:ident, cfg_octant_64) => {
+        $m!(i8);
+        $m!(u8);
+        $m!(i16);
+        $m!(u16);
+        $m!(i32);
+        $m!(u32);
+        #[cfg(feature = "octant_64")]
+        $m!(i64);
+        #[cfg(feature = "octant_64")]
+        $m!(u64);
+        #[cfg(any(
+            target_pointer_width = "16",
+            target_pointer_width = "32",
+            all(target_pointer_width = "64", feature = "octant_64")
+        ))]
+        $m!(isize);
+        #[cfg(any(
+            target_pointer_width = "16",
+            target_pointer_width = "32",
+            all(target_pointer_width = "64", feature = "octant_64")
+        ))]
+        $m!(usize);
+    };
+    ($m:ident, cfg_size, cfg_octant_64) => {
+        $m!(i8, cfg_size = cfg(all()));
+        $m!(u8, cfg_size = cfg(all()));
+        $m!(i16, cfg_size = cfg(all()));
+        $m!(u16, cfg_size = cfg(all()));
+        $m!(i32, cfg_size = cfg(any(target_pointer_width = "64", target_pointer_width = "32")));
+        $m!(u32, cfg_size = cfg(any(target_pointer_width = "64", target_pointer_width = "32")));
+        #[cfg(feature = "octant_64")]
+        $m!(i64, cfg_size = cfg(any(target_pointer_width = "64")));
+        #[cfg(feature = "octant_64")]
+        $m!(u64, cfg_size = cfg(any(target_pointer_width = "64")));
+        #[cfg(any(
+            target_pointer_width = "16",
+            target_pointer_width = "32",
+            all(target_pointer_width = "64", feature = "octant_64")
+        ))]
+        $m!(isize, cfg_size = cfg(all()));
+        #[cfg(any(
+            target_pointer_width = "16",
+            target_pointer_width = "32",
+            all(target_pointer_width = "64", feature = "octant_64")
+        ))]
+        $m!(usize, cfg_size = cfg(all()));
+    };
 }
 
-pub(crate) use {all_nums, impl_fwd, impl_iter_fwd, impl_iter_rev, impl_rev};
+pub(crate) use {fwd, iter_esi, iter_fwd, iter_rev, nums, rev};

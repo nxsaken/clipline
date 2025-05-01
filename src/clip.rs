@@ -6,6 +6,7 @@
 use crate::axis::{AnyAxis, Axis0, Axis1};
 use crate::diagonal::AnyDiagonal;
 use crate::macros::control_flow::return_if;
+use crate::macros::derive::nums;
 use crate::math::Point;
 use crate::octant::AnyOctant;
 
@@ -21,7 +22,7 @@ pub struct Clip<T> {
 }
 
 macro_rules! impl_clip {
-    ($T:ty $(, cfg_octant_64 = $cfg_octant_64:meta)? $(,)?) => {
+    ($T:ty) => {
         impl Clip<$T> {
             /// Constructs a new [`Clip`] from minimum and maximum corners.
             ///
@@ -117,12 +118,17 @@ macro_rules! impl_clip {
             ) -> Option<AnyDiagonal<$T>> {
                 AnyDiagonal::<$T>::clip(p1, p2, self)
             }
+        }
+    };
+}
 
+macro_rules! impl_clip_octant {
+    ($T:ty) => {
+        impl Clip<$T> {
             /// Clips a half-open line segment to this [`Clip`]
             /// and constructs an [`AnyOctant`] over the portion inside.
             ///
             /// Returns [`None`] if the line segment lies outside the clipping region.
-            $(#[$cfg_octant_64])?
             #[inline]
             #[must_use]
             pub const fn any_octant(&self, p1: Point<$T>, p2: Point<$T>) -> Option<AnyOctant<$T>> {
@@ -132,27 +138,5 @@ macro_rules! impl_clip {
     };
 }
 
-impl_clip!(i8);
-impl_clip!(u8);
-impl_clip!(i16);
-impl_clip!(u16);
-impl_clip!(i32);
-impl_clip!(u32);
-impl_clip!(i64, cfg_octant_64 = cfg(feature = "octant_64"));
-impl_clip!(u64, cfg_octant_64 = cfg(feature = "octant_64"));
-impl_clip!(
-    isize,
-    cfg_octant_64 = cfg(any(
-        target_pointer_width = "16",
-        target_pointer_width = "32",
-        all(target_pointer_width = "64", feature = "octant_64")
-    ))
-);
-impl_clip!(
-    usize,
-    cfg_octant_64 = cfg(any(
-        target_pointer_width = "16",
-        target_pointer_width = "32",
-        all(target_pointer_width = "64", feature = "octant_64")
-    ))
-);
+nums!(impl_clip);
+nums!(impl_clip_octant, cfg_octant_64);

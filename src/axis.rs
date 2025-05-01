@@ -2,7 +2,7 @@
 
 use crate::clip::Clip;
 use crate::macros::control_flow::{map, return_if, unwrap_or_return, variant};
-use crate::macros::derive::{all_nums, impl_fwd, impl_iter_fwd, impl_iter_rev, impl_rev};
+use crate::macros::derive::{fwd, iter_esi, iter_fwd, iter_rev, nums, rev};
 use crate::macros::symmetry::{f, v};
 use crate::math::{Math, Num, Point};
 
@@ -115,7 +115,7 @@ impl<const F: bool, const V: bool, T: Num> core::fmt::Debug for SignedAxis<F, V,
 }
 
 macro_rules! impl_signed_axis {
-    ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
+    ($T:ty, cfg_size = $cfg_size:meta) => {
         impl<const F: bool, const V: bool> SignedAxis<F, V, $T> {
             #[inline(always)]
             #[must_use]
@@ -151,7 +151,7 @@ macro_rules! impl_signed_axis {
                 Self::clip_inner(u, v1, v2, clip)
             }
 
-            impl_fwd!(
+            fwd!(
                 self,
                 $T,
                 is_done = f!(self.v2 <= self.v1, self.v1 <= self.v2),
@@ -168,7 +168,7 @@ macro_rules! impl_signed_axis {
                 },
             );
 
-            impl_rev!(
+            rev!(
                 self,
                 $T,
                 tail = {
@@ -185,7 +185,7 @@ macro_rules! impl_signed_axis {
             );
         }
 
-        impl_iter_fwd!(
+        iter_fwd!(
             SignedAxis<const F, const V, $T>,
             self,
             next = self.pop_head(),
@@ -195,10 +195,16 @@ macro_rules! impl_signed_axis {
                     Err(_) => (usize::MAX, None),
                 }
             },
-            is_empty = self.is_done()
-            $(, cfg_esi = $cfg_esi)?
         );
-        impl_iter_rev!(
+
+        #[$cfg_size]
+        iter_esi!(
+            SignedAxis<const F, const V, $T>,
+            self,
+            is_empty = self.is_done(),
+        );
+
+        iter_rev!(
             SignedAxis<const F, const V, $T>,
             self,
             next_back = self.pop_tail(),
@@ -206,7 +212,7 @@ macro_rules! impl_signed_axis {
     };
 }
 
-all_nums!(impl_signed_axis);
+nums!(impl_signed_axis, cfg_size);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Axis-aligned iterators
@@ -257,7 +263,7 @@ impl<const V: bool, T: Num> core::fmt::Debug for Axis<V, T> {
 }
 
 macro_rules! impl_axis {
-    ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
+    ($T:ty, cfg_size = $cfg_size:meta) => {
         impl<const V: bool> Axis<V, $T> {
             /// Constructs an [`Axis`] over a half-open line segment.
             #[inline]
@@ -282,16 +288,18 @@ macro_rules! impl_axis {
                 return map!(NegativeAxis::<V, $T>::clip_inner(u, v1, v2, clip), Self::Negative)
             }
 
-            impl_fwd!($T, Self::{Positive, Negative});
-            impl_rev!($T, Self::{Positive, Negative});
+            fwd!($T, Self::{Positive, Negative});
+            rev!($T, Self::{Positive, Negative});
         }
 
-        impl_iter_fwd!(Axis<const V, $T>::{Positive, Negative} $(, cfg_esi = $cfg_esi)?);
-        impl_iter_rev!(Axis<const V, $T>::{Positive, Negative});
+        iter_fwd!(Axis<const V, $T>::{Positive, Negative});
+        #[$cfg_size]
+        iter_esi!(Axis<const V, $T>::{Positive, Negative});
+        iter_rev!(Axis<const V, $T>::{Positive, Negative});
     };
 }
 
-all_nums!(impl_axis);
+nums!(impl_axis, cfg_size);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Arbitrary axis-aligned iterator
@@ -325,7 +333,7 @@ impl<T: Num> core::fmt::Debug for AnyAxis<T> {
 }
 
 macro_rules! impl_any_axis {
-    ($T:ty $(, cfg_esi = $cfg_esi:meta)?) => {
+    ($T:ty, cfg_size = $cfg_size:meta) => {
         impl AnyAxis<$T> {
             /// Constructs an [`AnyAxis`] over a half-open line segment.
             ///
@@ -359,16 +367,18 @@ macro_rules! impl_any_axis {
                 None
             }
 
-            impl_fwd!($T, Self::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1});
-            impl_rev!($T, Self::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1});
+            fwd!($T, Self::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1});
+            rev!($T, Self::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1});
         }
 
-        impl_iter_fwd!(AnyAxis<$T>::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1} $(, cfg_esi = $cfg_esi)?);
-        impl_iter_rev!(AnyAxis<$T>::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1});
+        iter_fwd!(AnyAxis<$T>::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1});
+        #[$cfg_size]
+        iter_esi!(AnyAxis<$T>::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1});
+        iter_rev!(AnyAxis<$T>::{PositiveAxis0, NegativeAxis0, PositiveAxis1, NegativeAxis1});
     };
 }
 
-all_nums!(impl_any_axis);
+nums!(impl_any_axis, cfg_size);
 
 #[cfg(test)]
 mod static_tests {

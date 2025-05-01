@@ -3,9 +3,10 @@
 use super::SignedAxis;
 use crate::clip::Clip;
 use crate::macros::control_flow::return_if;
+use crate::macros::derive::nums;
 use crate::macros::symmetry::{f, v};
 
-macro_rules! clip_impl {
+macro_rules! impl_clip_signed_axis {
     ($T:ty) => {
         impl<const F: bool, const V: bool> SignedAxis<F, V, $T> {
             #[inline(always)]
@@ -57,13 +58,4 @@ macro_rules! clip_impl {
     };
 }
 
-clip_impl!(i8);
-clip_impl!(u8);
-clip_impl!(i16);
-clip_impl!(u16);
-clip_impl!(i32);
-clip_impl!(u32);
-clip_impl!(i64);
-clip_impl!(u64);
-clip_impl!(isize);
-clip_impl!(usize);
+nums!(impl_clip_signed_axis);

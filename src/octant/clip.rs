@@ -3,6 +3,7 @@
 use super::Octant;
 use crate::clip::Clip;
 use crate::macros::control_flow::return_if;
+use crate::macros::derive::nums;
 use crate::macros::symmetry::{fx, fy, yx};
 use crate::math::{Delta, Delta2, Math, Num, Point};
 
@@ -28,7 +29,7 @@ const UV_ENTRY_V_EXIT: LineCode = (I, I, O, I);
 const UV_ENTRY_U_EXIT: LineCode = (I, I, I, O);
 const UV_ENTRY_UV_EXIT: LineCode = (I, I, I, I);
 
-macro_rules! impl_clip {
+macro_rules! impl_clip_octant {
     ($T:ty) => {
         #[expect(non_snake_case)]
         impl<const FX: bool, const FY: bool, const YX: bool> Octant<FX, FY, YX, $T> {
@@ -390,21 +391,4 @@ macro_rules! impl_clip {
     };
 }
 
-impl_clip!(i8);
-impl_clip!(u8);
-impl_clip!(i16);
-impl_clip!(u16);
-impl_clip!(i32);
-impl_clip!(u32);
-#[cfg(feature = "octant_64")]
-impl_clip!(i64);
-#[cfg(feature = "octant_64")]
-impl_clip!(u64);
-#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-impl_clip!(isize);
-#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-impl_clip!(usize);
-#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-impl_clip!(isize);
-#[cfg(all(target_pointer_width = "64", feature = "octant_64"))]
-impl_clip!(usize);
+nums!(impl_clip_octant, cfg_octant_64);
