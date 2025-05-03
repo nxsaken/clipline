@@ -5,6 +5,7 @@ use crate::clip::Clip;
 use crate::macros::control_flow::return_if;
 use crate::macros::derive::nums;
 use crate::macros::symmetry::{f, v};
+use crate::math::ops;
 
 macro_rules! impl_clip_signed_axis {
     ($T:ty) => {
@@ -27,25 +28,33 @@ macro_rules! impl_clip_signed_axis {
             #[inline(always)]
             #[must_use]
             const fn cv1(v1: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> $T {
-                match (F, V) {
-                    (false, false) if v1 < wx1 => wx1,
-                    (false, true) if v1 < wy1 => wy1,
-                    (true, false) if wx2 < v1 => wx2,
-                    (true, true) if wy2 < v1 => wy2,
-                    _ => v1,
-                }
+                f! {
+                    v! {
+                        return_if!(v1 < wx1, wx1),
+                        return_if!(v1 < wy1, wy1),
+                    },
+                    v! {
+                        return_if!(wx2 < v1, wx2),
+                        return_if!(wy2 < v1, wy2),
+                    },
+                };
+                v1
             }
 
             #[inline(always)]
             #[must_use]
             const fn cv2(v2: $T, &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> $T {
-                match (F, V) {
-                    (false, false) if wx2 < v2 => wx2.wrapping_add(1),
-                    (false, true) if wy2 < v2 => wy2.wrapping_add(1),
-                    (true, false) if v2 < wx1 => wx1.wrapping_sub(1),
-                    (true, true) if v2 < wy1 => wy1.wrapping_sub(1),
-                    _ => v2,
-                }
+                f! {
+                    v! {
+                        return_if!(wx2 < v2, ops::<$T>::t_add_1(wx2)),
+                        return_if!(wy2 < v2, ops::<$T>::t_add_1(wy2))
+                    },
+                    v! {
+                        return_if!(v2 < wx1, ops::<$T>::t_sub_1(wx1)),
+                        return_if!(v2 < wy1, ops::<$T>::t_sub_1(wy1))
+                    },
+                };
+                v2
             }
 
             #[inline(always)]

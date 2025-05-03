@@ -61,4 +61,38 @@ macro_rules! fy {
     };
 }
 
-pub(crate) use {f, fx, fy, v, yx};
+/// Calls `$fn_pos($arg...)` if `!YX && !FX` or `YX && !FY`,
+/// or `$fn_neg($arg...)` if `!YX && FX` or `YX && FY`.
+///
+/// Optionally assigns to `$assign_x` and `$assign_y`.
+macro_rules! yxf {
+    (
+        $(= $assign_x:expr, $assign_y:expr;)?
+        $fn_pos:path, $fn_neg:path;
+        ($($arg:expr),* $(,)?) $(;)?
+    ) => {
+        yx! {
+            $($assign_x =)? fx!($fn_pos($($arg),*), $fn_neg($($arg),*)),
+            $($assign_y =)? fy!($fn_pos($($arg),*), $fn_neg($($arg),*)),
+        }
+    };
+}
+
+/// Calls `$fn_pos($a, $b)` if `!YX && !FY` or `YX && !FX`,
+/// or `$fn_neg($a, $b)` if `!YX && FY` or `YX && FX`.
+///
+/// Optionally assigns to `$assign_y` and `$assign_x`.
+macro_rules! xyf {
+    (
+        $(= $assign_y:expr, $assign_x:expr;)?
+        $fn_pos:path, $fn_neg:path;
+        ($($arg:expr),* $(,)?) $(;)?
+    ) => {
+        yx! {
+            $($assign_y =)? fy!($fn_pos($($arg),*), $fn_neg($($arg),*)),
+            $($assign_x =)? fx!($fn_pos($($arg),*), $fn_neg($($arg),*)),
+        }
+    };
+}
+
+pub(crate) use {f, fx, fy, v, xyf, yx, yxf};

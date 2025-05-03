@@ -4,8 +4,8 @@ use super::Octant;
 use crate::clip::Clip;
 use crate::macros::control_flow::return_if;
 use crate::macros::derive::nums;
-use crate::macros::symmetry::{fx, fy, yx};
-use crate::math::{Delta, Delta2, Math, Num, Point};
+use crate::macros::symmetry::{fx, fy, xyf, yx, yxf};
+use crate::math::{ops, Delta, Delta2, Num, Point};
 
 const O: bool = false;
 const I: bool = true;
@@ -64,9 +64,9 @@ macro_rules! impl_clip_octant {
                 dv: <$T as Num>::U,
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
-                let (a, b) = yx!(fx!((wx1, u1), (u1, wx2)), fy!((wy1, u1), (u1, wy2)),);
-                let Du1 = Math::<$T>::sub_tt(a, b);
-                Math::<$T>::mul_uu(Du1, dv)
+                let (a, b) = yx!(fx!((wx1, u1), (u1, wx2)), fy!((wy1, u1), (u1, wy2)));
+                let Du1 = ops::<$T>::t_sub_t(a, b);
+                ops::<$T>::u_mul_u(Du1, dv)
             }
 
             #[inline(always)]
@@ -76,9 +76,9 @@ macro_rules! impl_clip_octant {
                 dv: <$T as Num>::U,
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
-                let (a, b) = yx!(fx!((wx2, u1), (u1, wx1)), fy!((wy2, u1), (u1, wy1)),);
-                let Du2 = Math::<$T>::sub_tt(a, b);
-                Math::<$T>::mul_uu(Du2, dv)
+                let (a, b) = yx!(fx!((wx2, u1), (u1, wx1)), fy!((wy2, u1), (u1, wy1)));
+                let Du2 = ops::<$T>::t_sub_t(a, b);
+                ops::<$T>::u_mul_u(Du2, dv)
             }
 
             #[inline(always)]
@@ -90,8 +90,9 @@ macro_rules! impl_clip_octant {
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
                 let (a, b) = yx!(fy!((wy1, v1), (v1, wy2)), fx!((wx1, v1), (v1, wx2)),);
-                let Dv1 = Math::<$T>::sub_tt(a, b);
-                Math::<$T>::mul_uu(Dv1, du).wrapping_sub(half_du as _)
+                let Dv1 = ops::<$T>::t_sub_t(a, b);
+                let Dv1_du = ops::<$T>::u_mul_u(Dv1, du);
+                ops::<$T>::u2_sub_u(Dv1_du, half_du)
             }
 
             #[inline(always)]
@@ -103,8 +104,9 @@ macro_rules! impl_clip_octant {
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
                 let (a, b) = yx!(fy!((wy2, v1), (v1, wy1)), fx!((wx2, v1), (v1, wx1)),);
-                let Dv2 = Math::<$T>::sub_tt(a, b);
-                Math::<$T>::mul_uu(Dv2, du).wrapping_add(half_du as _)
+                let Dv2 = ops::<$T>::t_sub_t(a, b);
+                let Dv2_du = ops::<$T>::u_mul_u(Dv2, du);
+                ops::<$T>::u2_add_u(Dv2_du, half_du)
             }
 
             #[inline(always)]
@@ -116,17 +118,15 @@ macro_rules! impl_clip_octant {
                 mut error: <$T as Num>::I2,
             ) -> ($T, <$T as Num>::I2) {
                 // SAFETY: the line segment is slanted and non-empty, thus dv != 0.
-                let (mut q, r) = unsafe { Math::<$T>::div_u2u(tv1, dv) };
-                error = error.wrapping_sub_unsigned(half_du as _).wrapping_sub_unsigned(r as _);
+                let (mut q, r) = unsafe { ops::<$T>::u2_div_u(tv1, dv) };
+                error = ops::<$T>::i2_sub_u(error, half_du);
+                error = ops::<$T>::i2_sub_u(error, r);
                 #[allow(unused_comparisons)]
                 if 0 < r {
-                    q = q.wrapping_add(1);
-                    error = error.wrapping_add_unsigned(dv as _);
+                    q = ops::<$T>::u_add_1(q);
+                    error = ops::<$T>::i2_add_u(error, dv);
                 };
-                let cu1 = yx!(
-                    fx!(Math::<$T>::add_tu(u1, q), Math::<$T>::sub_tu(u1, q)),
-                    fy!(Math::<$T>::add_tu(u1, q), Math::<$T>::sub_tu(u1, q)),
-                );
+                let cu1 = yxf!(ops::<$T>::t_add_u, ops::<$T>::t_sub_u; (u1, q));
                 (cu1, error)
             }
 
@@ -139,20 +139,17 @@ macro_rules! impl_clip_octant {
                 mut error: <$T as Num>::I2,
             ) -> ($T, <$T as Num>::I2) {
                 // SAFETY: the line segment is slanted and non-empty, thus dv != 0.
-                let (mut q, r) = unsafe { Math::<$T>::div_u2u(tu1, du) };
-                error = error.wrapping_add_unsigned(r as _);
+                let (mut q, r) = unsafe { ops::<$T>::u2_div_u(tu1, du) };
+                error = ops::<$T>::i2_add_u(error, r);
                 if {
                     let du = du as <$T as Num>::U2;
-                    let r2 = Math::<$T>::mul_2u(r);
+                    let r2 = ops::<$T>::u_mul_2(r);
                     du <= r2
                 } {
-                    q = q.wrapping_add(1);
-                    error = error.wrapping_sub_unsigned(du as _);
+                    q = ops::<$T>::u_add_1(q);
+                    error = ops::<$T>::i2_sub_u(error, du);
                 };
-                let cv1 = yx!(
-                    fy!(Math::<$T>::add_tu(v1, q), Math::<$T>::sub_tu(v1, q)),
-                    fx!(Math::<$T>::add_tu(v1, q), Math::<$T>::sub_tu(v1, q)),
-                );
+                let cv1 =  xyf!(ops::<$T>::t_add_u, ops::<$T>::t_sub_u; (v1, q));
                 (cv1, error)
             }
 
@@ -207,10 +204,8 @@ macro_rules! impl_clip_octant {
             #[must_use]
             const fn cu2_u(&Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>) -> $T {
                 // it is overflow-safe to add/sub 1 because of the exit condition
-                yx!(
-                    fx!(wx2.wrapping_add(1), wx1.wrapping_sub(1)),
-                    fy!(wy2.wrapping_add(1), wy1.wrapping_sub(1))
-                )
+                let w = yx!(fx!(wx2, wx1), fy!(wy2, wy1));
+                yxf!(ops::<$T>::t_add_1, ops::<$T>::t_sub_1; (w))
             }
 
             #[inline(always)]
@@ -222,21 +217,11 @@ macro_rules! impl_clip_octant {
                 r0: <$T as Num>::U,
             ) -> $T {
                 // SAFETY: the line segment is slanted and non-empty, thus dv != 0.
-                let (mut q, r) = unsafe { Math::<$T>::div_u2u(tv2, dv) };
-                if r == 0 && r0 == 0 {
-                    q = q.wrapping_sub(1);
+                let (mut q, r) = unsafe { ops::<$T>::u2_div_u(tv2, dv) };
+                if r != 0 || r0 != 0 {
+                    q = ops::<$T>::u_add_1(q);
                 }
-                // it is overflow-safe to add/sub 1 because of the exit condition
-                yx!(
-                    fx!(
-                        Math::<$T>::add_tu(u1, q).wrapping_add(1),
-                        Math::<$T>::sub_tu(u1, q).wrapping_sub(1),
-                    ),
-                    fy!(
-                        Math::<$T>::add_tu(u1, q).wrapping_add(1),
-                        Math::<$T>::sub_tu(u1, q).wrapping_sub(1),
-                    ),
-                )
+                yxf!(ops::<$T>::t_add_u, ops::<$T>::t_sub_u; (u1, q))
             }
 
             #[inline(always)]
@@ -267,8 +252,9 @@ macro_rules! impl_clip_octant {
                 let (u1, v1) = yx!((x1, y1), (y1, x1));
                 let (u2, v2) = yx!((x2, y2), (y2, x2));
                 let (du, dv) = yx!((dx, dy), (dy, dx));
-                let (half_du, r0) = Math::<$T>::div_2u(du);
-                let error = Math::<$T>::sub_uu(dv, half_du.wrapping_add(r0)); // FIXME: check this
+                let (half_du, r0) = ops::<$T>::u_div_2(du);
+                let half_du_r0 = ops::<$T>::q_add_r(half_du, r0); // FIXME: check this
+                let error = ops::<$T>::u_sub_u(dv, half_du_r0);
                 let (((cu1, cv1), error), end) = match (
                     Self::enters_u(u1, clip),
                     Self::enters_v(v1, clip),

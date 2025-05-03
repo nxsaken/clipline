@@ -5,7 +5,7 @@ use crate::clip::Clip;
 use crate::macros::control_flow::return_if;
 use crate::macros::derive::nums;
 use crate::macros::symmetry::{fx, fy};
-use crate::math::{Delta, Math, Num, Point};
+use crate::math::{ops, Delta, Num, Point};
 
 const O: bool = false;
 const I: bool = true;
@@ -60,25 +60,29 @@ macro_rules! impl_clip_diagonal {
             #[inline(always)]
             #[must_use]
             const fn Dx1(x1: $T, &Clip { wx1, wx2, .. }: &Clip<$T>) -> <$T as Num>::U {
-                fx!(Math::<$T>::sub_tt(wx1, x1), Math::<$T>::sub_tt(x1, wx2))
+                let (a, b) = fx!((wx1, x1), (x1, wx2));
+                ops::<$T>::t_sub_t(a, b)
             }
 
             #[inline(always)]
             #[must_use]
             const fn Dx2(x1: $T, &Clip { wx1, wx2, .. }: &Clip<$T>) -> <$T as Num>::U {
-                fx!(Math::<$T>::sub_tt(wx2, x1), Math::<$T>::sub_tt(x1, wx1))
+                let (a, b) = fx!((wx2, x1), (x1, wx1));
+                ops::<$T>::t_sub_t(a, b)
             }
 
             #[inline(always)]
             #[must_use]
             const fn Dy1(y1: $T, &Clip { wy1, wy2, .. }: &Clip<$T>) -> <$T as Num>::U {
-                fy!(Math::<$T>::sub_tt(wy1, y1), Math::<$T>::sub_tt(y1, wy2))
+                let (a, b) = fy!((wy1, y1), (y1, wy2));
+                ops::<$T>::t_sub_t(a, b)
             }
 
             #[inline(always)]
             #[must_use]
             const fn Dy2(y1: $T, &Clip { wy1, wy2, .. }: &Clip<$T>) -> <$T as Num>::U {
-                fy!(Math::<$T>::sub_tt(wy2, y1), Math::<$T>::sub_tt(y1, wy1))
+                let (a, b) = fy!((wy2, y1), (y1, wy1));
+                ops::<$T>::t_sub_t(a, b)
             }
 
             #[inline(always)]
@@ -89,7 +93,7 @@ macro_rules! impl_clip_diagonal {
                 &Clip { wx1, wx2, .. }: &Clip<$T>,
             ) -> Point<$T> {
                 let cx1 = fx!(wx1, wx2);
-                let cy1 = fy!(Math::<$T>::add_tu(y1, Dx1), Math::<$T>::sub_tu(y1, Dx1));
+                let cy1 = fy!(ops::<$T>::t_add_u(y1, Dx1), ops::<$T>::t_sub_u(y1, Dx1));
                 (cx1, cy1)
             }
 
@@ -101,7 +105,7 @@ macro_rules! impl_clip_diagonal {
                 &Clip { wy1, wy2, .. }: &Clip<$T>,
             ) -> Point<$T> {
                 let cy1 = fy!(wy1, wy2);
-                let cx1 = fx!(Math::<$T>::add_tu(x1, Dy1), Math::<$T>::sub_tu(x1, Dy1));
+                let cx1 = fx!(ops::<$T>::t_add_u(x1, Dy1), ops::<$T>::t_sub_u(x1, Dy1));
                 (cx1, cy1)
             }
 
@@ -118,16 +122,14 @@ macro_rules! impl_clip_diagonal {
             #[inline(always)]
             #[must_use]
             const fn cx2_x(&Clip { wx1, wx2, .. }: &Clip<$T>) -> $T {
-                fx!(wx2.wrapping_add(1), wx1.wrapping_sub(1))
+                fx!(ops::<$T>::t_add_1(wx2), ops::<$T>::t_sub_1(wx1))
             }
 
             #[inline(always)]
             #[must_use]
             const fn cx2_y(x1: $T, Dy2: <$T as Num>::U) -> $T {
-                fx!(
-                    Math::<$T>::add_tu(x1, Dy2).wrapping_add(1),
-                    Math::<$T>::sub_tu(x1, Dy2).wrapping_sub(1)
-                )
+                let Dy2_inc = ops::<$T>::u_add_1(Dy2);
+                fx!(ops::<$T>::t_add_u(x1, Dy2_inc), ops::<$T>::t_sub_u(x1, Dy2_inc))
             }
 
             #[inline(always)]

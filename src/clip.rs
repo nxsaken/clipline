@@ -7,7 +7,7 @@ use crate::axis::{AnyAxis, Axis0, Axis1};
 use crate::diagonal::AnyDiagonal;
 use crate::macros::control_flow::return_if;
 use crate::macros::derive::nums;
-use crate::math::Point;
+use crate::math::{ops, Point};
 use crate::octant::AnyOctant;
 
 /// A closed[^1] rectangular clipping region defined by its minimum and maximum corners.
@@ -47,8 +47,8 @@ macro_rules! impl_clip {
                 Some(Self {
                     wx1: 0,
                     wy1: 0,
-                    wx2: width.wrapping_sub(1),
-                    wy2: height.wrapping_sub(1),
+                    wx2: ops::<$T>::t_sub_1(width),
+                    wy2: ops::<$T>::t_sub_1(height),
                 })
             }
 

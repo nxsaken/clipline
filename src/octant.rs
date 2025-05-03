@@ -5,8 +5,8 @@ use crate::clip::Clip;
 use crate::diagonal::{quadrant, Diagonal0, Diagonal1, Diagonal2, Diagonal3};
 use crate::macros::control_flow::{map, return_if, unwrap_or_return, variant};
 use crate::macros::derive::{fwd, iter_esi, iter_fwd, nums};
-use crate::macros::symmetry::{fx, fy, yx};
-use crate::math::{Delta, Math, Num, Point};
+use crate::macros::symmetry::{fx, fy, xyf, yx, yxf};
+use crate::math::{ops, Delta, Num, Point};
 
 mod clip;
 mod convert;
@@ -125,8 +125,9 @@ macro_rules! impl_octant {
                 (x2, y2): Point<$T>,
                 (dx, dy): Delta<$T>,
             ) -> Self {
-                let (half_du, r) = Math::<$T>::div_2u(yx!(dx, dy));
-                let error = Math::<$T>::sub_uu(yx!(dy, dx), half_du.wrapping_add(r));
+                let (half_du, r) = ops::<$T>::u_div_2(yx!(dx, dy));
+                let half_du_r = ops::<$T>::q_add_r(half_du, r);
+                let error = ops::<$T>::u_sub_u(yx!(dy, dx), half_du_r);
                 let end = yx!(x2, y2);
                 Self { x: x1, y: y1, error, dx, dy, end }
             }
@@ -136,8 +137,8 @@ macro_rules! impl_octant {
             const fn covers((x1, y1): Point<$T>, (x2, y2): Point<$T>) -> Option<Delta<$T>> {
                 return_if!(fx!(x2 <= x1, x1 <= x2));
                 return_if!(fy!(y2 <= y1, y1 <= y2));
-                let du = Math::<$T>::sub_tt(fx!(x2, x1), fx!(x1, x2));
-                let dv = Math::<$T>::sub_tt(fy!(y2, y1), fy!(y1, y2));
+                let du = ops::<$T>::t_sub_t(fx!(x2, x1), fx!(x1, x2));
+                let dv = ops::<$T>::t_sub_t(fy!(y2, y1), fy!(y1, y2));
                 return_if!(yx!(du <= dv, dv <= du));
                 Some((du, dv))
             }
@@ -177,19 +178,16 @@ macro_rules! impl_octant {
             fwd!(
                 self,
                 $T,
-                is_done = {
-                    let (a, b) = yx!(
-                        fx!((self.end, self.x), (self.x, self.end)),
-                        fy!((self.end, self.y), (self.y, self.end))
-                    );
-                    a <= b
-                },
+                is_done = yx!(
+                    fx!((self.end <= self.x), (self.x <= self.end)),
+                    fy!((self.end <= self.y), (self.y <= self.end))
+                ),
                 length = {
                     let (a, b) = yx!(
                         fx!((self.end, self.x), (self.x, self.end)),
                         fy!((self.end, self.y), (self.y, self.end))
                     );
-                    Math::<$T>::sub_tt(a, b)
+                    ops::<$T>::t_sub_t(a, b)
                 },
                 head = {
                     return_if!(self.is_done());
@@ -198,17 +196,19 @@ macro_rules! impl_octant {
                 pop_head = {
                     let (x1, y1) = unwrap_or_return!(self.head());
                     if 0 <= self.error {
-                        yx!(
-                            self.y = fy!(self.y.wrapping_add(1), self.y.wrapping_sub(1)),
-                            self.x = fx!(self.x.wrapping_add(1), self.x.wrapping_sub(1)),
+                        xyf!(
+                            = self.y, self.x;
+                            ops::<$T>::t_add_1, ops::<$T>::t_sub_1;
+                            (yx!(self.y, self.x));
                         );
-                        self.error = self.error.wrapping_sub_unsigned(yx!(self.dx, self.dy) as _);
+                        self.error = ops::<$T>::i2_sub_u(self.error, yx!(self.dx, self.dy));
                     }
-                    yx!(
-                        self.x = fx!(self.x.wrapping_add(1), self.x.wrapping_sub(1)),
-                        self.y = fy!(self.y.wrapping_add(1), self.y.wrapping_sub(1)),
+                    yxf!(
+                        = self.x, self.y;
+                        ops::<$T>::t_add_1, ops::<$T>::t_sub_1;
+                        (yx!(self.x, self.y));
                     );
-                    self.error = self.error.wrapping_add_unsigned(yx!(self.dy, self.dx) as _);
+                    self.error = ops::<$T>::i2_add_u(self.error, yx!(self.dy, self.dx));
                     Some((x1, y1))
                 },
             );
@@ -321,9 +321,9 @@ macro_rules! impl_any_octant {
                     return Axis1::<$T>::new(x1, y1, y2).into_any_octant();
                 }
                 if x1 < x2 {
-                    let dx = Math::<$T>::sub_tt(x2, x1);
+                    let dx = ops::<$T>::t_sub_t(x2, x1);
                     if y1 < y2 {
-                        let dy = Math::<$T>::sub_tt(y2, y1);
+                        let dy = ops::<$T>::t_sub_t(y2, y1);
                         if dy < dx {
                              return octant!(Octant0, $T, (x1, y1), (x2, y2), (dx, dy));
                         }
@@ -332,7 +332,7 @@ macro_rules! impl_any_octant {
                         }
                         return quadrant!(Diagonal0, $T, (x1, y1), x2);
                     }
-                    let dy = Math::<$T>::sub_tt(y1, y2);
+                    let dy = ops::<$T>::t_sub_t(y1, y2);
                     if dy < dx {
                         return octant!(Octant2, $T, (x1, y1), (x2, y2), (dx, dy));
                     }
@@ -341,9 +341,9 @@ macro_rules! impl_any_octant {
                     }
                     return quadrant!(Diagonal1, $T, (x1, y1), x2);
                 }
-                let dx = Math::<$T>::sub_tt(x1, x2);
+                let dx = ops::<$T>::t_sub_t(x1, x2);
                 if y1 < y2 {
-                    let dy = Math::<$T>::sub_tt(y2, y1);
+                    let dy = ops::<$T>::t_sub_t(y2, y1);
                     if dy < dx {
                         return octant!(Octant4, $T, (x1, y1), (x2, y2), (dx, dy));
                     }
@@ -352,7 +352,7 @@ macro_rules! impl_any_octant {
                     }
                     return quadrant!(Diagonal2, $T, (x1, y1), x2);
                 }
-                let dy = Math::<$T>::sub_tt(y1, y2);
+                let dy = ops::<$T>::t_sub_t(y1, y2);
                 if dy < dx {
                     return octant!(Octant6, $T, (x1, y1), (x2, y2), (dx, dy));
                 }
@@ -382,10 +382,10 @@ macro_rules! impl_any_octant {
                 let &Clip { wx1, wy1, wx2, wy2 } = clip;
                 if x1 < x2 {
                     return_if!(x2 < wx1 || wx2 < x1);
-                    let dx = Math::<$T>::sub_tt(x2, x1);
+                    let dx = ops::<$T>::t_sub_t(x2, x1);
                     if y1 < y2 {
                         return_if!(y2 < wy1 || wy2 < y1);
-                        let dy = Math::<$T>::sub_tt(y2, y1);
+                        let dy = ops::<$T>::t_sub_t(y2, y1);
                         if dy < dx {
                             // TODO: strict comparison for closed line segments
                             return_if!(x2 == wx1);
@@ -398,7 +398,7 @@ macro_rules! impl_any_octant {
                         return quadrant!(Diagonal0, $T, (x1, y1), (x2, y2), clip);
                     }
                     return_if!(y1 < wy1 || wy2 < y2);
-                    let dy = Math::<$T>::sub_tt(y1, y2);
+                    let dy = ops::<$T>::t_sub_t(y1, y2);
                     if dy < dx {
                         return_if!(x2 == wx1);
                         return octant!(Octant2, $T, (x1, y1), (x2, y2), (dx, dy), clip);
@@ -410,10 +410,10 @@ macro_rules! impl_any_octant {
                     return quadrant!(Diagonal1, $T, (x1, y1), (x2, y2), clip);
                 }
                 return_if!(x1 < wx1 || wx2 < x2);
-                let dx = Math::<$T>::sub_tt(x1, x2);
+                let dx = ops::<$T>::t_sub_t(x1, x2);
                 if y1 < y2 {
                     return_if!(y2 < wy1 || wy2 < y1);
-                    let dy = Math::<$T>::sub_tt(y2, y1);
+                    let dy = ops::<$T>::t_sub_t(y2, y1);
                     if dy < dx {
                         return_if!(x2 == wx2);
                         return octant!(Octant4, $T, (x1, y1), (x2, y2), (dx, dy), clip);
@@ -425,7 +425,7 @@ macro_rules! impl_any_octant {
                     return quadrant!(Diagonal2, $T, (x1, y1), (x2, y2), clip);
                 }
                 return_if!(y1 < wy1 || wy2 < y2);
-                let dy = Math::<$T>::sub_tt(y1, y2);
+                let dy = ops::<$T>::t_sub_t(y1, y2);
                 if dy < dx {
                     return_if!(x2 == wx2);
                     return octant!(Octant6, $T, (x1, y1), (x2, y2), (dx, dy), clip);

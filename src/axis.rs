@@ -4,7 +4,7 @@ use crate::clip::Clip;
 use crate::macros::control_flow::{map, return_if, unwrap_or_return, variant};
 use crate::macros::derive::{fwd, iter_esi, iter_fwd, iter_rev, nums, rev};
 use crate::macros::symmetry::{f, v};
-use crate::math::{Math, Num, Point};
+use crate::math::{ops, Num, Point};
 
 mod clip;
 mod convert;
@@ -155,7 +155,7 @@ macro_rules! impl_signed_axis {
                 self,
                 $T,
                 is_done = f!(self.v2 <= self.v1, self.v1 <= self.v2),
-                length = Math::<$T>::sub_tt(f!(self.v2, self.v1), f!(self.v1, self.v2)),
+                length = ops::<$T>::t_sub_t(f!(self.v2, self.v1), f!(self.v1, self.v2)),
                 head = {
                     return_if!(self.is_done());
                     let (x1, y1) = v!((self.v1, self.u), (self.u, self.v1));
@@ -163,7 +163,7 @@ macro_rules! impl_signed_axis {
                 },
                 pop_head = {
                     let (x1, y1) = unwrap_or_return!(self.head());
-                    self.v1 = f!(self.v1.wrapping_add(1), self.v1.wrapping_sub(1));
+                    self.v1 = f!(ops::<$T>::t_add_1(self.v1), ops::<$T>::t_sub_1(self.v1));
                     Some((x1, y1))
                 },
             );
@@ -173,7 +173,7 @@ macro_rules! impl_signed_axis {
                 $T,
                 tail = {
                     return_if!(self.is_done());
-                    let v2 = f!(self.v2.wrapping_sub(1), self.v2.wrapping_add(1));
+                    let v2 = f!(ops::<$T>::t_sub_1(self.v2), ops::<$T>::t_add_1(self.v2));
                     let (x2, y2) = v!((v2, self.u), (self.u, v2));
                     Some((x2, y2))
                 },

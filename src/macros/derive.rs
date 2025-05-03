@@ -222,6 +222,18 @@ macro_rules! nums {
         $m!(isize);
         $m!(usize);
     };
+    ($m:ident, signed_unsigned) => {
+        $m!(i8, signed);
+        $m!(u8, unsigned);
+        $m!(i16, signed);
+        $m!(u16, unsigned);
+        $m!(i32, signed);
+        $m!(u32, unsigned);
+        $m!(i64, signed);
+        $m!(u64, unsigned);
+        $m!(isize, signed);
+        $m!(usize, unsigned);
+    };
     ($m:ident, cfg_size) => {
         $m!(i8, cfg_size = cfg(all()));
         $m!(u8, cfg_size = cfg(all()));
