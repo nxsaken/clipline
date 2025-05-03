@@ -64,10 +64,8 @@ macro_rules! impl_clip_octant {
                 dv: <$T as Num>::U,
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
-                let Du1 = yx!(
-                    fx!(Math::<$T>::sub_tt(wx1, u1), Math::<$T>::sub_tt(u1, wx2)),
-                    fy!(Math::<$T>::sub_tt(wy1, u1), Math::<$T>::sub_tt(u1, wy2)),
-                );
+                let (a, b) = yx!(fx!((wx1, u1), (u1, wx2)), fy!((wy1, u1), (u1, wy2)),);
+                let Du1 = Math::<$T>::sub_tt(a, b);
                 Math::<$T>::mul_uu(Du1, dv)
             }
 
@@ -78,10 +76,8 @@ macro_rules! impl_clip_octant {
                 dv: <$T as Num>::U,
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
-                let Du2 = yx!(
-                    fx!(Math::<$T>::sub_tt(wx2, u1), Math::<$T>::sub_tt(u1, wx1)),
-                    fy!(Math::<$T>::sub_tt(wy2, u1), Math::<$T>::sub_tt(u1, wy1)),
-                );
+                let (a, b) = yx!(fx!((wx2, u1), (u1, wx1)), fy!((wy2, u1), (u1, wy1)),);
+                let Du2 = Math::<$T>::sub_tt(a, b);
                 Math::<$T>::mul_uu(Du2, dv)
             }
 
@@ -93,10 +89,8 @@ macro_rules! impl_clip_octant {
                 half_du: <$T as Num>::U,
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
-                let Dv1 = yx!(
-                    fy!(Math::<$T>::sub_tt(wy1, v1), Math::<$T>::sub_tt(v1, wy2)),
-                    fx!(Math::<$T>::sub_tt(wx1, v1), Math::<$T>::sub_tt(v1, wx2)),
-                );
+                let (a, b) = yx!(fy!((wy1, v1), (v1, wy2)), fx!((wx1, v1), (v1, wx2)),);
+                let Dv1 = Math::<$T>::sub_tt(a, b);
                 Math::<$T>::mul_uu(Dv1, du).wrapping_sub(half_du as _)
             }
 
@@ -108,10 +102,8 @@ macro_rules! impl_clip_octant {
                 half_du: <$T as Num>::U,
                 &Clip { wx1, wy1, wx2, wy2 }: &Clip<$T>,
             ) -> <$T as Num>::U2 {
-                let Dv2 = yx!(
-                    fy!(Math::<$T>::sub_tt(wy2, v1), Math::<$T>::sub_tt(v1, wy1)),
-                    fx!(Math::<$T>::sub_tt(wx2, v1), Math::<$T>::sub_tt(v1, wx1)),
-                );
+                let (a, b) = yx!(fy!((wy2, v1), (v1, wy1)), fx!((wx2, v1), (v1, wx1)),);
+                let Dv2 = Math::<$T>::sub_tt(a, b);
                 Math::<$T>::mul_uu(Dv2, du).wrapping_add(half_du as _)
             }
 
@@ -128,10 +120,7 @@ macro_rules! impl_clip_octant {
                 error = error.wrapping_sub_unsigned(half_du as _).wrapping_sub_unsigned(r as _);
                 #[allow(unused_comparisons)]
                 if 0 < r {
-                    q = yx!(
-                        fx!(q.wrapping_add(1), q.wrapping_add(1)),
-                        fy!(q.wrapping_add(1), q.wrapping_add(1))
-                    );
+                    q = q.wrapping_add(1);
                     error = error.wrapping_add_unsigned(dv as _);
                 };
                 let cu1 = yx!(
