@@ -1,3 +1,4 @@
+use crate::clip::Clip;
 use crate::math::{CxC, C, S, U};
 
 /// An iterator over the rasterized points of a half-open axis-aligned line segment.
@@ -24,7 +25,7 @@ pub type Axis0 = Axis<false>;
 pub type Axis1 = Axis<true>;
 
 impl<const V: bool> Axis<V> {
-    /// Constructs an [`Axis`] iterator from its internal parts.
+    /// Constructs an [`Axis<V>`] iterator from its internal parts.
     ///
     /// # Safety
     ///
@@ -35,7 +36,7 @@ impl<const V: bool> Axis<V> {
         Self { v, u0, u1, su }
     }
 
-    /// Returns an [`Axis`] iterator for a half-open axis-aligned line segment
+    /// Returns an [`Axis<V>`] iterator for a half-open axis-aligned line segment
     /// at a fixed `v` coordinate, spanning from `u0` to `u1`.
     ///
     /// `V` determines the orientation of the line segment:
@@ -47,6 +48,13 @@ impl<const V: bool> Axis<V> {
         let su = if u0 <= u1 { S::P } else { S::N };
         // SAFETY: su matches the direction from u0 to u1.
         unsafe { Self::new_unchecked(v, u0, u1, su) }
+    }
+
+    /// A convenience alias for [`Clip::axis::<V>`].
+    #[inline]
+    #[must_use]
+    pub const fn clip_new(v: C, u0: C, u1: C, clip: &Clip) -> Option<Self> {
+        clip.axis(v, u0, u1)
     }
 }
 
