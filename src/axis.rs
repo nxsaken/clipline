@@ -31,7 +31,7 @@ impl<const V: bool> Axis<V> {
     /// `su` must match the direction from `u0` to `u1`.
     #[inline]
     #[must_use]
-    pub const unsafe fn from_parts(v: C, u0: C, u1: C, su: S) -> Self {
+    pub const unsafe fn new_unchecked(v: C, u0: C, u1: C, su: S) -> Self {
         Self { v, u0, u1, su }
     }
 
@@ -43,10 +43,10 @@ impl<const V: bool> Axis<V> {
     /// - `true`: vertical (with endpoints `(v, u0)` and `(v, u1)`).
     #[inline]
     #[must_use]
-    pub const fn from_span(v: C, u0: C, u1: C) -> Self {
+    pub const fn new(v: C, u0: C, u1: C) -> Self {
         let su = if u0 <= u1 { S::P } else { S::N };
         // SAFETY: su matches the direction from u0 to u1.
-        unsafe { Self::from_parts(v, u0, u1, su) }
+        unsafe { Self::new_unchecked(v, u0, u1, su) }
     }
 }
 

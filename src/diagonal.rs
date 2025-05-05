@@ -82,6 +82,7 @@ impl Diagonal {
     pub const fn pop_head(&mut self) -> Option<CxC> {
         let Some((x0, y0)) = self.head() else { return None };
         self.x0 = self.x0.wrapping_add(self.sx as C);
+        self.y0 = self.y0.wrapping_add(self.sy as C);
         Some((x0, y0))
     }
 }
