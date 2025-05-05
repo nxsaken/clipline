@@ -1,8 +1,8 @@
 [package]
 name = "clipline"
-version = "0.3.0"
-authors = ["Nurzhan Sakén <nurzhan.sakenov@gmail.com>"]
-description = "Efficient rasterization of line segments with pixel-perfect clipping."
+version = "0.4.0"
+authors = ["Nurzhan Saken <nurzhan.sakenov@gmail.com>"]
+description = "Line segment rasterization with pixel-perfect clipping."
 keywords = ["line", "clipping", "bresenham", "rasterization", "grid"]
 categories = ["graphics", "rendering", "algorithms", "game-development"]
 repository = "https://github.com/nxsaken/clipline/"
@@ -14,22 +14,3 @@ include = [
     "**/*.rs",
     "Cargo.toml",
 ]
-
-[features]
-default = []
-# Enable Octant<i64/u64> for all targets
-# and Octant<isize/usize> for 64-bit targets.
-octant_64 = []
-
-# Enable unstable features.
-nightly = []
-# Enable optimized `try_fold` implementations.
-# Requires the unstable `try_trait_v2` feature.
-try_fold = ["nightly"]
-# Enable optimized `is_empty` implementations.
-# Requires the unstable `exact_size_is_empty` feature.
-is_empty = ["nightly"]
-
-[dev-dependencies]
-static_assertions = "1.1.0"
-proptest = "1.5.0"
