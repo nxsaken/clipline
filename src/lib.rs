@@ -14,8 +14,10 @@
 #![warn(clippy::cargo)]
 #![warn(clippy::pedantic)]
 
+mod axis;
 mod bresenham;
 mod math;
 
 pub use bresenham::*;
 pub use math::*;
+pub use axis::{Axis, Axis0, Axis1};
