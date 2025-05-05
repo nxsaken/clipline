@@ -33,26 +33,6 @@ pub type BresenhamSlow = BresenhamCase<false>;
 pub type BresenhamFast = BresenhamCase<true>;
 
 impl<const YX: bool> BresenhamCase<YX> {
-    /// Constructs a [`BresenhamCase`] iterator from its internal parts.
-    ///
-    /// # Safety
-    ///
-    /// 1. `du` must match the offset from `u0` to `u1`.
-    /// 2. `dv <= du` (normalized line segments are gently sloped).
-    /// 3. `su` must match the direction from `u0` to `u1`.
-    /// 4. `err` must be initialized to `dv - (du / 2) + (du % 2)`.
-    #[inline]
-    #[must_use]
-    pub const unsafe fn from_parts(
-        (u0, v0): CxC,
-        (du, dv): UxU,
-        (su, sv): SxS,
-        err: I2,
-        u1: C,
-    ) -> Self {
-        Self { u0, v0, err, du, dv, su, sv, u1 }
-    }
-
     /// Constructs a [`BresenhamCase`] iterator from the parameters of a normalized half-open line segment.
     ///
     /// # Safety
@@ -62,12 +42,7 @@ impl<const YX: bool> BresenhamCase<YX> {
     /// 3. `su` must match the direction from `u0` to `u1`.
     #[inline]
     #[must_use]
-    pub const unsafe fn from_normalized(
-        (u0, v0): CxC,
-        (du, dv): UxU,
-        (su, sv): SxS,
-        u1: C,
-    ) -> Self {
+    pub const unsafe fn new_unchecked((u0, v0): CxC, (du, dv): UxU, (su, sv): SxS, u1: C) -> Self {
         debug_assert!(du == u0.abs_diff(u1));
         debug_assert!(dv <= du);
         debug_assert!((u0 <= u1) == matches!(su, S::P));
@@ -79,12 +54,7 @@ impl<const YX: bool> BresenhamCase<YX> {
             I2::wrapping_sub(dv as I2, half_du_adj as I2)
         };
 
-        // SAFETY:
-        // 1. du matches the offset from u0 to u1.
-        // 2. dv <= du.
-        // 3. su matches the direction from u0 to u1.
-        // 4. err is initialized to dv - (du / 2) + (du % 2).
-        unsafe { Self::from_parts((u0, v0), (du, dv), (su, sv), err, u1) }
+        Self { u0, v0, err, du, dv, su, sv, u1 }
     }
 
     /// Returns a [`BresenhamCase`] iterator over a half-open line segment
@@ -95,7 +65,7 @@ impl<const YX: bool> BresenhamCase<YX> {
     /// - `true`: segments with a "fast" slope (`dx < dy`).
     #[inline]
     #[must_use]
-    pub const fn from_points((x0, y0): CxC, (x1, y1): CxC) -> Option<Self> {
+    pub const fn new((x0, y0): CxC, (x1, y1): CxC) -> Option<Self> {
         let (sx, dx) = ops::sd(x0, x1);
         let (sy, dy) = ops::sd(y0, y1);
 
@@ -107,7 +77,7 @@ impl<const YX: bool> BresenhamCase<YX> {
             if YX { (y0, x0, y1, sy, sx, dy, dx) } else { (x0, y0, x1, sx, sy, dx, dy) };
 
         // SAFETY: the line segment has been normalized.
-        let this = unsafe { Self::from_normalized((u0, v0), (du, dv), (su, sv), u1) };
+        let this = unsafe { Self::new_unchecked((u0, v0), (du, dv), (su, sv), u1) };
         Some(this)
     }
 }

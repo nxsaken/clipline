@@ -23,7 +23,7 @@ impl Diagonal {
     /// `sx` must match the direction from `x0` to `x1`.
     #[inline]
     #[must_use]
-    pub const unsafe fn from_parts((x0, y0): CxC, (sx, sy): SxS, x1: C) -> Self {
+    pub const unsafe fn new_unchecked((x0, y0): CxC, (sx, sy): SxS, x1: C) -> Self {
         Self { x0, y0, sx, sy, x1 }
     }
 
@@ -31,7 +31,7 @@ impl Diagonal {
     /// if the line segment is diagonal, otherwise returns [`None`].
     #[inline]
     #[must_use]
-    pub const fn from_points((x0, y0): CxC, (x1, y1): CxC) -> Option<Self> {
+    pub const fn new((x0, y0): CxC, (x1, y1): CxC) -> Option<Self> {
         let (sx, dx) = ops::sd(x0, x1);
         let (sy, dy) = ops::sd(y0, y1);
 
@@ -40,7 +40,7 @@ impl Diagonal {
         }
 
         // SAFETY: sx matches the direction from x0 to x1.
-        let this = unsafe { Self::from_parts((x0, y0), (sx, sy), x1) };
+        let this = unsafe { Self::new_unchecked((x0, y0), (sx, sy), x1) };
         Some(this)
     }
 }

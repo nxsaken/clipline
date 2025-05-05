@@ -16,7 +16,7 @@ impl Bresenham {
     /// Returns a [`Bresenham`] iterator over a half-open line segment.
     #[inline]
     #[must_use]
-    pub const fn from_points((x0, y0): CxC, (x1, y1): CxC) -> Self {
+    pub const fn new((x0, y0): CxC, (x1, y1): CxC) -> Self {
         let (sx, dx) = ops::sd(x0, x1);
         let (sy, dy) = ops::sd(y0, y1);
 
@@ -25,14 +25,14 @@ impl Bresenham {
             // 1. dx matches the offset between x0 and x1.
             // 2. dy <= dx.
             // 3. sx matches the direction from x0 to x1.
-            let case = unsafe { BresenhamCase::from_normalized((x0, y0), (dx, dy), (sx, sy), x1) };
+            let case = unsafe { BresenhamCase::new_unchecked((x0, y0), (dx, dy), (sx, sy), x1) };
             Self::Slow(case)
         } else {
             // SAFETY:
             // 1. dy matches the offset between y0 and y1.
             // 2. dx < dy.
             // 3. sy matches the direction from y0 to y1.
-            let case = unsafe { BresenhamCase::from_normalized((y0, x0), (dy, dx), (sy, sx), y1) };
+            let case = unsafe { BresenhamCase::new_unchecked((y0, x0), (dy, dx), (sy, sx), y1) };
             Self::Fast(case)
         }
     }
