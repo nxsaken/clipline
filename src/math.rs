@@ -5,7 +5,7 @@ pub type C = i8;
 pub type U = u8;
 
 /// A wide product of unsigned values.
-pub type _U2 = u16;
+pub type U2 = u16;
 
 /// A wide signed difference of unsigned values.
 pub type I2 = i16;

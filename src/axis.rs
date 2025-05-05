@@ -87,7 +87,7 @@ impl<const V: bool> Axis<V> {
     #[must_use]
     pub const fn pop_head(&mut self) -> Option<CxC> {
         let Some((x0, y0)) = self.head() else { return None };
-        self.u0 = self.u0.wrapping_add(self.su as _);
+        self.u0 = self.u0.wrapping_add(self.su as C);
         Some((x0, y0))
     }
 }
@@ -125,7 +125,7 @@ impl<const V: bool> Axis<V> {
         if self.is_done() {
             return None;
         }
-        let u1 = self.u1.wrapping_sub_unsigned(self.su as _);
+        let u1 = self.u1.wrapping_sub(self.su as C);
         let (x1, y1) = if V { (self.v, u1) } else { (u1, self.v) };
         Some((x1, y1))
     }

@@ -1,4 +1,4 @@
-use crate::math::{ops, CxC, SxS, UxU, C, I2, S, U};
+use crate::math::{ops, CxC, SxS, UxU, C, I2, S, U, U2};
 
 /// An iterator over the rasterized points of a half-open line segment,
 /// using one of the two cases of Bresenham's algorithm.
@@ -150,11 +150,11 @@ impl<const YX: bool> BresenhamCase<YX> {
     pub const fn pop_head(&mut self) -> Option<CxC> {
         let Some((x0, y0)) = self.head() else { return None };
         if 0 <= self.err {
-            self.v0 = self.v0.wrapping_add(self.sv as _);
-            self.err = self.err.wrapping_sub_unsigned(self.du as _);
+            self.v0 = self.v0.wrapping_add(self.sv as C);
+            self.err = self.err.wrapping_sub_unsigned(self.du as U2);
         }
-        self.u0 = self.u0.wrapping_add(self.su as _);
-        self.err = self.err.wrapping_add_unsigned(self.dv as _);
+        self.u0 = self.u0.wrapping_add(self.su as C);
+        self.err = self.err.wrapping_add_unsigned(self.dv as U2);
         Some((x0, y0))
     }
 }
