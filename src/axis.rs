@@ -118,7 +118,10 @@ impl<const V: bool> Axis<V> {
     ///
     /// Returns [`None`] if the iterator has terminated.
     ///
-    /// **Note**: calling `pop_tail` after `tail` recomputes the point.
+    /// # Performance
+    ///
+    /// This method performs trivial arithmetic to compute the last point.
+    /// Avoid pairing this with [`Self::pop_tail`], as it will redo that work.
     #[inline]
     #[must_use]
     pub const fn tail(&self) -> Option<CxC> {

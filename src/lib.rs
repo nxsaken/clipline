@@ -17,9 +17,11 @@
 mod axis;
 mod bresenham;
 mod bresenham_case;
+mod diagonal;
 mod math;
 
 pub use axis::{Axis, Axis0, Axis1};
 pub use bresenham::Bresenham;
 pub use bresenham_case::{BresenhamCase, BresenhamFast, BresenhamSlow};
+pub use diagonal::Diagonal;
 pub use math::{CxC, SxS, UxU, C, S, U};
