@@ -13,3 +13,9 @@
 #![warn(clippy::nursery)]
 #![warn(clippy::cargo)]
 #![warn(clippy::pedantic)]
+
+mod bresenham;
+mod math;
+
+pub use bresenham::*;
+pub use math::*;
