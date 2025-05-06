@@ -1,0 +1,576 @@
+use super::Clip;
+use crate::diagonal::Diagonal;
+use crate::math::{ops, CxC, C, S, U};
+
+const O: bool = false;
+const I: bool = true;
+
+type Code = (bool, bool, bool, bool);
+
+const L0000: Code = (O, O, O, O);
+const L0001: Code = (O, O, O, I);
+const L0010: Code = (O, O, I, O);
+const L0011: Code = (O, O, I, I);
+const L0100: Code = (O, I, O, O);
+const L0101: Code = (O, I, O, I);
+const L0110: Code = (O, I, I, O);
+const L0111: Code = (O, I, I, I);
+const L1000: Code = (I, O, O, O);
+const L1001: Code = (I, O, O, I);
+const L1010: Code = (I, O, I, O);
+const L1011: Code = (I, O, I, I);
+const L1100: Code = (I, I, O, O);
+const L1101: Code = (I, I, O, I);
+const L1110: Code = (I, I, I, O);
+const L1111: Code = (I, I, I, I);
+
+impl Clip {
+    /// Checks if the half-open rectangle with the corners `(x0, y0)` and `(x1, y1)`
+    /// misses this clipping region.
+    const fn rejects_rect(&self, x0: C, y0: C, x1: C, y1: C, sx: S, sy: S) -> bool {
+        let miss_x = match sx {
+            S::P => x1 <= self.x0 || self.x1 < x0,
+            S::N => self.x0 < x0 || x1 <= self.x1,
+        };
+        let miss_y = match sy {
+            S::P => y1 <= self.y0 || self.y1 < y0,
+            S::N => self.y0 < y0 || y1 <= self.y1,
+        };
+        miss_x || miss_y
+    }
+
+    /// Checks if `u0` of the line segment lies before the u-entry
+    /// of the region, and if `u1` lies after the u-exit.
+    const fn iou<const YX: bool>(&self, u0: C, u1: C, su: S) -> (bool, bool) {
+        let (wu0, wu1) = if YX { (self.y0, self.y1) } else { (self.x0, self.x1) };
+        let (iu, ou) = match su {
+            S::P => (u0 < wu0, wu1 < u1),
+            S::N => (wu1 < u0, u1 < wu0),
+        };
+        (iu, ou)
+    }
+
+    /// Alias for [`Self::iou::<false>`], with `u = x`.
+    const fn iox(&self, x0: C, x1: C, sx: S) -> (bool, bool) {
+        self.iou::<false>(x0, x1, sx)
+    }
+
+    /// Alias for [`Self::iou::<true>`], with `u = y`.
+    const fn ioy(&self, y0: C, y1: C, sy: S) -> (bool, bool) {
+        self.iou::<true>(y0, y1, sy)
+    }
+
+    /// Returns the offset between `u0` of the line segment
+    /// and the u-entry of this clipping region.
+    ///
+    /// # Safety
+    ///
+    /// `u0` must lie before the u-entry.
+    const unsafe fn du0<const YX: bool>(&self, u0: C, su: S) -> U {
+        let (wu0, wu1) = if YX { (self.y0, self.y1) } else { (self.x0, self.x1) };
+        match su {
+            // SAFETY: u0 < wu0 because u0 lies before the u-entry.
+            S::P => unsafe { ops::d_unchecked(wu0, u0) },
+            // SAFETY: wu1 < u0 because u0 lies before the u-entry.
+            S::N => unsafe { ops::d_unchecked(u0, wu1) },
+        }
+    }
+
+    /// Alias for [`Self::du0::<false>`], with `u = x`.
+    const unsafe fn dx0(&self, x0: C, sx: S) -> U {
+        #[expect(unsafe_op_in_unsafe_fn)]
+        self.du0::<false>(x0, sx)
+    }
+
+    /// Alias for [`Self::du0::<true>`], with `u = y`.
+    const unsafe fn dy0(&self, y0: C, sy: S) -> U {
+        #[expect(unsafe_op_in_unsafe_fn)]
+        self.du0::<true>(y0, sy)
+    }
+
+    /// Returns the offset between `u0` of the line segment
+    /// and the u-exit of this clipping region.
+    ///
+    /// # Safety
+    ///
+    /// `u0` must lie before the u-exit.
+    const unsafe fn du1<const YX: bool>(&self, u0: C, su: S) -> U {
+        let (wu0, wu1) = if YX { (self.y0, self.y1) } else { (self.x0, self.x1) };
+        match su {
+            // SAFETY: u0 < wu1 because u0 lies before the u-exit.
+            S::P => unsafe { ops::d_unchecked(wu1, u0) },
+            // SAFETY: wu0 < u0 because u0 lies before the u-exit.
+            S::N => unsafe { ops::d_unchecked(u0, wu0) },
+        }
+    }
+
+    /// Alias for [`Self::du1::<false>`], with `u = x`.
+    const unsafe fn dx1(&self, x0: C, sx: S) -> U {
+        #[expect(unsafe_op_in_unsafe_fn)]
+        self.du1::<false>(x0, sx)
+    }
+
+    /// Alias for [`Self::du1::<true>`], with `u = y`.
+    const unsafe fn dy1(&self, y0: C, sy: S) -> U {
+        #[expect(unsafe_op_in_unsafe_fn)]
+        self.du1::<true>(y0, sy)
+    }
+
+    /// Returns the clipped start point of the line segment
+    /// when it crosses the u-entry of this clipping region.
+    ///
+    /// Crossing the u-entry is a stronger condition than starting before
+    /// and ending after the u-entry. It is possible for a line segment
+    /// to satisfy the latter while not satisfying the former.
+    ///
+    /// # Safety
+    ///
+    /// The line segment must cross the u-entry.
+    #[expect(clippy::similar_names)]
+    const unsafe fn c0_iu<const YX: bool>(&self, v0: C, du0: U, su: S, sv: S) -> CxC {
+        let (wu0, wu1) = if YX { (self.y0, self.y1) } else { (self.x0, self.x1) };
+        let cu0 = match su {
+            S::P => wu0,
+            S::N => wu1,
+        };
+        let cv0 = match sv {
+            // SAFETY:
+            // -----+--+ Let A = (u0, v0), B = (wu0, cv0), C = (wu0, v0).
+            //      B  | Consider the triangle ABC.
+            //     /|  | ∠CAB = 45° => |BC| = |AC|.
+            // ---/-+--+ |AC| = wu0 - u0 = du0.
+            //   /  |  | cv0 = C.y + |BC| = v0 + du0.
+            //  A---C  | cv0 <= wv1 => v0 + du0 <= wv1.
+            //      |  | Therefore, v0 + du0 cannot overflow.
+            S::P => unsafe { v0.checked_add_unsigned(du0).unwrap_unchecked() },
+            // SAFETY:
+            // |  |      Let A = (u0, v0), B = (wu1, cv0), C = (wu1, v0).
+            // |  C---A  Consider the triangle ABC.
+            // |  |  /   ∠CAB = 45° => |BC| = |AC|.
+            // +--+-/--- |AC| = u0 - wu1 = du0.
+            // |  |/     cv0 = C.y - |BC| = v0 - du0.
+            // |  B      wv0 <= cv0 => wv0 <= v0 - du0.
+            // +--+----- Therefore, v0 - du0 cannot underflow.
+            S::N => unsafe { v0.checked_sub_unsigned(du0).unwrap_unchecked() },
+        };
+        let (cx0, cy0) = if YX { (cv0, cu0) } else { (cu0, cv0) };
+        (cx0, cy0)
+    }
+
+    /// Alias for [`Self::c0_iu::<false>`], with `u = x`.
+    const unsafe fn c0_ix(&self, y0: C, dx0: U, sx: S, sy: S) -> CxC {
+        #[expect(unsafe_op_in_unsafe_fn)]
+        self.c0_iu::<false>(y0, dx0, sx, sy)
+    }
+
+    /// Alias for [`Self::c0_iu::<true>`], with `u = y`.
+    const unsafe fn c0_iy(&self, x0: C, dy0: U, sy: S, sx: S) -> CxC {
+        #[expect(unsafe_op_in_unsafe_fn)]
+        self.c0_iu::<true>(x0, dy0, sy, sx)
+    }
+
+    /// Returns the clipped start point of the line segment
+    /// when it crosses the x-entry or y-entry of this clipping region.
+    ///
+    /// If the exact entry is known, use [`Self::c0_iu`] instead.
+    ///
+    /// # Safety
+    ///
+    /// The segment must cross the x-entry or y-entry.
+    #[expect(clippy::similar_names)]
+    const unsafe fn c0_ixy(&self, x0: C, y0: C, dx0: U, dy0: U, sx: S, sy: S) -> CxC {
+        if dy0 <= dx0 {
+            // SAFETY:
+            // ----+---+ Let A = (x0, y0), B = (x0, wy0), C = (wx0, wy0), D = (wx0, y0).
+            //     |   | Suppose the segment AP crosses the y-entry at P = (cx0, wy0).
+            // -B--C-P-+ Then, |CP| > 0. ∠PAB = 45° => |AB| = |BP|.
+            //  |  |/  | Consider the rectangle ABCD:
+            //  |  /   | |AB| = wy0 - y0 = dy0. |BC| = wx0 - x0 = dx0.
+            //  | /|   | dy0 <= dx0 => |AB| <= |BC|.
+            //  |/ |   | |BC| + |CP| = |BP| = |AB|. Since |CP| > 0, |BC| < |AB|.
+            //  A--D   | |AB| <= |BC| and |BC| < |AB| is a contradiction.
+            //     |   | Therefore, the segment does not cross the y-entry.
+            //     |   | Since it must cross the x-entry or y-entry, it crosses the x-entry.
+            unsafe { self.c0_ix(y0, dx0, sx, sy) }
+        } else {
+            // SAFETY: the segment crosses the y-entry.
+            // The proof is symmetrical to the other case.
+            unsafe { self.c0_iy(x0, dy0, sy, sx) }
+        }
+    }
+
+    /// Returns the clipped `cx1` coordinate of the line segment
+    /// when it crosses the x-exit of the region.
+    ///
+    /// # Safety
+    ///
+    /// The segment must cross the x-exit.
+    const unsafe fn cx1_ox(&self, sx: S) -> C {
+        match sx {
+            // SAFETY: wx1 + 1 cannot overflow because crossing the x-exit implies wx1 < x1.
+            S::P => unsafe { self.x1.unchecked_add(1) },
+            // SAFETY: wx0 - 1 cannot underflow because crossing the x-exit implies x1 < wx0.
+            S::N => unsafe { self.x0.unchecked_sub(1) },
+        }
+    }
+
+    /// Returns the clipped `cx1` coordinate of the line segment
+    /// when it crosses the y-exit of the region.
+    ///
+    /// # Safety
+    ///
+    /// The segment must cross the y-exit.
+    const unsafe fn cx1_oy(x0: C, dy1: U, sx: S) -> C {
+        // SAFETY:
+        // Crossing the y-exit implies wy1 < y1.
+        // Subtract y0 from both sides => wy1 - y0 < y1 - y0 => dy1 < dy.
+        // dy1 + 1 cannot overflow because dy1 < dy.
+        let dy1_inc = unsafe { dy1.unchecked_add(1) };
+        match sx {
+            // SAFETY:
+            // Crossing the y-exit: dy1 < dy;
+            // Add 1: dy1 + 1 < dy + 1;
+            // Add x0: x0 + dy1 + 1 < x0 + dy + 1;
+            // Replace dy = dx = x1 - x0:  x0 + dy1 + 1 < x0 + (x1 - x0) + 1;
+            // Simplify: x0 + dy1 < x1;
+            // x0 + dy1 + 1 cannot overflow because x0 + dy1 < x1.
+            S::P => unsafe { x0.checked_add_unsigned(dy1_inc).unwrap_unchecked() },
+            // SAFETY:
+            // dy1 + 1 < dy + 1;
+            // Negate both sides: -(dy + 1) < -(dy1 + 1);
+            // Add x0: x0 - (dy + 1) < x0 - (dy1 + 1);
+            // Replace dy = dx = x0 - x1: x0 - (x0 - x1 + 1) < x0 - (dy1 + 1);
+            // Simplify: x1 < x0 - dy1;
+            // x0 - dy1 - 1 cannot overflow because x0 + dy1 < x1.
+            S::N => unsafe { x0.checked_sub_unsigned(dy1_inc).unwrap_unchecked() },
+        }
+    }
+
+    /// Returns the clipped `cx1` coordinate of the line segment
+    /// when it crosses the x-exit or y-exit of the region.
+    ///
+    /// If the exact exit is known, use [`Self::cx1_ox`] or [`Self::cx1_oy`] instead.
+    ///
+    /// # Safety
+    ///
+    /// The segment must cross the x-exit or y-exit.
+    #[expect(clippy::similar_names)]
+    const unsafe fn cx1_oxy(&self, x0: C, dx1: U, dy1: U, sx: S) -> C {
+        if dx1 <= dy1 {
+            // |     | /
+            // +-----+/---
+            // |     #
+            // |    /|
+            // +---/-+----
+            // SAFETY: the segment crosses the x-exit. Proof similar to the one in c0_ixy.
+            unsafe { self.cx1_ox(sx) }
+        } else {
+            // |  /  |
+            // +-#---+----
+            // |/    |
+            // /     |
+            // +-----+----
+            // SAFETY: the segment crosses the y-exit. Proof similar to the one in c0_ixy.
+            unsafe { Self::cx1_oy(x0, dy1, sx) }
+        }
+    }
+
+    /// Clips a half-open diagonal line segment to this region.
+    ///
+    /// Returns a [`Diagonal`] over the portion of the segment inside this
+    /// clipping region, or [`None`] if the segment is not diagonal or is fully outside.
+    #[expect(clippy::similar_names)]
+    #[expect(clippy::too_many_lines)]
+    #[inline]
+    #[must_use]
+    pub const fn diagonal(&self, (x0, y0): CxC, (x1, y1): CxC) -> Option<Diagonal> {
+        let (sx, dx) = ops::sd(x0, x1);
+        let (sy, dy) = ops::sd(y0, y1);
+        if dx != dy {
+            return None;
+        }
+        if self.rejects_rect(x0, y0, x1, y1, sx, sy) {
+            return None;
+        }
+        let (ix, ox) = self.iox(x0, x1, sx);
+        let (iy, oy) = self.ioy(y0, y1, sy);
+        //    |   | 1  [0] segment start
+        // -/-+-#-+--- [1] segment end
+        //    @   #    [@] left: x-entry, bottom: y-entry
+        // ---+-@-+-/- [#] right: x-exit, top: y-exit
+        //  0 |   |    [/] possible miss
+        let (cx0, cy0, cx1) = match (ix, iy, ox, oy) {
+            L0000 => {
+                //    |   |
+                // ---+---+---
+                //    |0 1|
+                // ---+---+---
+                //    |   |
+                (x0, y0, x1)
+            }
+            L0001 => {
+                //    | 1 |
+                // ---+-#-+---
+                //    | 0 |
+                // ---+---+---
+                //    |   |
+                // SAFETY: y0 lies before the y-exit.
+                let dy1 = unsafe { self.dy1(y0, sy) };
+                // SAFETY: the segment crosses the y-exit.
+                let cx1 = unsafe { Self::cx1_oy(x0, dy1, sx) };
+                (x0, y0, cx1)
+            }
+            L0010 => {
+                //    |   |
+                // ---+---+---
+                //    | 0 # 1
+                // ---+---+---
+                //    |   |
+                // SAFETY: the segment crosses the x-exit.
+                let cx1 = unsafe { self.cx1_ox(sx) };
+                (x0, y0, cx1)
+            }
+            L0011 => {
+                //    |   | 1
+                // ---+-#-+---
+                //    | 0 #
+                // ---+---+---
+                //    |   |
+                // SAFETY: x0 lies before the x-exit.
+                let dx1 = unsafe { self.dx1(x0, sx) };
+                // SAFETY: y0 lies before the y-exit.
+                let dy1 = unsafe { self.dy1(y0, sy) };
+                // SAFETY: the segment crosses the x-exit or y-exit.
+                let cx1 = unsafe { self.cx1_oxy(x0, dx1, dy1, sx) };
+                (x0, y0, cx1)
+            }
+            L0100 => {
+                //    |   |
+                // ---+---+---
+                //    | 1 |
+                // ---+-@-+---
+                //    | 0 |
+                // SAFETY: y0 lies before the y-entry.
+                let dy0 = unsafe { self.dy0(y0, sy) };
+                // SAFETY: the segment crosses the y-entry.
+                let (cx0, cy0) = unsafe { self.c0_iy(x0, dy0, sy, sx) };
+                (cx0, cy0, x1)
+            }
+            L0101 => {
+                //    | 1 |
+                // ---+-#-+---
+                //    |   |
+                // ---+-@-+---
+                //    | 0 |
+                // SAFETY: y0 lies before the y-entry.
+                let dy0 = unsafe { self.dy0(y0, sy) };
+                // SAFETY: the segment crosses the y-entry.
+                let (cx0, cy0) = unsafe { self.c0_iy(x0, dy0, sy, sx) };
+                // SAFETY: y0 lies before the y-exit.
+                let dy1 = unsafe { self.dy1(y0, sy) };
+                // SAFETY: the segment crosses the the y-exit.
+                let cx1 = unsafe { Self::cx1_oy(x0, dy1, sx) };
+                (cx0, cy0, cx1)
+            }
+            L0110 => {
+                //    |   |
+                // ---+---+---
+                //    |   # 1
+                // ---+-@-+-/-
+                //    | 0 |
+                // SAFETY: y0 lies before the y-entry.
+                let dy0 = unsafe { self.dy0(y0, sy) };
+                // SAFETY: x0 lies before the x-exit.
+                let dx1 = unsafe { self.dx1(x0, sx) };
+                if dx1 < dy0 {
+                    // REJECT: the segment misses the bottom-right corner.
+                    return None;
+                }
+                // SAFETY: the segment crosses the y-entry.
+                let (cx0, cy0) = unsafe { self.c0_iy(x0, dy0, sy, sx) };
+                // SAFETY: the segment crosses the x-exit.
+                let cx1 = unsafe { self.cx1_ox(sx) };
+                (cx0, cy0, cx1)
+            }
+            L0111 => {
+                //    |   | 1
+                // ---+-#-+---
+                //    |   #
+                // ---+-@-+-/-
+                //    | 0 |
+                // SAFETY: y0 lies before the y-entry.
+                let dy0 = unsafe { self.dy0(y0, sy) };
+                // SAFETY: x0 lies before the x-exit.
+                let dx1 = unsafe { self.dx1(x0, sx) };
+                if dx1 < dy0 {
+                    // REJECT: the segment misses the bottom-right corner.
+                    return None;
+                }
+                // SAFETY: the segment crosses the y-entry.
+                let (cx0, cy0) = unsafe { self.c0_iy(x0, dy0, sy, sx) };
+                // SAFETY: y0 lies before the y-exit.
+                let dy1 = unsafe { self.dy1(y0, sy) };
+                // SAFETY: the segment crosses the x-exit or y-exit.
+                let cx1 = unsafe { self.cx1_oxy(x0, dx1, dy1, sx) };
+                (cx0, cy0, cx1)
+            }
+            L1000 => {
+                //    |   |
+                // ---+---+---
+                //  0 @ 1 |
+                // ---+---+---
+                //    |   |
+                // SAFETY: x0 lies before the x-entry.
+                let dx0 = unsafe { self.dx0(x0, sx) };
+                // SAFETY: the segment crosses the x-entry.
+                let (cx0, cy0) = unsafe { self.c0_ix(y0, dx0, sx, sy) };
+                (cx0, cy0, x1)
+            }
+            L1001 => {
+                //    | 1 |
+                // -/-+-#-+---
+                //  0 @   |
+                // ---+---+---
+                //    |   |
+                // SAFETY: x0 lies before the x-entry.
+                let dx0 = unsafe { self.dx0(x0, sx) };
+                // SAFETY: y0 lies before the y-exit.
+                let dy1 = unsafe { self.dy1(y0, sy) };
+                if dy1 < dx0 {
+                    // REJECT: the segment misses the top-left corner.
+                    return None;
+                }
+                // SAFETY: the segment crosses the x-entry.
+                let (cx0, cy0) = unsafe { self.c0_ix(y0, dx0, sx, sy) };
+                // SAFETY: the segment crosses the y-exit.
+                let cx1 = unsafe { Self::cx1_oy(x0, dy1, sx) };
+                (cx0, cy0, cx1)
+            }
+            L1010 => {
+                //    |   |
+                // ---+---+---
+                //  0 @   # 1
+                // ---+---+---
+                //    |   |
+                // SAFETY: x0 lies before the x-entry.
+                let dx0 = unsafe { self.dx0(x0, sx) };
+                // SAFETY: the segment crosses the x-entry.
+                let (cx0, cy0) = unsafe { self.c0_ix(y0, dx0, sx, sy) };
+                // SAFETY: the segment crosses the x-exit.
+                let cx1 = unsafe { self.cx1_ox(sx) };
+                (cx0, cy0, cx1)
+            }
+            L1011 => {
+                //    |   | 1
+                // -/-+-#-+---
+                //  0 @   #
+                // ---+---+---
+                //    |   |
+                // SAFETY: x0 lies before the x-entry.
+                let dx0 = unsafe { self.dx0(x0, sx) };
+                // SAFETY: y0 lies before the y-exit.
+                let dy1 = unsafe { self.dy1(y0, sy) };
+                if dy1 < dx0 {
+                    // REJECT: the segment misses the top-left corner.
+                    return None;
+                }
+                // SAFETY: the segment crosses the x-entry.
+                let (cx0, cy0) = unsafe { self.c0_ix(y0, dx0, sx, sy) };
+                // SAFETY: x0 lies before the x-exit.
+                let dx1 = unsafe { self.dx1(x0, sx) };
+                // SAFETY: the segment crosses the x-exit or y-exit.
+                let cx1 = unsafe { self.cx1_oxy(x0, dx1, dy1, sx) };
+                (cx0, cy0, cx1)
+            }
+            L1100 => {
+                //    |   |
+                // ---+---+---
+                //    @ 1 |
+                // ---+-@-+---
+                //  0 |   |
+                // SAFETY: x0 lies before the x-entry.
+                let dx0 = unsafe { self.dx0(x0, sx) };
+                // SAFETY: y0 lies before the y-entry.
+                let dy0 = unsafe { self.dy0(y0, sy) };
+                // SAFETY: the segment crosses the x-entry or y-entry.
+                let (cx0, cy0) = unsafe { self.c0_ixy(x0, y0, dx0, dy0, sx, sy) };
+                (cx0, cy0, x1)
+            }
+            L1101 => {
+                //    | 1 |
+                // -/-+-#-+---
+                //    @   |
+                // ---+-@-+---
+                //  0 |   |
+                // SAFETY: x0 lies before the x-entry.
+                let dx0 = unsafe { self.dx0(x0, sx) };
+                // SAFETY: y0 lies before the y-exit.
+                let dy1 = unsafe { self.dy1(y0, sy) };
+                if dy1 < dx0 {
+                    // REJECT: the segment misses the top-left corner.
+                    return None;
+                }
+                // SAFETY: y0 lies before the y-entry.
+                let dy0 = unsafe { self.dy0(y0, sy) };
+                // SAFETY: the segment crosses the x-entry or y-entry.
+                let (cx0, cy0) = unsafe { self.c0_ixy(x0, y0, dx0, dy0, sx, sy) };
+                // SAFETY: the segment crosses the y-exit.
+                let cx1 = unsafe { Self::cx1_oy(x0, dy1, sx) };
+                (cx0, cy0, cx1)
+            }
+            L1110 => {
+                //    |   |
+                // ---+---+---
+                //    @   # 1
+                // ---+-@-+-/-
+                //  0 |   |
+                // SAFETY: y0 lies before the y-entry.
+                let dy0 = unsafe { self.dy0(y0, sy) };
+                // SAFETY: x0 lies before the x-exit.
+                let dx1 = unsafe { self.dx1(x0, sx) };
+                if dx1 < dy0 {
+                    // REJECT: the segment misses the bottom-right corner.
+                    return None;
+                }
+                // SAFETY: x0 lies before the x-entry.
+                let dx0 = unsafe { self.dx0(x0, sx) };
+                // SAFETY: the segment crosses the x-entry or y-entry.
+                let (cx0, cy0) = unsafe { self.c0_ixy(x0, y0, dx0, dy0, sx, sy) };
+                // SAFETY: the segment crosses the x-exit.
+                let cx1 = unsafe { self.cx1_ox(sx) };
+                (cx0, cy0, cx1)
+            }
+            L1111 => {
+                //    |   | 1
+                // -/-+-#-+---
+                //    @   #
+                // ---+-@-+-/-
+                //  0 |   |
+                // SAFETY: x0 lies before the x-entry.
+                let dx0 = unsafe { self.dx0(x0, sx) };
+                // SAFETY: y0 lies before the y-exit.
+                let dy1 = unsafe { self.dy1(y0, sy) };
+                if dy1 < dx0 {
+                    // REJECT: the segment misses the top-left corner.
+                    return None;
+                }
+                // SAFETY: y0 lies before the y-entry.
+                let dy0 = unsafe { self.dy0(y0, sy) };
+                // SAFETY: x0 lies before the x-exit.
+                let dx1 = unsafe { self.dx1(x0, sx) };
+                if dx1 < dy0 {
+                    // REJECT: the segment misses the bottom-right corner.
+                    return None;
+                }
+                // SAFETY: the segment crosses the x-entry or y-entry.
+                let (cx0, cy0) = unsafe { self.c0_ixy(x0, y0, dx0, dy0, sx, sy) };
+                // SAFETY: the segment crosses the x-exit or y-exit.
+                let cx1 = unsafe { self.cx1_oxy(x0, dx1, dy1, sx) };
+                (cx0, cy0, cx1)
+            }
+        };
+        // SAFETY: sx matches the direction from cx0 to cx1.
+        let diagonal = unsafe { Diagonal::new_unchecked((cx0, cy0), (sx, sy), cx1) };
+        Some(diagonal)
+    }
+}

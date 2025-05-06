@@ -9,6 +9,7 @@
 #![forbid(clippy::unnecessary_safety_doc)]
 //
 #![deny(missing_docs)]
+#![deny(unsafe_op_in_unsafe_fn)]
 //
 #![warn(clippy::nursery)]
 #![warn(clippy::cargo)]

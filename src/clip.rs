@@ -1,6 +1,7 @@
 use crate::math::{CxC, C};
 
 mod axis;
+mod diagonal;
 
 /// A closed[^1] rectangular clipping region defined by its minimum and maximum corners.
 ///

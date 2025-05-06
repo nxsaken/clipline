@@ -35,7 +35,22 @@ pub type SxS = (S, S);
 pub struct ops;
 
 impl ops {
-    /// Returns the sign and absolute value of the offset between two coordinates.
+    /// Returns the difference between two coordinates
+    /// as an absolute value without an overflow check.
+    ///
+    /// # Safety
+    ///
+    /// `c0` must be less or equal to `c1`.
+    #[inline]
+    #[must_use]
+    pub const unsafe fn d_unchecked(c1: C, c0: C) -> U {
+        debug_assert!(c0 <= c1);
+        #[expect(clippy::cast_sign_loss)]
+        U::wrapping_sub(c1 as U, c0 as U)
+    }
+
+    /// Returns the absolute difference between `c0` and `c1`,
+    /// and the sign of `c1 - c0`.
     #[inline]
     #[must_use]
     pub const fn sd(c0: C, c1: C) -> (S, U) {
