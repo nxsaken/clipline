@@ -41,9 +41,6 @@ jobs:
           toolchain: ${{ matrix.rust }}
       - name: Default features
         run: cargo build --all-targets
-      - name: Nightly features
-        if: matrix.rust == 'nightly'
-        run: cargo build --all-targets -F "nightly try_fold is_empty"
 
   clippy:
     name: cargo clippy
@@ -60,8 +57,6 @@ jobs:
           toolchain: ${{ matrix.rust }}
           components: clippy
       - run: cargo clippy --all-targets
-      - if: matrix.rust == 'nightly'
-        run: cargo clippy --all-targets --all-features
 
   fmt:
     name: cargo fmt
@@ -98,18 +93,4 @@ jobs:
         with:
           toolchain: ${{ matrix.rust }}
       - name: Default features
-        run: cargo test --no-fail-fast -- --skip proptest
-      - name: Nightly features
-        if: matrix.rust == 'nightly'
-        run: cargo test --no-fail-fast -F "nightly try_fold is_empty" -- --skip proptest
-
-  proptest:
-    name: proptest
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-      - name: Install toolchain
-        uses: dtolnay/rust-toolchain@stable
-      - name: Default features
-        run: cargo test --no-fail-fast proptest
+        run: cargo test --no-fail-fast
