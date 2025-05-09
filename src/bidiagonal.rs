@@ -62,6 +62,13 @@ impl Bidiagonal {
         let this = unsafe { Self::new_unchecked((x0, y0), (x1, y1), (sx, sy)) };
         Some(this)
     }
+
+    /// Returns a copy of this [`Bidiagonal`] iterator.
+    #[inline]
+    #[must_use]
+    pub const fn copy(&self) -> Self {
+        Self { ..*self }
+    }
 }
 
 impl Bidiagonal {

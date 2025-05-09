@@ -39,6 +39,13 @@ impl Clip {
         Some(Self { x0: 0, y0: 0, x1: width.wrapping_sub(1), y1: height.wrapping_sub(1) })
     }
 
+    /// Returns a copy of this [`Clip`].
+    #[inline]
+    #[must_use]
+    pub const fn copy(&self) -> Self {
+        Self { ..*self }
+    }
+
     /// Returns the minimum corner.
     #[inline]
     #[must_use]

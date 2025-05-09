@@ -36,6 +36,16 @@ impl Bresenham {
             Self::Fast(case)
         }
     }
+
+    /// Returns a copy of this [`Bresenham`] iterator.
+    #[inline]
+    #[must_use]
+    pub const fn copy(&self) -> Self {
+        match self {
+            Self::Slow(case) => Self::Slow(case.copy()),
+            Self::Fast(case) => Self::Fast(case.copy()),
+        }
+    }
 }
 
 impl Bresenham {

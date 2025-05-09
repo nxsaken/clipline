@@ -570,7 +570,7 @@ impl Clip {
             }
         };
         // SAFETY: sx matches the direction from cx0 to cx1.
-        let diagonal = unsafe { Diagonal::new_unchecked((cx0, cy0), (sx, sy), cx1) };
+        let diagonal = unsafe { Diagonal::new_unchecked((cx0, cy0), cx1, (sx, sy)) };
         Some(diagonal)
     }
 }

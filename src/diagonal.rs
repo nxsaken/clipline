@@ -3,16 +3,16 @@ use crate::math::{ops, CxC, SxS, C, S, U};
 /// An iterator over the rasterized points of a half-open diagonal line segment.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Diagonal {
-    /// The start coordinate along the `x` axis.
+    /// The current start coordinate along the `x` axis.
     x0: C,
-    /// The start coordinate along the `y` axis.
+    /// The current start coordinate along the `y` axis.
     y0: C,
+    /// The current end coordinate along the `x` axis.
+    x1: C,
     /// The step sign along the `x` axis.
     sx: S,
     /// The step sign along the `y` axis.
     sy: S,
-    /// The end coordinate along the `x` axis.
-    x1: C,
 }
 
 impl Diagonal {
@@ -23,8 +23,8 @@ impl Diagonal {
     /// `sx` must match the direction from `x0` to `x1`.
     #[inline]
     #[must_use]
-    pub const unsafe fn new_unchecked((x0, y0): CxC, (sx, sy): SxS, x1: C) -> Self {
-        Self { x0, y0, sx, sy, x1 }
+    pub const unsafe fn new_unchecked((x0, y0): CxC, x1: C, (sx, sy): SxS) -> Self {
+        Self { x0, y0, x1, sx, sy }
     }
 
     /// Returns a [`Diagonal`] iterator over a half-open line segment
@@ -40,8 +40,15 @@ impl Diagonal {
         }
 
         // SAFETY: sx matches the direction from x0 to x1.
-        let this = unsafe { Self::new_unchecked((x0, y0), (sx, sy), x1) };
+        let this = unsafe { Self::new_unchecked((x0, y0), x1, (sx, sy)) };
         Some(this)
+    }
+
+    /// Returns a copy of this [`Diagonal`] iterator.
+    #[inline]
+    #[must_use]
+    pub const fn copy(&self) -> Self {
+        Self { ..*self }
     }
 }
 

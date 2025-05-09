@@ -10,18 +10,18 @@ use crate::math::{CxC, C, S, U};
 pub struct Axis<const V: bool> {
     /// The fixed coordinate along the other axis.
     v: C,
-    /// The start coordinate along the target axis.
+    /// The current start coordinate along this axis.
     u0: C,
-    /// The end coordinate along the target axis.
+    /// The current end coordinate along this axis.
     u1: C,
-    /// The step sign along the target axis.
+    /// The step sign along this axis.
     su: S,
 }
 
-/// An [`Axis`] iterator over a half-open horizontal line segment.
+/// An [`Axis::<false>`] iterator over a half-open horizontal line segment.
 pub type Axis0 = Axis<false>;
 
-/// An [`Axis`] iterator over a half-open vertical line segment.
+/// An [`Axis::<true>`] iterator over a half-open vertical line segment.
 pub type Axis1 = Axis<true>;
 
 impl<const V: bool> Axis<V> {
@@ -55,6 +55,13 @@ impl<const V: bool> Axis<V> {
     #[must_use]
     pub const fn clip_new(v: C, u0: C, u1: C, clip: &Clip) -> Option<Self> {
         clip.axis(v, u0, u1)
+    }
+
+    /// Returns a copy of this [`Axis::<V>`] iterator.
+    #[inline]
+    #[must_use]
+    pub const fn copy(&self) -> Self {
+        Self { ..*self }
     }
 }
 
