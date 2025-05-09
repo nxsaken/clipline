@@ -26,14 +26,14 @@ pub struct BresenhamCase<const YX: bool> {
     u1: C,
 }
 
-/// A [`BresenhamCase::<false>`] iterator over a half-open line segment with a "slow" slope (`dy <= dx`).
+/// A [`BresenhamCase<false>`] iterator over a half-open line segment with a "slow" slope (`dy <= dx`).
 pub type BresenhamSlow = BresenhamCase<false>;
 
-/// A [`BresenhamCase::<true>`] iterator over a half-open line segment with a "fast" slope (`dx < dy`).
+/// A [`BresenhamCase<true>`] iterator over a half-open line segment with a "fast" slope (`dx < dy`).
 pub type BresenhamFast = BresenhamCase<true>;
 
 impl<const YX: bool> BresenhamCase<YX> {
-    /// Constructs a [`BresenhamCase::<YX>`] iterator from
+    /// Constructs a [`BresenhamCase<YX>`] iterator from
     /// the parameters of a normalized half-open line segment.
     ///
     /// # Safety
@@ -58,7 +58,7 @@ impl<const YX: bool> BresenhamCase<YX> {
         Self { u0, v0, err, du, dv, su, sv, u1 }
     }
 
-    /// Returns a [`BresenhamCase::<YX>`] iterator over a half-open line segment
+    /// Returns a [`BresenhamCase<YX>`] iterator over a half-open line segment
     /// if the line segment's slope matches `YX`, otherwise returns [`None`].
     ///
     /// The `YX` parameter determines which class of line segments is covered:
@@ -82,7 +82,7 @@ impl<const YX: bool> BresenhamCase<YX> {
         Some(this)
     }
 
-    /// Returns a copy of this [`BresenhamCase::<YX>`] iterator.
+    /// Returns a copy of this [`BresenhamCase<YX>`] iterator.
     #[inline]
     #[must_use]
     pub const fn copy(&self) -> Self {
@@ -147,7 +147,6 @@ impl<const YX: bool> Iterator for BresenhamCase<YX> {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // TODO: fallible version.
         let len = usize::from(self.length());
         (len, Some(len))
     }
@@ -155,4 +154,9 @@ impl<const YX: bool> Iterator for BresenhamCase<YX> {
 
 impl<const YX: bool> core::iter::FusedIterator for BresenhamCase<YX> {}
 
-impl<const YX: bool> ExactSizeIterator for BresenhamCase<YX> {}
+impl<const YX: bool> ExactSizeIterator for BresenhamCase<YX> {
+    #[inline]
+    fn len(&self) -> usize {
+        usize::from(self.length())
+    }
+}

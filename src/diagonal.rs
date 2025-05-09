@@ -112,7 +112,12 @@ impl Iterator for Diagonal {
 
 impl core::iter::FusedIterator for Diagonal {}
 
-impl ExactSizeIterator for Diagonal {}
+impl ExactSizeIterator for Diagonal {
+    #[inline]
+    fn len(&self) -> usize {
+        usize::from(self.length())
+    }
+}
 
 impl Diagonal {
     /// Returns the point immediately before the end of the iterator.

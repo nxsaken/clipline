@@ -118,4 +118,12 @@ impl Iterator for Bresenham {
 
 impl core::iter::FusedIterator for Bresenham {}
 
-impl ExactSizeIterator for Bresenham {}
+impl ExactSizeIterator for Bresenham {
+    #[inline]
+    fn len(&self) -> usize {
+        match self {
+            Self::Slow(case) => case.len(),
+            Self::Fast(case) => case.len(),
+        }
+    }
+}

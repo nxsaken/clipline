@@ -123,7 +123,6 @@ impl Iterator for Bidiagonal {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // TODO: fallible version.
         let len = usize::from(self.length());
         (len, Some(len))
     }
@@ -131,7 +130,12 @@ impl Iterator for Bidiagonal {
 
 impl core::iter::FusedIterator for Bidiagonal {}
 
-impl ExactSizeIterator for Bidiagonal {}
+impl ExactSizeIterator for Bidiagonal {
+    #[inline]
+    fn len(&self) -> usize {
+        usize::from(self.length())
+    }
+}
 
 impl Bidiagonal {
     /// Returns the point immediately before the end of the iterator.

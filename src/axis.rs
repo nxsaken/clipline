@@ -18,10 +18,10 @@ pub struct Axis<const V: bool> {
     su: S,
 }
 
-/// An [`Axis::<false>`] iterator over a half-open horizontal line segment.
+/// An [`Axis<false>`] iterator over a half-open horizontal line segment.
 pub type Axis0 = Axis<false>;
 
-/// An [`Axis::<true>`] iterator over a half-open vertical line segment.
+/// An [`Axis<true>`] iterator over a half-open vertical line segment.
 pub type Axis1 = Axis<true>;
 
 impl<const V: bool> Axis<V> {
@@ -50,14 +50,14 @@ impl<const V: bool> Axis<V> {
         unsafe { Self::new_unchecked(v, u0, u1, su) }
     }
 
-    /// A convenience alias for [`Clip::axis::<V>`].
+    /// A convenience alias for [`Clip::axis<V>`].
     #[inline]
     #[must_use]
     pub const fn clip_new(v: C, u0: C, u1: C, clip: &Clip) -> Option<Self> {
         clip.axis(v, u0, u1)
     }
 
-    /// Returns a copy of this [`Axis::<V>`] iterator.
+    /// Returns a copy of this [`Axis<V>`] iterator.
     #[inline]
     #[must_use]
     pub const fn copy(&self) -> Self {
@@ -117,7 +117,6 @@ impl<const V: bool> Iterator for Axis<V> {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // TODO: fallible version.
         let len = usize::from(self.length());
         (len, Some(len))
     }
@@ -125,7 +124,12 @@ impl<const V: bool> Iterator for Axis<V> {
 
 impl<const V: bool> core::iter::FusedIterator for Axis<V> {}
 
-impl<const V: bool> ExactSizeIterator for Axis<V> {}
+impl<const V: bool> ExactSizeIterator for Axis<V> {
+    #[inline]
+    fn len(&self) -> usize {
+        usize::from(self.length())
+    }
+}
 
 impl<const V: bool> Axis<V> {
     /// Returns the point immediately before the end of the iterator.
