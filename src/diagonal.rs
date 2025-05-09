@@ -24,6 +24,8 @@ impl Diagonal {
     #[inline]
     #[must_use]
     pub const unsafe fn new_unchecked((x0, y0): CxC, x1: C, (sx, sy): SxS) -> Self {
+        debug_assert!((x0 <= x1) == matches!(sx, S::P));
+        debug_assert!((x1 < x0) == matches!(sx, S::N));
         Self { x0, y0, x1, sx, sy }
     }
 

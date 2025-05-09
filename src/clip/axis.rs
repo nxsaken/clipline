@@ -1,4 +1,4 @@
-use crate::axis::{Axis, Axis0, Axis1};
+use crate::axis::{Axis, AxisH, AxisV};
 use crate::clip::Clip;
 use crate::math::{C, S};
 
@@ -42,21 +42,21 @@ impl Clip {
 
     /// Clips a half-open horizontal line segment to this region.
     ///
-    /// Returns an [`Axis0`] over the portion of the segment inside this
+    /// Returns an [`AxisH`] over the portion of the segment inside this
     /// clipping region, or [`None`] if the segment lies fully outside.
     #[inline]
     #[must_use]
-    pub const fn axis_0(&self, y: C, x0: C, x1: C) -> Option<Axis0> {
+    pub const fn axis_h(&self, y: C, x0: C, x1: C) -> Option<AxisH> {
         self.axis::<false>(y, x0, x1)
     }
 
     /// Clips a half-open vertical line segment to this region.
     ///
-    /// Returns an [`Axis1`] over the portion of the segment inside this
+    /// Returns an [`AxisV`] over the portion of the segment inside this
     /// clipping region, or [`None`] if the segment lies fully outside.
     #[inline]
     #[must_use]
-    pub const fn axis_1(&self, x: C, y0: C, y1: C) -> Option<Axis1> {
+    pub const fn axis_v(&self, x: C, y0: C, y1: C) -> Option<AxisV> {
         self.axis::<true>(x, y0, y1)
     }
 }

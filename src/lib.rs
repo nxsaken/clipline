@@ -23,7 +23,7 @@ mod clip;
 mod diagonal;
 mod math;
 
-pub use axis::{Axis, Axis0, Axis1};
+pub use axis::{Axis, AxisH, AxisV};
 pub use bidiagonal::Bidiagonal;
 pub use bresenham::Bresenham;
 pub use bresenham_case::{BresenhamCase, BresenhamFast, BresenhamSlow};

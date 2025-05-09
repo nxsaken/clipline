@@ -19,10 +19,10 @@ pub struct Axis<const V: bool> {
 }
 
 /// An [`Axis<false>`] iterator over a half-open horizontal line segment.
-pub type Axis0 = Axis<false>;
+pub type AxisH = Axis<false>;
 
 /// An [`Axis<true>`] iterator over a half-open vertical line segment.
-pub type Axis1 = Axis<true>;
+pub type AxisV = Axis<true>;
 
 impl<const V: bool> Axis<V> {
     /// Constructs an [`Axis<V>`] iterator from its internal parts.
@@ -33,6 +33,8 @@ impl<const V: bool> Axis<V> {
     #[inline]
     #[must_use]
     pub const unsafe fn new_unchecked(v: C, u0: C, u1: C, su: S) -> Self {
+        debug_assert!((u0 <= u1) == matches!(su, S::P));
+        debug_assert!((u1 < u0) == matches!(su, S::N));
         Self { v, u0, u1, su }
     }
 
