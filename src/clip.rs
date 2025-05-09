@@ -52,4 +52,11 @@ impl Clip {
     pub const fn max(&self) -> CxC {
         (self.x1, self.y1)
     }
+
+    /// Checks whether the given point is inside the region.
+    #[inline]
+    #[must_use]
+    pub const fn point(&self, (x, y): CxC) -> bool {
+        self.x0 <= x && x <= self.x1 && self.y0 <= y && y <= self.y1
+    }
 }

@@ -1,5 +1,5 @@
-use super::Clip;
 use crate::axis::{Axis, Axis0, Axis1};
+use crate::clip::Clip;
 use crate::math::{C, S};
 
 impl Clip {
@@ -21,20 +21,18 @@ impl Clip {
             return None;
         }
         let (su, cu0, cu1) = if u0 <= u1 {
-            let (nu0, nu1) = (u0, u1);
-            if nu1 <= wu0 || wu1 < nu0 {
+            if u1 <= wu0 || wu1 < u0 {
                 return None;
             }
-            let cu0 = if nu0 < wu0 { wu0 } else { nu0 };
-            let cu1 = if wu1 < nu1 { wu1.wrapping_add(1) } else { nu1 };
+            let cu0 = if u0 < wu0 { wu0 } else { u0 };
+            let cu1 = if wu1 < u1 { wu1.wrapping_add(1) } else { u1 };
             (S::P, cu0, cu1)
         } else {
-            let (nu0, nu1) = (u1, u0);
-            if nu1 <= wu0 || wu1 < nu0 {
+            if u0 < wu0 || wu1 <= u1 {
                 return None;
             }
-            let cu0 = if wu1 < nu0 { wu1 } else { nu0 };
-            let cu1 = if nu1 < wu0 { wu0.wrapping_sub(1) } else { nu1 };
+            let cu0 = if wu1 < u0 { wu1 } else { u0 };
+            let cu1 = if u1 < wu0 { wu0.wrapping_sub(1) } else { u1 };
             (S::N, cu0, cu1)
         };
         // SAFETY: su matches the direction from cu0 to cu1.
@@ -60,5 +58,54 @@ impl Clip {
     #[must_use]
     pub const fn axis_1(&self, x: C, y0: C, y1: C) -> Option<Axis1> {
         self.axis::<true>(x, y0, y1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::axis::Axis;
+    use crate::clip::Clip;
+    use crate::math::{C, S};
+
+    const CLIP: Clip = Clip::from_min_max((-64, -48), (63, 47)).unwrap();
+
+    /// Calls `f` on all possible line segments
+    /// aligned to an axis with the direction `su`.
+    fn for_every(su: S, mut f: impl FnMut(C, C, C)) {
+        let su = su as C;
+        for v in C::MIN..=C::MAX {
+            for u0 in C::MIN..=C::MAX {
+                let max_du = if su > 0 { u0.abs_diff(C::MAX) } else { u0.abs_diff(C::MIN) };
+                let mut u1 = u0;
+                for _ in 0..max_du {
+                    f(v, u0, u1);
+                    u1 = u1.wrapping_add(su);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn naive_clip_matches_fast_clip() {
+        extern crate std;
+        use std::thread::{self, JoinHandle};
+
+        fn test_axis<const V: bool>(su: S) -> impl Fn() {
+            move || {
+                let clip = CLIP;
+                for_every(su, |v, u0, u1| {
+                    let naive = Axis::<V>::new(v, u0, u1).filter(|&it| clip.point(it));
+                    let fast = clip.axis::<V>(v, u0, u1).into_iter().flatten();
+                    assert!(naive.eq(fast), "naive != fast at V={V}, v={v}, u0={u0}, u1={u1}");
+                });
+            }
+        }
+
+        [S::P, S::N]
+            .map(|su| [thread::spawn(test_axis::<false>(su)), thread::spawn(test_axis::<true>(su))])
+            .into_iter()
+            .flatten()
+            .try_for_each(JoinHandle::join)
+            .unwrap();
     }
 }

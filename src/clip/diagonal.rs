@@ -1,4 +1,4 @@
-use super::Clip;
+use crate::clip::Clip;
 use crate::diagonal::Diagonal;
 use crate::math::{ops, CxC, C, S, U};
 
@@ -30,11 +30,11 @@ impl Clip {
     const fn rejects_rect(&self, x0: C, y0: C, x1: C, y1: C, sx: S, sy: S) -> bool {
         let miss_x = match sx {
             S::P => x1 <= self.x0 || self.x1 < x0,
-            S::N => self.x0 < x0 || x1 <= self.x1,
+            S::N => x0 < self.x0 || self.x1 <= x1,
         };
         let miss_y = match sy {
             S::P => y1 <= self.y0 || self.y1 < y0,
-            S::N => self.y0 < y0 || y1 <= self.y1,
+            S::N => y0 < self.y0 || self.y1 <= y1,
         };
         miss_x || miss_y
     }
@@ -572,5 +572,56 @@ impl Clip {
         // SAFETY: sx matches the direction from cx0 to cx1.
         let diagonal = unsafe { Diagonal::new_unchecked((cx0, cy0), (sx, sy), cx1) };
         Some(diagonal)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::clip::Clip;
+    use crate::diagonal::Diagonal;
+    use crate::math::{CxC, SxS, C, S, U};
+
+    const CLIP: Clip = Clip::from_min_max((-64, -48), (63, 47)).unwrap();
+
+    /// Calls `f` on all possible diagonal line segments
+    /// with the directions `sx` and `sy`.
+    #[expect(clippy::similar_names)]
+    fn for_every((sx, sy): SxS, mut f: impl FnMut(CxC, CxC)) {
+        let (sx, sy) = (sx as C, sy as C);
+        for y0 in C::MIN..=C::MAX {
+            for x0 in C::MIN..=C::MAX {
+                let max_dx = if sx > 0 { x0.abs_diff(C::MAX) } else { x0.abs_diff(C::MIN) };
+                let max_dy = if sy > 0 { y0.abs_diff(C::MAX) } else { y0.abs_diff(C::MIN) };
+                let max_d = U::min(max_dx, max_dy);
+
+                let (mut x1, mut y1) = (x0, y0);
+                for _ in 0..max_d {
+                    f((x0, y0), (x1, y1));
+                    x1 = x1.wrapping_add(sx);
+                    y1 = y1.wrapping_add(sy);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn naive_clip_matches_fast_clip() {
+        extern crate std;
+        use std::thread::{self, JoinHandle};
+
+        [(S::P, S::P), (S::P, S::N), (S::N, S::P), (S::N, S::N)]
+            .map(|(sx, sy)| {
+                thread::spawn(move || {
+                    let clip = CLIP;
+                    for_every((sx, sy), |p, q| {
+                        let naive = Diagonal::new(p, q).unwrap().filter(|&it| clip.point(it));
+                        let fast = clip.diagonal(p, q).into_iter().flatten();
+                        assert!(naive.eq(fast));
+                    });
+                })
+            })
+            .into_iter()
+            .try_for_each(JoinHandle::join)
+            .unwrap();
     }
 }
