@@ -1,5 +1,5 @@
 use crate::clip::Clip;
-use crate::math::{CxC, C, S, U};
+use crate::math::{ops, CxC, C, S, U};
 
 /// An iterator over the rasterized points of a half-open axis-aligned line segment.
 ///
@@ -79,7 +79,12 @@ impl<const V: bool> Axis<V> {
     #[inline]
     #[must_use]
     pub const fn length(&self) -> U {
-        self.u0.abs_diff(self.u1)
+        match self.su {
+            // SAFETY: self.u0 <= self.u1.
+            S::P => unsafe { ops::d_unchecked(self.u1, self.u0) },
+            // SAFETY: self.u1 <= self.u0.
+            S::N => unsafe { ops::d_unchecked(self.u0, self.u1) },
+        }
     }
 
     /// Returns the point at the start of the iterator.

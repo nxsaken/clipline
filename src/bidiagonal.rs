@@ -1,13 +1,11 @@
+use crate::diagonal::Diagonal;
 use crate::math::{ops, CxC, SxS, C, S, U};
 
-/// An iterator over the rasterized points of a half-open diagonal line segment.
+/// An iterator over the rasterized points of a half-open
+/// diagonal line segment with fast double-ended traversal.
 ///
-/// This is a variant of the [`Diagonal`] iterator optimized
-/// for [`DoubleEndedIterator`] by storing both end coordinates.
-///
-/// If you do not need double-ended iteration, prefer [`Diagonal`].
-///
-/// [`Diagonal`]: crate::Diagonal
+/// If you do not need reversed iteration,
+/// prefer [`Diagonal`], as it takes up less space.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Bidiagonal {
     /// The current start coordinate along the `x` axis.
@@ -50,17 +48,26 @@ impl Bidiagonal {
     pub const fn new((x0, y0): CxC, (x1, y1): CxC) -> Option<Self> {
         let (sx, dx) = ops::sd(x0, x1);
         let (sy, dy) = ops::sd(y0, y1);
-
         if dx != dy {
             return None;
         }
-
         // SAFETY:
         // 1. |x0 - x1| is equal to |y0 - y1|.
         // 2. sx matches the direction from x0 to x1.
         // 3. sy matches the direction from y0 to y1.
         let this = unsafe { Self::new_unchecked((x0, y0), (x1, y1), (sx, sy)) };
         Some(this)
+    }
+
+    /// Converts this [`Bidiagonal`] into a [`Diagonal`].
+    ///
+    /// Note that [`Diagonal`] implements [`DoubleEndedIterator`]
+    /// as well, but its tail point is more expensive to compute.
+    #[inline]
+    #[must_use]
+    pub const fn single_ended(self) -> Diagonal {
+        // SAFETY: self.sx matches the direction from self.x0 to self.x1.
+        unsafe { Diagonal::new_unchecked((self.x0, self.y0), self.x1, (self.sx, self.sy)) }
     }
 
     /// Returns a copy of this [`Bidiagonal`] iterator.
@@ -83,7 +90,12 @@ impl Bidiagonal {
     #[inline]
     #[must_use]
     pub const fn length(&self) -> U {
-        self.x0.abs_diff(self.x1)
+        match self.sx {
+            // SAFETY: self.x0 <= self.x1.
+            S::P => unsafe { ops::d_unchecked(self.x1, self.x0) },
+            // SAFETY: self.x1 <= self.x0.
+            S::N => unsafe { ops::d_unchecked(self.x0, self.x1) },
+        }
     }
 
     /// Returns the point at the start of the iterator.

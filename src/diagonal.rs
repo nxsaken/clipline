@@ -1,3 +1,4 @@
+use crate::bidiagonal::Bidiagonal;
 use crate::math::{ops, CxC, SxS, C, S, U};
 
 /// An iterator over the rasterized points of a half-open diagonal line segment.
@@ -36,14 +37,28 @@ impl Diagonal {
     pub const fn new((x0, y0): CxC, (x1, y1): CxC) -> Option<Self> {
         let (sx, dx) = ops::sd(x0, x1);
         let (sy, dy) = ops::sd(y0, y1);
-
         if dx != dy {
             return None;
         }
-
         // SAFETY: sx matches the direction from x0 to x1.
         let this = unsafe { Self::new_unchecked((x0, y0), x1, (sx, sy)) };
         Some(this)
+    }
+
+    /// Converts this [`Diagonal`] into a [`Bidiagonal`].
+    #[inline]
+    #[must_use]
+    pub const fn double_ended(self) -> Bidiagonal {
+        let dx = self.length();
+        let y1 = match self.sy {
+            S::P => self.y0.wrapping_add_unsigned(dx),
+            S::N => self.y0.wrapping_sub_unsigned(dx),
+        };
+        // SAFETY:
+        // - |y0 - y1| = |y0 - (y0 ± dx)| = |±(x0 - x1)| = |x0 - x1|.
+        // - self.sx matches the direction from self.x0 to self.x1.
+        // - self.sy matches the direction from self.y0 to y1.
+        unsafe { Bidiagonal::new_unchecked((self.x0, self.y0), (self.x1, y1), (self.sx, self.sy)) }
     }
 
     /// Returns a copy of this [`Diagonal`] iterator.
@@ -66,7 +81,12 @@ impl Diagonal {
     #[inline]
     #[must_use]
     pub const fn length(&self) -> U {
-        self.x0.abs_diff(self.x1)
+        match self.sx {
+            // SAFETY: self.x0 <= self.x1.
+            S::P => unsafe { ops::d_unchecked(self.x1, self.x0) },
+            // SAFETY: self.x1 <= self.x0.
+            S::N => unsafe { ops::d_unchecked(self.x0, self.x1) },
+        }
     }
 
     /// Returns the point at the start of the iterator.
@@ -133,7 +153,7 @@ impl Diagonal {
     /// Use sparingly in performance-critical code. Avoid pairing this with
     /// [`Self::pop_tail`], as it will redo that work.
     ///
-    /// See [`Bidiagonal`](crate::Bidiagonal) for an optimized alternative.
+    /// See [`Bidiagonal::tail`] for an optimized alternative.
     #[inline]
     #[must_use]
     pub const fn tail(&self) -> Option<CxC> {
@@ -141,7 +161,12 @@ impl Diagonal {
             return None;
         }
         let x1 = self.x1.wrapping_sub(self.sx as C);
-        let dx = x1.abs_diff(self.x0);
+        let dx = match self.sx {
+            // SAFETY: self.x0 <= x1.
+            S::P => unsafe { ops::d_unchecked(x1, self.x0) },
+            // SAFETY: x1 <= self.x0.
+            S::N => unsafe { ops::d_unchecked(self.x0, x1) },
+        };
         let y1 = match self.sy {
             S::P => self.y0.wrapping_add_unsigned(dx),
             S::N => self.y0.wrapping_sub_unsigned(dx),
@@ -159,7 +184,7 @@ impl Diagonal {
     /// This method performs non-trivial arithmetic to compute the last point.
     /// Use sparingly in performance-critical code.
     ///
-    /// See [`Bidiagonal`](crate::Bidiagonal) for an optimized alternative.
+    /// See [`Bidiagonal::pop_tail`] for an optimized alternative.
     #[inline]
     #[must_use]
     pub const fn pop_tail(&mut self) -> Option<CxC> {
