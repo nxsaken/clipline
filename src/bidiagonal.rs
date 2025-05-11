@@ -27,17 +27,17 @@ impl Bidiagonal {
     ///
     /// # Safety
     ///
-    /// 1. `|x0 - x1|` must be equal to `|y0 - y1|`.
-    /// 2. `sx` must match the direction from `x0` to `x1`.
-    /// 3. `sy` must match the direction from `y0` to `y1`.
+    /// 1. `|x0 - x1| == |y0 - y1|`.
+    /// 2. `sx == sign(x1 - x0)`.
+    /// 3. `sy == sign(y1 - y0)`.
     #[inline]
     #[must_use]
     pub(crate) const unsafe fn new_unchecked((x0, y0): CxC, (x1, y1): CxC, (sx, sy): SxS) -> Self {
         debug_assert!(x0.abs_diff(x1) == y0.abs_diff(y1));
-        debug_assert!((x0 <= x1) == matches!(sx, S::P));
-        debug_assert!((x1 < x0) == matches!(sx, S::N));
-        debug_assert!((y0 <= y1) == matches!(sy, S::P));
-        debug_assert!((y1 < y0) == matches!(sy, S::N));
+        debug_assert!((x0 <= x1) == matches!(sx, S::Pos));
+        debug_assert!((x1 < x0) == matches!(sx, S::Neg));
+        debug_assert!((y0 <= y1) == matches!(sy, S::Pos));
+        debug_assert!((y1 < y0) == matches!(sy, S::Neg));
         Self { x0, y0, x1, y1, sx, sy }
     }
 
@@ -46,15 +46,15 @@ impl Bidiagonal {
     #[inline]
     #[must_use]
     pub const fn new((x0, y0): CxC, (x1, y1): CxC) -> Option<Self> {
-        let (sx, dx) = ops::sd(x0, x1);
-        let (sy, dy) = ops::sd(y0, y1);
+        let (sx, dx) = ops::abs_diff(x1, x0);
+        let (sy, dy) = ops::abs_diff(y1, y0);
         if dx != dy {
             return None;
         }
         // SAFETY:
-        // 1. |x0 - x1| is equal to |y0 - y1|.
-        // 2. sx matches the direction from x0 to x1.
-        // 3. sy matches the direction from y0 to y1.
+        // 1. |x0 - x1| == |y0 - y1|.
+        // 2. sx == sign(x1 - x0).
+        // 3. sy == sign(y1 - y0).
         let this = unsafe { Self::new_unchecked((x0, y0), (x1, y1), (sx, sy)) };
         Some(this)
     }
@@ -66,7 +66,7 @@ impl Bidiagonal {
     #[inline]
     #[must_use]
     pub const fn single_ended(self) -> Diagonal {
-        // SAFETY: self.sx matches the direction from self.x0 to self.x1.
+        // SAFETY: sx == sign(x1 - x0).
         unsafe { Diagonal::new_unchecked((self.x0, self.y0), self.x1, (self.sx, self.sy)) }
     }
 
@@ -91,10 +91,10 @@ impl Bidiagonal {
     #[must_use]
     pub const fn length(&self) -> U {
         match self.sx {
-            // SAFETY: self.x0 <= self.x1.
-            S::P => unsafe { ops::d_unchecked(self.x1, self.x0) },
-            // SAFETY: self.x1 <= self.x0.
-            S::N => unsafe { ops::d_unchecked(self.x0, self.x1) },
+            // SAFETY: x0 <= x1.
+            S::Pos => unsafe { ops::unchecked_abs_diff(self.x1, self.x0) },
+            // SAFETY: x1 <= x0.
+            S::Neg => unsafe { ops::unchecked_abs_diff(self.x0, self.x1) },
         }
     }
 
@@ -119,8 +119,14 @@ impl Bidiagonal {
     #[must_use]
     pub const fn pop_head(&mut self) -> Option<CxC> {
         let Some((x0, y0)) = self.head() else { return None };
-        self.x0 = self.x0.wrapping_add(self.sx as C);
-        self.y0 = self.y0.wrapping_add(self.sy as C);
+        // SAFETY:
+        // * sx > 0 => x0 < x1 => x0 + 1 cannot overflow.
+        // * sx < 0 => x1 < x0 => x0 - 1 cannot overflow.
+        self.x0 = unsafe { ops::unchecked_add_sign(self.x0, self.sx) };
+        // SAFETY:
+        // * sy > 0 => y0 < y1 => y0 + 1 cannot overflow.
+        // * sy < 0 => y1 < y0 => y0 - 1 cannot overflow.
+        self.y0 = unsafe { ops::unchecked_add_sign(self.y0, self.sy) };
         Some((x0, y0))
     }
 }
@@ -165,9 +171,15 @@ impl Bidiagonal {
         if self.is_done() {
             return None;
         }
-        let x1 = self.x1.wrapping_sub(self.sx as C);
-        let y1 = self.y1.wrapping_sub(self.sy as C);
-        Some((x1, y1))
+        // SAFETY:
+        // * sx > 0 => x0 < x1 => x1 - 1 cannot underflow.
+        // * sx < 0 => x1 < x0 => x1 + 1 cannot overflow.
+        let xt = unsafe { ops::unchecked_sub_sign(self.x1, self.sx) };
+        // SAFETY:
+        // * sy > 0 => y0 < y1 => y1 - 1 cannot underflow.
+        // * sy < 0 => y1 < y0 => y1 + 1 cannot overflow.
+        let yt = unsafe { ops::unchecked_sub_sign(self.y1, self.sy) };
+        Some((xt, yt))
     }
 
     /// Consumes and returns the point immediately before the end of the iterator.
@@ -177,10 +189,10 @@ impl Bidiagonal {
     #[inline]
     #[must_use]
     pub const fn pop_tail(&mut self) -> Option<CxC> {
-        let Some((x1, y1)) = self.tail() else { return None };
-        self.x1 = x1;
-        self.y1 = y1;
-        Some((x1, y1))
+        let Some((xt, yt)) = self.tail() else { return None };
+        self.x1 = xt;
+        self.y1 = yt;
+        Some((xt, yt))
     }
 }
 

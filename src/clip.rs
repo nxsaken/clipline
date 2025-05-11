@@ -25,7 +25,8 @@ impl Clip {
         if x1 < x0 || y1 < y0 {
             return None;
         }
-        Some(Self { x0, y0, x1, y1 })
+        let clip = Self { x0, y0, x1, y1 };
+        Some(clip)
     }
 
     /// Constructs a [`Clip`] with corners `(0, 0)` and `(width - 1, height - 1)`.
@@ -37,7 +38,12 @@ impl Clip {
         if width <= 0 || height <= 0 {
             return None;
         }
-        Some(Self { x0: 0, y0: 0, x1: width.wrapping_sub(1), y1: height.wrapping_sub(1) })
+        // SAFETY: width > 0 => width - 1 cannot overflow.
+        let x1 = unsafe { ops::unchecked_sub_sign(width, S::Pos) };
+        // SAFETY: height > 0 => height - 1 cannot overflow.
+        let y1 = unsafe { ops::unchecked_sub_sign(height, S::Pos) };
+        let clip = Self { x0: 0, y0: 0, x1, y1 };
+        Some(clip)
     }
 
     /// Returns a copy of this [`Clip`].
@@ -76,11 +82,11 @@ impl Clip {
     /// # Safety
     ///
     /// - `wu0 <= wu1`.
-    /// - `su` must match the direction from `u0` to `u1`.
+    /// - `su = sign(u1 - u0)`.
     const unsafe fn rejects_bbox_u(wu0: C, wu1: C, u0: C, u1: C, su: S) -> bool {
         match su {
-            S::P => u1 <= wu0 || wu1 < u0,
-            S::N => u0 < wu0 || wu1 <= u1,
+            S::Pos => u1 <= wu0 || wu1 < u0,
+            S::Neg => u0 < wu0 || wu1 <= u1,
         }
     }
 
@@ -88,16 +94,16 @@ impl Clip {
     ///
     /// # Safety
     ///
-    /// - `sx` must match the direction from `x0` to `x1`.
-    /// - `sy` must match the direction from `y0` to `y1`.
+    /// - `sx = sign(x1 - x0)`.
+    /// - `sy = sign(y1 - y0)`.
     const unsafe fn rejects_bbox(&self, (x0, y0): CxC, (x1, y1): CxC, (sx, sy): SxS) -> bool {
         // SAFETY:
         // - self.x0 <= self.x1.
-        // - sx matches the direction from x0 to x1.
+        // - sx = sign(x1 - x0).
         let reject_x = unsafe { Self::rejects_bbox_u(self.x0, self.x1, x0, x1, sx) };
         // SAFETY:
         // - self.y0 <= self.y1.
-        // - sy matches the direction from y0 to y1.
+        // - sy = sign(y1 - y0).
         let reject_y = unsafe { Self::rejects_bbox_u(self.y0, self.y1, y0, y1, sy) };
         reject_x || reject_y
     }
@@ -108,11 +114,11 @@ impl Clip {
     /// # Safety
     ///
     /// - `wu0 <= wu1`.
-    /// - `su` must match the direction from `u0` to `u1`.
+    /// - `su = sign(u1 - u0)`.
     const unsafe fn maybe_iou(wu0: C, wu1: C, u0: C, u1: C, su: S) -> (bool, bool) {
         match su {
-            S::P => (u0 < wu0, wu1 < u1),
-            S::N => (wu1 < u0, u1 < wu0),
+            S::Pos => (u0 < wu0, wu1 < u1),
+            S::Neg => (wu1 < u0, u1 < wu0),
         }
     }
 
@@ -126,9 +132,9 @@ impl Clip {
     const unsafe fn du0(wu0: C, wu1: C, u0: C, su: S) -> U {
         match su {
             // SAFETY: u0 < wu0 because u0 lies before the u-entry.
-            S::P => unsafe { ops::d_unchecked(wu0, u0) },
+            S::Pos => unsafe { ops::unchecked_abs_diff(wu0, u0) },
             // SAFETY: wu1 < u0 because u0 lies before the u-entry.
-            S::N => unsafe { ops::d_unchecked(u0, wu1) },
+            S::Neg => unsafe { ops::unchecked_abs_diff(u0, wu1) },
         }
     }
 
@@ -141,9 +147,9 @@ impl Clip {
     const unsafe fn du1(wu0: C, wu1: C, u0: C, su: S) -> U {
         match su {
             // SAFETY: u0 < wu1 because u0 lies before the u-exit.
-            S::P => unsafe { ops::d_unchecked(wu1, u0) },
+            S::Pos => unsafe { ops::unchecked_abs_diff(wu1, u0) },
             // SAFETY: wu0 < u0 because u0 lies before the u-exit.
-            S::N => unsafe { ops::d_unchecked(u0, wu0) },
+            S::Neg => unsafe { ops::unchecked_abs_diff(u0, wu0) },
         }
     }
 }

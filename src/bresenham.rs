@@ -17,22 +17,22 @@ impl Bresenham {
     #[inline]
     #[must_use]
     pub const fn new((x0, y0): CxC, (x1, y1): CxC) -> Self {
-        let (sx, dx) = ops::sd(x0, x1);
-        let (sy, dy) = ops::sd(y0, y1);
+        let (sx, dx) = ops::abs_diff(x1, x0);
+        let (sy, dy) = ops::abs_diff(y1, y0);
 
         if dy <= dx {
             // SAFETY:
-            // 1. dx matches the offset between x0 and x1.
+            // 1. dx == |x1 - x0|.
             // 2. dy <= dx.
-            // 3. sx matches the direction from x0 to x1.
+            // 3. sx = sign(x1 - x0).
             let case =
                 unsafe { BresenhamCase::new_unchecked_noclip((x0, y0), (dx, dy), x1, (sx, sy)) };
             Self::Slow(case)
         } else {
             // SAFETY:
-            // 1. dy matches the offset between y0 and y1.
+            // 1. dy == |y1 - y0|.
             // 2. dx < dy.
-            // 3. sy matches the direction from y0 to y1.
+            // 3. sy = sign(y1 - y0).
             let case =
                 unsafe { BresenhamCase::new_unchecked_noclip((y0, x0), (dy, dx), y1, (sy, sx)) };
             Self::Fast(case)

@@ -30,11 +30,11 @@ impl Clip {
     ///
     /// # Safety
     ///
-    /// `sx` must match the direction from `x0` to `x1`.
+    /// `sx = sign(x1 - x0)`.
     const unsafe fn maybe_iox(&self, x0: C, x1: C, sx: S) -> (bool, bool) {
         // SAFETY:
         // - self.x0 <= self.x1.
-        // - sx matches the direction from x0 to x1.
+        // - sx = sign(x1 - x0).
         unsafe { Self::maybe_iou(self.x0, self.x1, x0, x1, sx) }
     }
 
@@ -43,11 +43,11 @@ impl Clip {
     ///
     /// # Safety
     ///
-    /// `sy` must match the direction from `y0` to `y1`.
+    /// `sy = sign(y1 - y0)`.
     const unsafe fn maybe_ioy(&self, y0: C, y1: C, sy: S) -> (bool, bool) {
         // SAFETY:
         // - self.y0 <= self.y1.
-        // - sy matches the direction from y0 to y1.
+        // - sy = sign(y1 - y0).
         unsafe { Self::maybe_iou(self.y0, self.y1, y0, y1, sy) }
     }
 
@@ -120,8 +120,8 @@ impl Clip {
     #[expect(clippy::similar_names)]
     const unsafe fn c0_iu(wu0: C, wu1: C, v0: C, du0: U, su: S, sv: S) -> CxC {
         let cu0 = match su {
-            S::P => wu0,
-            S::N => wu1,
+            S::Pos => wu0,
+            S::Neg => wu1,
         };
         let cv0 = match sv {
             // SAFETY:
@@ -132,7 +132,7 @@ impl Clip {
             //   /  |  | cv0 = C.y + |BC| = v0 + du0.
             //  A---C  | cv0 <= wv1 => v0 + du0 <= wv1.
             //      |  | Therefore, v0 + du0 cannot overflow.
-            S::P => unsafe { v0.checked_add_unsigned(du0).unwrap_unchecked() },
+            S::Pos => unsafe { ops::unchecked_add_unsigned(v0, du0) },
             // SAFETY:
             // |  |      Let A = (u0, v0), B = (wu1, cv0), C = (wu1, v0).
             // |  C---A  Consider the triangle ABC.
@@ -141,7 +141,7 @@ impl Clip {
             // |  |/     cv0 = C.y - |BC| = v0 - du0.
             // |  B      wv0 <= cv0 => wv0 <= v0 - du0.
             // +--+----- Therefore, v0 - du0 cannot underflow.
-            S::N => unsafe { v0.checked_sub_unsigned(du0).unwrap_unchecked() },
+            S::Neg => unsafe { ops::unchecked_sub_unsigned(v0, du0) },
         };
         (cu0, cv0)
     }
@@ -205,9 +205,9 @@ impl Clip {
     const unsafe fn cx1_ox(&self, sx: S) -> C {
         match sx {
             // SAFETY: wx1 + 1 cannot overflow because crossing the x-exit implies wx1 < x1.
-            S::P => unsafe { self.x1.unchecked_add(1) },
+            S::Pos => unsafe { self.x1.unchecked_add(1) },
             // SAFETY: wx0 - 1 cannot underflow because crossing the x-exit implies x1 < wx0.
-            S::N => unsafe { self.x0.unchecked_sub(1) },
+            S::Neg => unsafe { self.x0.unchecked_sub(1) },
         }
     }
 
@@ -231,7 +231,7 @@ impl Clip {
             // Replace dy = dx = x1 - x0:  x0 + dy1 + 1 < x0 + (x1 - x0) + 1;
             // Simplify: x0 + dy1 < x1;
             // x0 + dy1 + 1 cannot overflow because x0 + dy1 < x1.
-            S::P => unsafe { x0.checked_add_unsigned(dy1_inc).unwrap_unchecked() },
+            S::Pos => unsafe { ops::unchecked_add_unsigned(x0, dy1_inc) },
             // SAFETY:
             // dy1 + 1 < dy + 1;
             // Negate both sides: -(dy + 1) < -(dy1 + 1);
@@ -239,7 +239,7 @@ impl Clip {
             // Replace dy = dx = x0 - x1: x0 - (x0 - x1 + 1) < x0 - (dy1 + 1);
             // Simplify: x1 < x0 - dy1;
             // x0 - dy1 - 1 cannot overflow because x0 + dy1 < x1.
-            S::N => unsafe { x0.checked_sub_unsigned(dy1_inc).unwrap_unchecked() },
+            S::Neg => unsafe { ops::unchecked_sub_unsigned(x0, dy1_inc) },
         }
     }
 
@@ -281,17 +281,17 @@ impl Clip {
     #[inline]
     #[must_use]
     pub const fn diagonal(&self, (x0, y0): CxC, (x1, y1): CxC) -> Option<Diagonal> {
-        let (sx, dx) = ops::sd(x0, x1);
-        let (sy, dy) = ops::sd(y0, y1);
+        let (sx, dx) = ops::abs_diff(x1, x0);
+        let (sy, dy) = ops::abs_diff(y1, y0);
         if dx != dy
-            // SAFETY: sx and sy match the directions from x0 to x1 and from y0 to y1.
+            // SAFETY: sx = sign(x1 - x0) and sy = sign(y1 - y0).
             || unsafe { self.rejects_bbox((x0, y0), (x1, y1), (sx, sy)) }
         {
             return None;
         }
-        // SAFETY: sx matches the direction from x0 to x1.
+        // SAFETY: sx = sign(x1 - x0).
         let (maybe_ix, maybe_ox) = unsafe { self.maybe_iox(x0, x1, sx) };
-        // SAFETY: sy matches the direction from y0 to y1.
+        // SAFETY: sy = sign(y1 - y0).
         let (maybe_iy, maybe_oy) = unsafe { self.maybe_ioy(y0, y1, sy) };
         //    |   | 1  [0] segment start
         // -/-+-#-+--- [1] segment end
@@ -568,7 +568,7 @@ impl Clip {
                 (cx0, cy0, cx1)
             }
         };
-        // SAFETY: sx matches the direction from cx0 to cx1.
+        // SAFETY: sx = sign(cx1 - cx0).
         let diagonal = unsafe { Diagonal::new_unchecked((cx0, cy0), cx1, (sx, sy)) };
         Some(diagonal)
     }
@@ -608,7 +608,7 @@ mod tests {
         extern crate std;
         use std::thread::{self, JoinHandle};
 
-        [(S::P, S::P), (S::P, S::N), (S::N, S::P), (S::N, S::N)]
+        [(S::Pos, S::Pos), (S::Pos, S::Neg), (S::Neg, S::Pos), (S::Neg, S::Neg)]
             .map(|(sx, sy)| {
                 thread::spawn(move || {
                     let clip = CLIP;

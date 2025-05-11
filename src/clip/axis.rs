@@ -1,6 +1,6 @@
 use crate::axis::{Axis, AxisH, AxisV};
 use crate::clip::Clip;
-use crate::math::{C, S};
+use crate::math::{ops, C, S};
 
 impl Clip {
     /// Clips a half-open axis-aligned line segment to this region.
@@ -25,17 +25,27 @@ impl Clip {
                 return None;
             }
             let cu0 = if u0 < wu0 { wu0 } else { u0 };
-            let cu1 = if wu1 < u1 { wu1.wrapping_add(1) } else { u1 };
-            (S::P, cu0, cu1)
+            let cu1 = if wu1 < u1 {
+                // SAFETY: wu1 < u1, therefore wu1 + 1 cannot overflow.
+                unsafe { ops::unchecked_add_sign(wu1, S::Pos) }
+            } else {
+                u1
+            };
+            (S::Pos, cu0, cu1)
         } else {
             if u0 < wu0 || wu1 <= u1 {
                 return None;
             }
             let cu0 = if wu1 < u0 { wu1 } else { u0 };
-            let cu1 = if u1 < wu0 { wu0.wrapping_sub(1) } else { u1 };
-            (S::N, cu0, cu1)
+            let cu1 = if u1 < wu0 {
+                // SAFETY: u1 < wu0, therefore wu0 - 1 cannot underflow.
+                unsafe { ops::unchecked_sub_sign(wu0, S::Pos) }
+            } else {
+                u1
+            };
+            (S::Neg, cu0, cu1)
         };
-        // SAFETY: su matches the direction from cu0 to cu1.
+        // SAFETY: su = sign(cu1 - cu0).
         let axis = unsafe { Axis::new_unchecked(v, cu0, cu1, su) };
         Some(axis)
     }
@@ -101,7 +111,7 @@ mod tests {
             }
         }
 
-        [S::P, S::N]
+        [S::Pos, S::Neg]
             .map(|su| [thread::spawn(test_axis::<false>(su)), thread::spawn(test_axis::<true>(su))])
             .into_iter()
             .flatten()

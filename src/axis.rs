@@ -29,12 +29,12 @@ impl<const V: bool> Axis<V> {
     ///
     /// # Safety
     ///
-    /// `su` must match the direction from `u0` to `u1`.
+    /// `su == sign(u1 - u0)`.
     #[inline]
     #[must_use]
     pub(crate) const unsafe fn new_unchecked(v: C, u0: C, u1: C, su: S) -> Self {
-        debug_assert!((u0 <= u1) == matches!(su, S::P));
-        debug_assert!((u1 < u0) == matches!(su, S::N));
+        debug_assert!((u0 <= u1) == matches!(su, S::Pos));
+        debug_assert!((u1 < u0) == matches!(su, S::Neg));
         Self { v, u0, u1, su }
     }
 
@@ -47,8 +47,8 @@ impl<const V: bool> Axis<V> {
     #[inline]
     #[must_use]
     pub const fn new(v: C, u0: C, u1: C) -> Self {
-        let su = if u0 <= u1 { S::P } else { S::N };
-        // SAFETY: su matches the direction from u0 to u1.
+        let su = if u0 <= u1 { S::Pos } else { S::Neg };
+        // SAFETY: su == sign(u1 - u0).
         unsafe { Self::new_unchecked(v, u0, u1, su) }
     }
 
@@ -80,10 +80,10 @@ impl<const V: bool> Axis<V> {
     #[must_use]
     pub const fn length(&self) -> U {
         match self.su {
-            // SAFETY: self.u0 <= self.u1.
-            S::P => unsafe { ops::d_unchecked(self.u1, self.u0) },
-            // SAFETY: self.u1 <= self.u0.
-            S::N => unsafe { ops::d_unchecked(self.u0, self.u1) },
+            // SAFETY: u0 <= u1.
+            S::Pos => unsafe { ops::unchecked_abs_diff(self.u1, self.u0) },
+            // SAFETY: u1 <= u0.
+            S::Neg => unsafe { ops::unchecked_abs_diff(self.u0, self.u1) },
         }
     }
 
@@ -109,7 +109,10 @@ impl<const V: bool> Axis<V> {
     #[must_use]
     pub const fn pop_head(&mut self) -> Option<CxC> {
         let Some((x0, y0)) = self.head() else { return None };
-        self.u0 = self.u0.wrapping_add(self.su as C);
+        // SAFETY:
+        // * su > 0 => u0 < u1 => u0 + 1 cannot overflow.
+        // * su < 0 => u1 < u0 => u0 - 1 cannot underflow.
+        self.u0 = unsafe { ops::unchecked_add_sign(self.u0, self.su) };
         Some((x0, y0))
     }
 }
@@ -154,9 +157,12 @@ impl<const V: bool> Axis<V> {
         if self.is_done() {
             return None;
         }
-        let u1 = self.u1.wrapping_sub(self.su as C);
-        let (x1, y1) = if V { (self.v, u1) } else { (u1, self.v) };
-        Some((x1, y1))
+        // SAFETY:
+        // * su > 0 => u0 < u1 => u1 - 1 cannot underflow.
+        // * su < 0 => u1 < u0 => u1 + 1 cannot overflow.
+        let ut = unsafe { ops::unchecked_sub_sign(self.u1, self.su) };
+        let (xt, yt) = if V { (self.v, ut) } else { (ut, self.v) };
+        Some((xt, yt))
     }
 
     /// Consumes and returns the point immediately before the end of the iterator.
@@ -166,9 +172,9 @@ impl<const V: bool> Axis<V> {
     #[inline]
     #[must_use]
     pub const fn pop_tail(&mut self) -> Option<CxC> {
-        let Some((x1, y1)) = self.tail() else { return None };
-        self.u1 = if V { y1 } else { x1 };
-        Some((x1, y1))
+        let Some((xt, yt)) = self.tail() else { return None };
+        self.u1 = if V { yt } else { xt };
+        Some((xt, yt))
     }
 }
 

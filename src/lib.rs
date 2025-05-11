@@ -10,6 +10,7 @@
 //
 #![deny(missing_docs)]
 #![deny(unsafe_op_in_unsafe_fn)]
+#![deny(clippy::multiple_unsafe_ops_per_block)]
 //
 #![warn(clippy::nursery)]
 #![warn(clippy::cargo)]

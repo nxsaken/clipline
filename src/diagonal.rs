@@ -21,12 +21,13 @@ impl Diagonal {
     ///
     /// # Safety
     ///
-    /// `sx` must match the direction from `x0` to `x1`.
+    /// `sx == sign(x1 - x0)`.
+    /// TODO: constrain x1 such that y0 + |x1 - x0| * sy is in bounds.
     #[inline]
     #[must_use]
     pub(crate) const unsafe fn new_unchecked((x0, y0): CxC, x1: C, (sx, sy): SxS) -> Self {
-        debug_assert!((x0 <= x1) == matches!(sx, S::P));
-        debug_assert!((x1 < x0) == matches!(sx, S::N));
+        debug_assert!((x0 <= x1) == matches!(sx, S::Pos));
+        debug_assert!((x1 < x0) == matches!(sx, S::Neg));
         Self { x0, y0, x1, sx, sy }
     }
 
@@ -35,12 +36,12 @@ impl Diagonal {
     #[inline]
     #[must_use]
     pub const fn new((x0, y0): CxC, (x1, y1): CxC) -> Option<Self> {
-        let (sx, dx) = ops::sd(x0, x1);
-        let (sy, dy) = ops::sd(y0, y1);
+        let (sx, dx) = ops::abs_diff(x1, x0);
+        let (sy, dy) = ops::abs_diff(y1, y0);
         if dx != dy {
             return None;
         }
-        // SAFETY: sx matches the direction from x0 to x1.
+        // SAFETY: sx == sign(x1 - x0).
         let this = unsafe { Self::new_unchecked((x0, y0), x1, (sx, sy)) };
         Some(this)
     }
@@ -51,13 +52,17 @@ impl Diagonal {
     pub const fn double_ended(self) -> Bidiagonal {
         let dx = self.length();
         let y1 = match self.sy {
-            S::P => self.y0.wrapping_add_unsigned(dx),
-            S::N => self.y0.wrapping_sub_unsigned(dx),
+            // SAFETY: dx = dy => y0 + (y1 - y0) = y1.
+            // y1 <= C::MAX from construction => y0 + dx cannot overflow.
+            S::Pos => unsafe { ops::unchecked_add_unsigned(self.y0, dx) },
+            // SAFETY: dx = dy => y0 - (y0 - y1) = y1.
+            // y1 >= C::MIN from construction => y0 - dx cannot underflow.
+            S::Neg => unsafe { ops::unchecked_sub_unsigned(self.y0, dx) },
         };
         // SAFETY:
-        // - |y0 - y1| = |y0 - (y0 ± dx)| = |±(x0 - x1)| = |x0 - x1|.
-        // - self.sx matches the direction from self.x0 to self.x1.
-        // - self.sy matches the direction from self.y0 to y1.
+        // * |y0 - y1| = |y0 - (y0 ± dx)| = |±(x0 - x1)| = |x0 - x1|.
+        // * sx == sign(x1 - x0).
+        // * sy == sign(y1 - y0).
         unsafe { Bidiagonal::new_unchecked((self.x0, self.y0), (self.x1, y1), (self.sx, self.sy)) }
     }
 
@@ -82,10 +87,10 @@ impl Diagonal {
     #[must_use]
     pub const fn length(&self) -> U {
         match self.sx {
-            // SAFETY: self.x0 <= self.x1.
-            S::P => unsafe { ops::d_unchecked(self.x1, self.x0) },
-            // SAFETY: self.x1 <= self.x0.
-            S::N => unsafe { ops::d_unchecked(self.x0, self.x1) },
+            // SAFETY: x0 <= x1.
+            S::Pos => unsafe { ops::unchecked_abs_diff(self.x1, self.x0) },
+            // SAFETY: x1 <= x0.
+            S::Neg => unsafe { ops::unchecked_abs_diff(self.x0, self.x1) },
         }
     }
 
@@ -110,8 +115,14 @@ impl Diagonal {
     #[must_use]
     pub const fn pop_head(&mut self) -> Option<CxC> {
         let Some((x0, y0)) = self.head() else { return None };
-        self.x0 = self.x0.wrapping_add(self.sx as C);
-        self.y0 = self.y0.wrapping_add(self.sy as C);
+        // SAFETY:
+        // * sx > 0 => x0 < x1 => x0 + 1 cannot overflow.
+        // * sx < 0 => x1 < x0 => x0 - 1 cannot overflow.
+        self.x0 = unsafe { ops::unchecked_add_sign(self.x0, self.sx) };
+        // SAFETY:
+        // * sy > 0 => y0 < y1 => y0 + 1 cannot overflow.
+        // * sy < 0 => y1 < y0 => y0 - 1 cannot overflow.
+        self.y0 = unsafe { ops::unchecked_add_sign(self.y0, self.sy) };
         Some((x0, y0))
     }
 }
@@ -159,18 +170,23 @@ impl Diagonal {
         if self.is_done() {
             return None;
         }
-        let x1 = self.x1.wrapping_sub(self.sx as C);
-        let dx = match self.sx {
-            // SAFETY: self.x0 <= x1.
-            S::P => unsafe { ops::d_unchecked(x1, self.x0) },
-            // SAFETY: x1 <= self.x0.
-            S::N => unsafe { ops::d_unchecked(self.x0, x1) },
+        // SAFETY:
+        // * sx > 0 => x0 < x1 => x1 - 1 cannot underflow.
+        // * sx < 0 => x1 < x0 => x1 + 1 cannot overflow.
+        let xt = unsafe { ops::unchecked_sub_sign(self.x1, self.sx) };
+        let dxt = match self.sx {
+            // SAFETY: x0 < x1, xt = x1 - 1 => x0 <= xt.
+            S::Pos => unsafe { ops::unchecked_abs_diff(xt, self.x0) },
+            // SAFETY: x1 < x0, xt = x1 + 1 => xt <= x0.
+            S::Neg => unsafe { ops::unchecked_abs_diff(self.x0, xt) },
         };
-        let y1 = match self.sy {
-            S::P => self.y0.wrapping_add_unsigned(dx),
-            S::N => self.y0.wrapping_sub_unsigned(dx),
+        let yt = match self.sy {
+            // SAFETY: dxt = dyt => y0 + (yt - y0) = yt = y1 - 1 => y0 + dxt cannot overflow.
+            S::Pos => unsafe { ops::unchecked_add_unsigned(self.y0, dxt) },
+            // SAFETY: dxt = dyt => y0 - (y0 - yt) = yt = y1 + 1 => y0 - dxt cannot underflow.
+            S::Neg => unsafe { ops::unchecked_sub_unsigned(self.y0, dxt) },
         };
-        Some((x1, y1))
+        Some((xt, yt))
     }
 
     /// Consumes and returns the point immediately before the end of the iterator.
@@ -187,9 +203,9 @@ impl Diagonal {
     #[inline]
     #[must_use]
     pub const fn pop_tail(&mut self) -> Option<CxC> {
-        let Some((x1, y1)) = self.tail() else { return None };
-        self.x1 = x1;
-        Some((x1, y1))
+        let Some((xt, yt)) = self.tail() else { return None };
+        self.x1 = xt;
+        Some((xt, yt))
     }
 }
 
