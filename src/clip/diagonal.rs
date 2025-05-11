@@ -25,97 +25,6 @@ const L1110: Code = (I, I, I, O);
 const L1111: Code = (I, I, I, I);
 
 impl Clip {
-    /// Checks if the half-open rectangle with the corners `(x0, y0)` and `(x1, y1)`
-    /// misses this clipping region.
-    const fn rejects_rect(&self, x0: C, y0: C, x1: C, y1: C, sx: S, sy: S) -> bool {
-        let miss_x = match sx {
-            S::P => x1 <= self.x0 || self.x1 < x0,
-            S::N => x0 < self.x0 || self.x1 <= x1,
-        };
-        let miss_y = match sy {
-            S::P => y1 <= self.y0 || self.y1 < y0,
-            S::N => y0 < self.y0 || self.y1 <= y1,
-        };
-        miss_x || miss_y
-    }
-
-    /// Checks if `u0` of the line segment lies before the u-entry
-    /// of the region, and if `u1` lies after the u-exit.
-    const fn iou<const YX: bool>(&self, u0: C, u1: C, su: S) -> (bool, bool) {
-        let (wu0, wu1) = if YX { (self.y0, self.y1) } else { (self.x0, self.x1) };
-        let (iu, ou) = match su {
-            S::P => (u0 < wu0, wu1 < u1),
-            S::N => (wu1 < u0, u1 < wu0),
-        };
-        (iu, ou)
-    }
-
-    /// Alias for [`Self::iou::<false>`], with `u = x`.
-    const fn iox(&self, x0: C, x1: C, sx: S) -> (bool, bool) {
-        self.iou::<false>(x0, x1, sx)
-    }
-
-    /// Alias for [`Self::iou::<true>`], with `u = y`.
-    const fn ioy(&self, y0: C, y1: C, sy: S) -> (bool, bool) {
-        self.iou::<true>(y0, y1, sy)
-    }
-
-    /// Returns the offset between `u0` of the line segment
-    /// and the u-entry of this clipping region.
-    ///
-    /// # Safety
-    ///
-    /// `u0` must lie before the u-entry.
-    const unsafe fn du0<const YX: bool>(&self, u0: C, su: S) -> U {
-        let (wu0, wu1) = if YX { (self.y0, self.y1) } else { (self.x0, self.x1) };
-        match su {
-            // SAFETY: u0 < wu0 because u0 lies before the u-entry.
-            S::P => unsafe { ops::d_unchecked(wu0, u0) },
-            // SAFETY: wu1 < u0 because u0 lies before the u-entry.
-            S::N => unsafe { ops::d_unchecked(u0, wu1) },
-        }
-    }
-
-    /// Alias for [`Self::du0::<false>`], with `u = x`.
-    const unsafe fn dx0(&self, x0: C, sx: S) -> U {
-        #[expect(unsafe_op_in_unsafe_fn)]
-        self.du0::<false>(x0, sx)
-    }
-
-    /// Alias for [`Self::du0::<true>`], with `u = y`.
-    const unsafe fn dy0(&self, y0: C, sy: S) -> U {
-        #[expect(unsafe_op_in_unsafe_fn)]
-        self.du0::<true>(y0, sy)
-    }
-
-    /// Returns the offset between `u0` of the line segment
-    /// and the u-exit of this clipping region.
-    ///
-    /// # Safety
-    ///
-    /// `u0` must lie before the u-exit.
-    const unsafe fn du1<const YX: bool>(&self, u0: C, su: S) -> U {
-        let (wu0, wu1) = if YX { (self.y0, self.y1) } else { (self.x0, self.x1) };
-        match su {
-            // SAFETY: u0 < wu1 because u0 lies before the u-exit.
-            S::P => unsafe { ops::d_unchecked(wu1, u0) },
-            // SAFETY: wu0 < u0 because u0 lies before the u-exit.
-            S::N => unsafe { ops::d_unchecked(u0, wu0) },
-        }
-    }
-
-    /// Alias for [`Self::du1::<false>`], with `u = x`.
-    const unsafe fn dx1(&self, x0: C, sx: S) -> U {
-        #[expect(unsafe_op_in_unsafe_fn)]
-        self.du1::<false>(x0, sx)
-    }
-
-    /// Alias for [`Self::du1::<true>`], with `u = y`.
-    const unsafe fn dy1(&self, y0: C, sy: S) -> U {
-        #[expect(unsafe_op_in_unsafe_fn)]
-        self.du1::<true>(y0, sy)
-    }
-
     /// Returns the clipped start point of the line segment
     /// when it crosses the u-entry of this clipping region.
     ///
@@ -289,15 +198,18 @@ impl Clip {
         if dx != dy {
             return None;
         }
-        if self.rejects_rect(x0, y0, x1, y1, sx, sy) {
+        // SAFETY: sx and sy match the directions from x0 to x1 and y0 to y1.
+        if unsafe { self.rejects_trivial(x0, y0, x1, y1, sx, sy) } {
             return None;
         }
-        let (ix, ox) = self.iox(x0, x1, sx);
-        let (iy, oy) = self.ioy(y0, y1, sy);
+        // SAFETY: sx matches the direction from x0 to x1.
+        let (ix, ox) = unsafe { self.iox(x0, x1, sx) };
+        // SAFETY: sy matches the direction from y0 to y1.
+        let (iy, oy) = unsafe { self.ioy(y0, y1, sy) };
         //    |   | 1  [0] segment start
         // -/-+-#-+--- [1] segment end
-        //    @   #    [@] left: x-entry, bottom: y-entry
-        // ---+-@-+-/- [#] right: x-exit, top: y-exit
+        //    @   #    [@] possible entry (left – `x`, bottom – `y`)
+        // ---+-@-+-/- [#] possible exit (right – `x`, top –`y`)
         //  0 |   |    [/] possible miss
         let (cx0, cy0, cx1) = match (ix, iy, ox, oy) {
             L0000 => {
