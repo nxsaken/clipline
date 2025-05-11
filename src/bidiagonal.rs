@@ -32,7 +32,7 @@ impl Bidiagonal {
     /// 3. `sy` must match the direction from `y0` to `y1`.
     #[inline]
     #[must_use]
-    pub const unsafe fn new_unchecked((x0, y0): CxC, (x1, y1): CxC, (sx, sy): SxS) -> Self {
+    pub(crate) const unsafe fn new_unchecked((x0, y0): CxC, (x1, y1): CxC, (sx, sy): SxS) -> Self {
         debug_assert!(x0.abs_diff(x1) == y0.abs_diff(y1));
         debug_assert!((x0 <= x1) == matches!(sx, S::P));
         debug_assert!((x1 < x0) == matches!(sx, S::N));

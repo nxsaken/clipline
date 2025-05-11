@@ -25,14 +25,16 @@ impl Bresenham {
             // 1. dx matches the offset between x0 and x1.
             // 2. dy <= dx.
             // 3. sx matches the direction from x0 to x1.
-            let case = unsafe { BresenhamCase::new_unchecked((x0, y0), (dx, dy), (sx, sy), x1) };
+            let case =
+                unsafe { BresenhamCase::new_unchecked_noclip((x0, y0), (dx, dy), x1, (sx, sy)) };
             Self::Slow(case)
         } else {
             // SAFETY:
             // 1. dy matches the offset between y0 and y1.
             // 2. dx < dy.
             // 3. sy matches the direction from y0 to y1.
-            let case = unsafe { BresenhamCase::new_unchecked((y0, x0), (dy, dx), (sy, sx), y1) };
+            let case =
+                unsafe { BresenhamCase::new_unchecked_noclip((y0, x0), (dy, dx), y1, (sy, sx)) };
             Self::Fast(case)
         }
     }

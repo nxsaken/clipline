@@ -24,7 +24,7 @@ impl Diagonal {
     /// `sx` must match the direction from `x0` to `x1`.
     #[inline]
     #[must_use]
-    pub const unsafe fn new_unchecked((x0, y0): CxC, x1: C, (sx, sy): SxS) -> Self {
+    pub(crate) const unsafe fn new_unchecked((x0, y0): CxC, x1: C, (sx, sy): SxS) -> Self {
         debug_assert!((x0 <= x1) == matches!(sx, S::P));
         debug_assert!((x1 < x0) == matches!(sx, S::N));
         Self { x0, y0, x1, sx, sy }
@@ -126,7 +126,6 @@ impl Iterator for Diagonal {
 
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // TODO: fallible version.
         let len = usize::from(self.length());
         (len, Some(len))
     }

@@ -12,18 +12,18 @@ pub struct BresenhamCase<const YX: bool> {
     u0: C,
     /// The current start coordinate along the minor axis.
     v0: C,
-    /// The accumulated error.
-    err: I2,
     /// The offset between the initial start and end coordinates along the major axis.
     du: U,
     /// The offset between the initial start and end coordinates along the minor axis.
     dv: U,
+    /// The accumulated error.
+    err: I2,
+    /// The current end coordinate along the major axis.
+    u1: C,
     /// The step sign along the major axis.
     su: S,
     /// The step sign along the minor axis.
     sv: S,
-    /// The current end coordinate along the major axis.
-    u1: C,
 }
 
 /// A [`BresenhamCase<false>`] iterator over a half-open line segment with a "slow" slope (`dy <= dx`).
@@ -31,6 +31,16 @@ pub type BresenhamSlow = BresenhamCase<false>;
 
 /// A [`BresenhamCase<true>`] iterator over a half-open line segment with a "fast" slope (`dx < dy`).
 pub type BresenhamFast = BresenhamCase<true>;
+
+impl ops {
+    #[inline]
+    #[must_use]
+    pub const fn err_default(du: U, dv: U) -> I2 {
+        let (half_du, rem) = (du.wrapping_shr(2), du & 1);
+        let half_du_adj = half_du.wrapping_add(rem);
+        I2::wrapping_sub(dv as I2, half_du_adj as I2)
+    }
+}
 
 impl<const YX: bool> BresenhamCase<YX> {
     /// Constructs a [`BresenhamCase<YX>`] iterator from
@@ -41,21 +51,47 @@ impl<const YX: bool> BresenhamCase<YX> {
     /// 1. `du` must match the offset from `u0` to `u1`.
     /// 2. `dv` must be less or equal to `du` (normalized line segments are gently sloped).
     /// 3. `su` must match the direction from `u0` to `u1`.
+    /// 4. `err` has been initialized correctly. TODO: what exactly does this mean?
     #[inline]
     #[must_use]
-    pub const unsafe fn new_unchecked((u0, v0): CxC, (du, dv): UxU, (su, sv): SxS, u1: C) -> Self {
+    pub(crate) const unsafe fn new_unchecked(
+        (u0, v0): CxC,
+        (du, dv): UxU,
+        err: I2,
+        u1: C,
+        (su, sv): SxS,
+    ) -> Self {
         debug_assert!(du == u0.abs_diff(u1));
         debug_assert!(dv <= du);
         debug_assert!((u0 <= u1) == matches!(su, S::P));
         debug_assert!((u1 < u0) == matches!(su, S::N));
 
-        let err = {
-            let (half_du, rem) = (du.wrapping_shr(2), du & 1);
-            let half_du_adj = half_du.wrapping_add(rem);
-            I2::wrapping_sub(dv as I2, half_du_adj as I2)
-        };
+        Self { u0, v0, du, dv, err, u1, su, sv }
+    }
 
-        Self { u0, v0, err, du, dv, su, sv, u1 }
+    /// Constructs a [`BresenhamCase<YX>`] iterator from the parameters
+    /// of an unclipped normalized half-open line segment.
+    ///
+    /// # Safety
+    ///
+    /// 1. `du` must match the offset from `u0` to `u1`.
+    /// 2. `dv` must be less or equal to `du` (normalized line segments are gently sloped).
+    /// 3. `su` must match the direction from `u0` to `u1`.
+    #[inline]
+    #[must_use]
+    pub(crate) const unsafe fn new_unchecked_noclip(
+        (u0, v0): CxC,
+        (du, dv): UxU,
+        u1: C,
+        (su, sv): SxS,
+    ) -> Self {
+        let err = ops::err_default(du, dv);
+        // SAFETY:
+        // - du matches the offset from u0 to u1.
+        // - dv <= du.
+        // - su matches the direction from u0 to u1.
+        // - err has been initialized correctly.
+        unsafe { Self::new_unchecked((u0, v0), (du, dv), err, u1, (su, sv)) }
     }
 
     /// Returns a [`BresenhamCase<YX>`] iterator over a half-open line segment
@@ -77,9 +113,12 @@ impl<const YX: bool> BresenhamCase<YX> {
         let (u0, v0, u1, su, sv, du, dv) =
             if YX { (y0, x0, y1, sy, sx, dy, dx) } else { (x0, y0, x1, sx, sy, dx, dy) };
 
-        // SAFETY: the line segment has been normalized.
-        let this = unsafe { Self::new_unchecked((u0, v0), (du, dv), (su, sv), u1) };
-        Some(this)
+        // SAFETY:
+        // - du matches the offset from u0 to u1.
+        // - dv <= du.
+        // - su matches the direction from u0 to u1.
+        let case = unsafe { Self::new_unchecked_noclip((u0, v0), (du, dv), u1, (su, sv)) };
+        Some(case)
     }
 
     /// Returns a copy of this [`BresenhamCase<YX>`] iterator.

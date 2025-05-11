@@ -32,7 +32,7 @@ impl<const V: bool> Axis<V> {
     /// `su` must match the direction from `u0` to `u1`.
     #[inline]
     #[must_use]
-    pub const unsafe fn new_unchecked(v: C, u0: C, u1: C, su: S) -> Self {
+    pub(crate) const unsafe fn new_unchecked(v: C, u0: C, u1: C, su: S) -> Self {
         debug_assert!((u0 <= u1) == matches!(su, S::P));
         debug_assert!((u1 < u0) == matches!(su, S::N));
         Self { v, u0, u1, su }
