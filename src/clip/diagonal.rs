@@ -25,6 +25,84 @@ const L1110: Code = (I, I, I, O);
 const L1111: Code = (I, I, I, I);
 
 impl Clip {
+    /// Checks if `x0` of the line segment lies before the x-entry
+    /// of the region, and if `x1` lies after the x-exit.
+    ///
+    /// # Safety
+    ///
+    /// `sx` must match the direction from `x0` to `x1`.
+    const unsafe fn maybe_iox(&self, x0: C, x1: C, sx: S) -> (bool, bool) {
+        // SAFETY:
+        // - self.x0 <= self.x1.
+        // - sx matches the direction from x0 to x1.
+        unsafe { Self::maybe_iou(self.x0, self.x1, x0, x1, sx) }
+    }
+
+    /// Checks if `y0` of the line segment lies before the y-entry
+    /// of the region, and if `y1` lies after the y-exit.
+    ///
+    /// # Safety
+    ///
+    /// `sy` must match the direction from `y0` to `y1`.
+    const unsafe fn maybe_ioy(&self, y0: C, y1: C, sy: S) -> (bool, bool) {
+        // SAFETY:
+        // - self.y0 <= self.y1.
+        // - sy matches the direction from y0 to y1.
+        unsafe { Self::maybe_iou(self.y0, self.y1, y0, y1, sy) }
+    }
+
+    /// Returns the offset between `x0` of the line segment
+    /// and the x-entry of this clipping region.
+    ///
+    /// # Safety
+    ///
+    /// `x0` must lie before the x-entry.
+    const unsafe fn dx0(&self, x0: C, sx: S) -> U {
+        // SAFETY:
+        // - self.x0 <= self.x1.
+        // - x0 lies before the x-entry.
+        unsafe { Self::du0(self.x0, self.x1, x0, sx) }
+    }
+
+    /// Returns the offset between `y0` of the line segment
+    /// and the y-entry of this clipping region.
+    ///
+    /// # Safety
+    ///
+    /// `y0` must lie before the y-entry.
+    const unsafe fn dy0(&self, y0: C, sy: S) -> U {
+        // SAFETY:
+        // - self.y0 <= self.y1.
+        // - y0 lies before the y-entry.
+        unsafe { Self::du0(self.y0, self.y1, y0, sy) }
+    }
+
+    /// Returns the offset between `x0` of the line segment
+    /// and the x-exit of this clipping region.
+    ///
+    /// # Safety
+    ///
+    /// `x0` must lie before the x-exit.
+    const unsafe fn dx1(&self, x0: C, sx: S) -> U {
+        // SAFETY:
+        // - self.x0 <= self.x1.
+        // - x0 lies before the x-exit.
+        unsafe { Self::du1(self.x0, self.x1, x0, sx) }
+    }
+
+    /// Returns the offset between `y0` of the line segment
+    /// and the y-exit of this clipping region.
+    ///
+    /// # Safety
+    ///
+    /// `y0` must lie before the y-exit.
+    const unsafe fn dy1(&self, y0: C, sy: S) -> U {
+        // SAFETY:
+        // - self.y0 <= self.y1.
+        // - y0 lies before the y-exit.
+        unsafe { Self::du1(self.y0, self.y1, y0, sy) }
+    }
+
     /// Returns the clipped start point of the line segment
     /// when it crosses the u-entry of this clipping region.
     ///
@@ -32,12 +110,15 @@ impl Clip {
     /// and ending after the u-entry. It is possible for a line segment
     /// to satisfy the latter while not satisfying the former.
     ///
+    /// The returned point is relative to the u-axis
+    /// and needs to be transposed accordingly.
+    ///
     /// # Safety
     ///
-    /// The line segment must cross the u-entry.
+    /// - `wu0 <= wu1`.
+    /// - the segment must cross the u-entry.
     #[expect(clippy::similar_names)]
-    const unsafe fn c0_iu<const YX: bool>(&self, v0: C, du0: U, su: S, sv: S) -> CxC {
-        let (wu0, wu1) = if YX { (self.y0, self.y1) } else { (self.x0, self.x1) };
+    const unsafe fn c0_iu(wu0: C, wu1: C, v0: C, du0: U, su: S, sv: S) -> CxC {
         let cu0 = match su {
             S::P => wu0,
             S::N => wu1,
@@ -62,20 +143,27 @@ impl Clip {
             // +--+----- Therefore, v0 - du0 cannot underflow.
             S::N => unsafe { v0.checked_sub_unsigned(du0).unwrap_unchecked() },
         };
-        let (cx0, cy0) = if YX { (cv0, cu0) } else { (cu0, cv0) };
-        (cx0, cy0)
+        (cu0, cv0)
     }
 
-    /// Alias for [`Self::c0_iu::<false>`], with `u = x`.
+    /// Shortcut for [`Self::c0_iu`], with `u = x`.
+    #[expect(clippy::similar_names)]
     const unsafe fn c0_ix(&self, y0: C, dx0: U, sx: S, sy: S) -> CxC {
-        #[expect(unsafe_op_in_unsafe_fn)]
-        self.c0_iu::<false>(y0, dx0, sx, sy)
+        // SAFETY:
+        // - self.x0 <= self.x1.
+        // - the segment crosses the x-entry.
+        let (cu0, cv0) = unsafe { Self::c0_iu(self.x0, self.x1, y0, dx0, sx, sy) };
+        (cu0, cv0)
     }
 
-    /// Alias for [`Self::c0_iu::<true>`], with `u = y`.
+    /// Shortcut for [`Self::c0_iu`], with `u = y`.
+    #[expect(clippy::similar_names)]
     const unsafe fn c0_iy(&self, x0: C, dy0: U, sy: S, sx: S) -> CxC {
-        #[expect(unsafe_op_in_unsafe_fn)]
-        self.c0_iu::<true>(x0, dy0, sy, sx)
+        // SAFETY:
+        // - self.y0 <= self.y1.
+        // - the segment crosses the y-entry.
+        let (cu0, cv0) = unsafe { Self::c0_iu(self.y0, self.y1, x0, dy0, sy, sx) };
+        (cv0, cu0)
     }
 
     /// Returns the clipped start point of the line segment
@@ -198,20 +286,20 @@ impl Clip {
         if dx != dy {
             return None;
         }
-        // SAFETY: sx and sy match the directions from x0 to x1 and y0 to y1.
-        if unsafe { self.rejects_trivial(x0, y0, x1, y1, sx, sy) } {
+        // SAFETY: sx and sy match the directions from x0 to x1 and from y0 to y1.
+        if unsafe { self.rejects_bbox((x0, y0), (x1, y1), (sx, sy)) } {
             return None;
         }
         // SAFETY: sx matches the direction from x0 to x1.
-        let (ix, ox) = unsafe { self.iox(x0, x1, sx) };
+        let (maybe_ix, maybe_ox) = unsafe { self.maybe_iox(x0, x1, sx) };
         // SAFETY: sy matches the direction from y0 to y1.
-        let (iy, oy) = unsafe { self.ioy(y0, y1, sy) };
+        let (maybe_iy, maybe_oy) = unsafe { self.maybe_ioy(y0, y1, sy) };
         //    |   | 1  [0] segment start
         // -/-+-#-+--- [1] segment end
         //    @   #    [@] possible entry (left – `x`, bottom – `y`)
         // ---+-@-+-/- [#] possible exit (right – `x`, top –`y`)
         //  0 |   |    [/] possible miss
-        let (cx0, cy0, cx1) = match (ix, iy, ox, oy) {
+        let (cx0, cy0, cx1) = match (maybe_ix, maybe_iy, maybe_ox, maybe_oy) {
             L0000 => {
                 //    |   |
                 // ---+---+---
