@@ -283,11 +283,10 @@ impl Clip {
     pub const fn diagonal(&self, (x0, y0): CxC, (x1, y1): CxC) -> Option<Diagonal> {
         let (sx, dx) = ops::sd(x0, x1);
         let (sy, dy) = ops::sd(y0, y1);
-        if dx != dy {
-            return None;
-        }
-        // SAFETY: sx and sy match the directions from x0 to x1 and from y0 to y1.
-        if unsafe { self.rejects_bbox((x0, y0), (x1, y1), (sx, sy)) } {
+        if dx != dy
+            // SAFETY: sx and sy match the directions from x0 to x1 and from y0 to y1.
+            || unsafe { self.rejects_bbox((x0, y0), (x1, y1), (sx, sy)) }
+        {
             return None;
         }
         // SAFETY: sx matches the direction from x0 to x1.

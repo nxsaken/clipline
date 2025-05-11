@@ -1,6 +1,7 @@
 use crate::math::{ops, CxC, SxS, C, S, U};
 
 mod axis;
+mod bresenham_case;
 mod diagonal;
 
 /// A closed[^1] rectangular clipping region defined by its minimum and maximum corners.

@@ -110,8 +110,8 @@ impl<const YX: bool> BresenhamCase<YX> {
             return None;
         }
 
-        let (u0, v0, u1, su, sv, du, dv) =
-            if YX { (y0, x0, y1, sy, sx, dy, dx) } else { (x0, y0, x1, sx, sy, dx, dy) };
+        let (u0, v0, u1, du, dv, su, sv) =
+            if YX { (y0, x0, y1, dy, dx, sy, sx) } else { (x0, y0, x1, dx, dy, sx, sy) };
 
         // SAFETY:
         // - du matches the offset from u0 to u1.
