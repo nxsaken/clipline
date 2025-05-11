@@ -581,7 +581,7 @@ mod tests {
     use crate::diagonal::Diagonal;
     use crate::math::{CxC, SxS, C, S, U};
 
-    const CLIP: Clip = Clip::from_min_max((-64, -48), (63, 47)).unwrap();
+    const CLIP: Clip = Clip::with_min_max((-64, -48), (63, 47)).unwrap();
 
     /// Calls `f` on all possible diagonal line segments
     /// with the directions `sx` and `sy`.

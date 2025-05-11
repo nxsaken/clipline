@@ -67,7 +67,7 @@ mod tests {
     use crate::clip::Clip;
     use crate::math::{C, S};
 
-    const CLIP: Clip = Clip::from_min_max((-64, -48), (63, 47)).unwrap();
+    const CLIP: Clip = Clip::with_min_max((-64, -48), (63, 47)).unwrap();
 
     /// Calls `f` on all possible line segments
     /// aligned to an axis with the direction `su`.

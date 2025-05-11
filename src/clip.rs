@@ -20,7 +20,7 @@ impl Clip {
     /// Returns [`None`] if `x1 < x0` or `y1 < y0`.
     #[inline]
     #[must_use]
-    pub const fn from_min_max((x0, y0): CxC, (x1, y1): CxC) -> Option<Self> {
+    pub const fn with_min_max((x0, y0): CxC, (x1, y1): CxC) -> Option<Self> {
         if x1 < x0 || y1 < y0 {
             return None;
         }
@@ -32,7 +32,7 @@ impl Clip {
     /// Returns [`None`] if `width <= 0` or `height <= 0`.
     #[inline]
     #[must_use]
-    pub const fn from_size(width: C, height: C) -> Option<Self> {
+    pub const fn with_size(width: C, height: C) -> Option<Self> {
         if width <= 0 || height <= 0 {
             return None;
         }
