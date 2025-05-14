@@ -1,16 +1,16 @@
 [package]
 name = "clipline"
 version = "0.4.0"
+edition = "2021"
+rust-version = "1.83.0"
 authors = ["Nurzhan Saken <nurzhan.sakenov@gmail.com>"]
 description = "Line segment rasterization with pixel-perfect clipping."
-keywords = ["line", "clipping", "bresenham", "rasterization", "grid"]
-categories = ["graphics", "rendering", "algorithms", "game-development"]
+keywords = ["gamedev", "graphics", "geometry", "iterator", "pixels"]
+categories = ["graphics", "rendering", "game-development", "embedded", "algorithms"]
 repository = "https://github.com/nxsaken/clipline/"
 license = "MIT OR Apache-2.0"
-readme = "README.md"
-rust-version = "1.83.0"
-edition = "2021"
 include = [
-    "**/*.rs",
+    "src/**/*",
     "Cargo.toml",
+    "LICENSE*",
 ]
