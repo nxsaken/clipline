@@ -15,6 +15,8 @@
 #![warn(clippy::nursery)]
 #![warn(clippy::cargo)]
 #![warn(clippy::pedantic)]
+//
+#![expect(clippy::match_bool)]
 
 mod axis;
 mod bidiagonal;

@@ -4,8 +4,8 @@ use crate::math::{ops, CxC, C, S, U};
 /// An iterator over the rasterized points of a half-open axis-aligned line segment.
 ///
 /// `V` determines the orientation of the line segment:
-/// - `false`: horizontal (with endpoints `(u0, v)` and `(u1, v)`).
-/// - `true`: vertical (with endpoints `(v, u0)` and `(v, u1)`).
+/// * `false`: horizontal (with endpoints `(u0, v)` and `(u1, v)`).
+/// * `true`: vertical (with endpoints `(v, u0)` and `(v, u1)`).
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Axis<const V: bool> {
     /// The fixed coordinate along the other axis.
@@ -42,8 +42,8 @@ impl<const V: bool> Axis<V> {
     /// at a fixed `v` coordinate, spanning from `u0` to `u1`.
     ///
     /// `V` determines the orientation of the line segment:
-    /// - `false`: horizontal (with endpoints `(u0, v)` and `(u1, v)`).
-    /// - `true`: vertical (with endpoints `(v, u0)` and `(v, u1)`).
+    /// * `false`: horizontal (with endpoints `(u0, v)` and `(u1, v)`).
+    /// * `true`: vertical (with endpoints `(v, u0)` and `(v, u1)`).
     #[inline]
     #[must_use]
     pub const fn new(v: C, u0: C, u1: C) -> Self {

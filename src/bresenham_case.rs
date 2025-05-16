@@ -42,7 +42,7 @@ impl<const YX: bool> BresenhamCase<YX> {
     /// * `dv <= du` (normalized line segments are slow).
     /// * `su == sign(u1 - u0)`.
     /// * `err` has been initialized correctly. TODO: what exactly does this mean?
-    /// * TODO: constrain u1 such that v0 + |u1 - u0| * sv is in bounds?
+    /// * TODO: v1 = v0 + m * sv is in bounds, where m = ?
     #[inline]
     #[must_use]
     pub(crate) const unsafe fn new_unchecked(

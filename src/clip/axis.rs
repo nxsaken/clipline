@@ -9,45 +9,37 @@ impl Clip {
     /// clipping region, or [`None`] if the segment lies fully outside.
     ///
     /// `V` determines the orientation of the line segment:
-    /// - `false`: horizontal, from `(u0, v)` to `(u1, v)`.
-    /// - `true`: vertical, from `(v, u0)` to `(v, u1)`.
+    /// * `false`: horizontal, from `(u0, v)` to `(u1, v)`.
+    /// * `true`: vertical, from `(v, u0)` to `(v, u1)`.
     #[expect(clippy::similar_names)]
     #[inline]
     #[must_use]
     pub const fn axis<const V: bool>(&self, v: C, u0: C, u1: C) -> Option<Axis<V>> {
         let (wv0, wv1) = if V { (self.x0, self.x1) } else { (self.y0, self.y1) };
-        let (wu0, wu1) = if V { (self.y0, self.y1) } else { (self.x0, self.x1) };
         if v < wv0 || wv1 < v {
             return None;
         }
-        let (su, cu0, cu1) = if u0 <= u1 {
-            if u1 <= wu0 || wu1 < u0 {
-                return None;
-            }
-            let cu0 = if u0 < wu0 { wu0 } else { u0 };
-            let cu1 = if wu1 < u1 {
-                // SAFETY: wu1 < u1, therefore wu1 + 1 cannot overflow.
-                unsafe { ops::unchecked_add_sign(wu1, S::Pos) }
-            } else {
-                u1
-            };
-            (S::Pos, cu0, cu1)
+        let (wu0, wu1) = if V { (self.y0, self.y1) } else { (self.x0, self.x1) };
+        let (su, in_0, in_1, ex_0, ex_1, iu_0, iu_1, iu, ou_0, ou_1, ou) = if u0 <= u1 {
+            (S::Pos, u1, wu0, wu1, u0, u0, wu0, wu0, wu1, u1, wu1)
         } else {
-            if u0 < wu0 || wu1 <= u1 {
-                return None;
-            }
-            let cu0 = if wu1 < u0 { wu1 } else { u0 };
-            let cu1 = if u1 < wu0 {
-                // SAFETY: u1 < wu0, therefore wu0 - 1 cannot underflow.
-                unsafe { ops::unchecked_sub_sign(wu0, S::Pos) }
-            } else {
-                u1
-            };
-            (S::Neg, cu0, cu1)
+            (S::Neg, wu1, u1, u0, wu0, wu1, u0, wu1, u1, wu0, wu0)
+        };
+        if in_0 <= in_1 || ex_0 < ex_1 {
+            return None;
+        }
+        let cu0 = if iu_0 < iu_1 { iu } else { u0 };
+        let cu1 = if ou_0 < ou_1 {
+            // SAFETY:
+            // su > 0 => wu1 < u1 => wu1 + 1 cannot overflow.
+            // su < 0 => u1 < wu0 => wu0 - 1 cannot underflow.
+            unsafe { ops::unchecked_add_sign(ou, su) }
+        } else {
+            u1
         };
         // SAFETY: su = sign(cu1 - cu0).
-        let axis = unsafe { Axis::new_unchecked(v, cu0, cu1, su) };
-        Some(axis)
+        let clipped = unsafe { Axis::new_unchecked(v, cu0, cu1, su) };
+        Some(clipped)
     }
 
     /// Clips a half-open horizontal line segment to this region.

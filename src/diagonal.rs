@@ -21,8 +21,8 @@ impl Diagonal {
     ///
     /// # Safety
     ///
-    /// `sx == sign(x1 - x0)`.
-    /// TODO: constrain x1 such that y0 + |x1 - x0| * sy is in bounds.
+    /// * `sx == sign(x1 - x0)`.
+    /// * `y0 + |x1 - x0| * sy` is in bounds.
     #[inline]
     #[must_use]
     pub(crate) const unsafe fn new_unchecked((x0, y0): CxC, x1: C, (sx, sy): SxS) -> Self {
@@ -41,7 +41,9 @@ impl Diagonal {
         if dx != dy {
             return None;
         }
-        // SAFETY: sx == sign(x1 - x0).
+        // SAFETY:
+        // * sx == sign(x1 - x0).
+        // * y0 + |x1 - x0| * sy is in bounds.
         let this = unsafe { Self::new_unchecked((x0, y0), x1, (sx, sy)) };
         Some(this)
     }
@@ -52,11 +54,9 @@ impl Diagonal {
     pub const fn double_ended(self) -> Bidiagonal {
         let dx = self.length();
         let y1 = match self.sy {
-            // SAFETY: dx = dy => y0 + (y1 - y0) = y1.
-            // y1 <= C::MAX from construction => y0 + dx cannot overflow.
+            // SAFETY: y0 + |x1 - x0| is in bounds => y0 + dx cannot overflow.
             S::Pos => unsafe { ops::unchecked_add_unsigned(self.y0, dx) },
-            // SAFETY: dx = dy => y0 - (y0 - y1) = y1.
-            // y1 >= C::MIN from construction => y0 - dx cannot underflow.
+            // SAFETY: y0 - |x1 - x0| is in bounds => y0 - dx cannot underflow.
             S::Neg => unsafe { ops::unchecked_sub_unsigned(self.y0, dx) },
         };
         // SAFETY:

@@ -1,4 +1,4 @@
-use crate::math::{ops, CxC, SxS, C, S, U};
+use crate::math::{ops, CxC, C, S, U};
 
 mod axis;
 mod bresenham_case;
@@ -81,12 +81,13 @@ impl Clip {
     ///
     /// # Safety
     ///
-    /// - `wu0 <= wu1`.
-    /// - `su = sign(u1 - u0)`.
-    const unsafe fn rejects_bbox_u(wu0: C, wu1: C, u0: C, u1: C, su: S) -> bool {
-        match su {
-            S::Pos => u1 <= wu0 || wu1 < u0,
-            S::Neg => u0 < wu0 || wu1 <= u1,
+    /// * `wu0 <= wu1`.
+    /// * `FU == u1 < u0`.
+    #[inline]
+    const unsafe fn rejects_bbox_u<const FU: bool>(wu0: C, wu1: C, u0: C, u1: C) -> bool {
+        match FU {
+            false => u1 <= wu0 || wu1 < u0,
+            true => u0 < wu0 || wu1 <= u1,
         }
     }
 
@@ -94,17 +95,22 @@ impl Clip {
     ///
     /// # Safety
     ///
-    /// - `sx = sign(x1 - x0)`.
-    /// - `sy = sign(y1 - y0)`.
-    const unsafe fn rejects_bbox(&self, (x0, y0): CxC, (x1, y1): CxC, (sx, sy): SxS) -> bool {
+    /// * `FX == x1 < x0`.
+    /// * `FY == y1 < y0`.
+    #[inline]
+    const unsafe fn rejects_bbox<const FX: bool, const FY: bool>(
+        &self,
+        (x0, y0): CxC,
+        (x1, y1): CxC,
+    ) -> bool {
         // SAFETY:
-        // - self.x0 <= self.x1.
-        // - sx = sign(x1 - x0).
-        let reject_x = unsafe { Self::rejects_bbox_u(self.x0, self.x1, x0, x1, sx) };
+        // * self.x0 <= self.x1.
+        // * FX == x1 < x0.
+        let reject_x = unsafe { Self::rejects_bbox_u::<FX>(self.x0, self.x1, x0, x1) };
         // SAFETY:
-        // - self.y0 <= self.y1.
-        // - sy = sign(y1 - y0).
-        let reject_y = unsafe { Self::rejects_bbox_u(self.y0, self.y1, y0, y1, sy) };
+        // * self.y0 <= self.y1.
+        // * FY == y1 < y0.
+        let reject_y = unsafe { Self::rejects_bbox_u::<FY>(self.y0, self.y1, y0, y1) };
         reject_x || reject_y
     }
 
@@ -113,12 +119,13 @@ impl Clip {
     ///
     /// # Safety
     ///
-    /// - `wu0 <= wu1`.
-    /// - `su = sign(u1 - u0)`.
-    const unsafe fn maybe_iou(wu0: C, wu1: C, u0: C, u1: C, su: S) -> (bool, bool) {
-        match su {
-            S::Pos => (u0 < wu0, wu1 < u1),
-            S::Neg => (wu1 < u0, u1 < wu0),
+    /// * `wu0 <= wu1`.
+    /// * `FU == u1 < u0`.
+    #[inline]
+    const unsafe fn maybe_iou<const FU: bool>(wu0: C, wu1: C, u0: C, u1: C) -> (bool, bool) {
+        match FU {
+            false => (u0 < wu0, wu1 < u1),
+            true => (wu1 < u0, u1 < wu0),
         }
     }
 
@@ -127,14 +134,15 @@ impl Clip {
     ///
     /// # Safety
     ///
-    /// - `wu0 <= wu1`.
-    /// - `u0` must lie before the u-entry.
-    const unsafe fn du0(wu0: C, wu1: C, u0: C, su: S) -> U {
-        match su {
+    /// * `wu0 <= wu1`.
+    /// * `u0` must lie before the u-entry.
+    #[inline]
+    const unsafe fn du0<const FU: bool>(wu0: C, wu1: C, u0: C) -> U {
+        match FU {
             // SAFETY: u0 < wu0 because u0 lies before the u-entry.
-            S::Pos => unsafe { ops::unchecked_abs_diff(wu0, u0) },
+            false => unsafe { ops::unchecked_abs_diff(wu0, u0) },
             // SAFETY: wu1 < u0 because u0 lies before the u-entry.
-            S::Neg => unsafe { ops::unchecked_abs_diff(u0, wu1) },
+            true => unsafe { ops::unchecked_abs_diff(u0, wu1) },
         }
     }
 
@@ -144,12 +152,13 @@ impl Clip {
     /// # Safety
     ///
     /// `u0` must lie before the u-exit.
-    const unsafe fn du1(wu0: C, wu1: C, u0: C, su: S) -> U {
-        match su {
+    #[inline]
+    const unsafe fn du1<const FU: bool>(wu0: C, wu1: C, u0: C) -> U {
+        match FU {
             // SAFETY: u0 < wu1 because u0 lies before the u-exit.
-            S::Pos => unsafe { ops::unchecked_abs_diff(wu1, u0) },
+            false => unsafe { ops::unchecked_abs_diff(wu1, u0) },
             // SAFETY: wu0 < u0 because u0 lies before the u-exit.
-            S::Neg => unsafe { ops::unchecked_abs_diff(u0, wu0) },
+            true => unsafe { ops::unchecked_abs_diff(u0, wu0) },
         }
     }
 }
