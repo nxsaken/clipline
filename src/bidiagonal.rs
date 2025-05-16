@@ -90,12 +90,7 @@ impl Bidiagonal {
     #[inline]
     #[must_use]
     pub const fn length(&self) -> U {
-        match self.sx {
-            // SAFETY: x0 <= x1.
-            S::Pos => unsafe { ops::unchecked_abs_diff(self.x1, self.x0) },
-            // SAFETY: x1 <= x0.
-            S::Neg => unsafe { ops::unchecked_abs_diff(self.x0, self.x1) },
-        }
+        self.x0.abs_diff(self.x1)
     }
 
     /// Returns the point at the start of the iterator.

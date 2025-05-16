@@ -142,12 +142,7 @@ impl<const YX: bool> BresenhamCase<YX> {
     #[inline]
     #[must_use]
     pub const fn length(&self) -> U {
-        match self.su {
-            // SAFETY: u0 <= u1.
-            S::Pos => unsafe { ops::unchecked_abs_diff(self.u1, self.u0) },
-            // SAFETY: u1 <= u0.
-            S::Neg => unsafe { ops::unchecked_abs_diff(self.u0, self.u1) },
-        }
+        self.u0.abs_diff(self.u1)
     }
 
     /// Returns the point at the start of the iterator.
