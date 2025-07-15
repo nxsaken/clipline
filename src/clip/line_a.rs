@@ -18,45 +18,37 @@ macro_rules! clip_line_a {
         clip_line_a!(@pub impl Viewport<$U, proj $U>);
         clip_line_a!(@pub impl Viewport<$I, proj $U>);
     };
-    (@impl $Clip:ident<$signess:ident $UI:ty>) => {
-        impl $Clip<$UI> {
+    (@impl $Self:ident<$signess:ident $UI:ty>) => {
+        impl $Self<$UI> {
             const fn raw_line_au<const YX: bool>(&self, v: $UI, u0: $UI, u1: $UI) -> Option<($UI, $UI, i8)> {
-                let (u_min, v_min, u_max, v_max) = if_clip!($Clip {
-                    let Self { x_max, y_max } = *self;
-                    let (u_max, v_max) = if YX { (y_max, x_max) } else { (x_max, y_max) };
-                    (0, 0, u_max, v_max)
-                } else {
-                    let Self { x_min, y_min, x_max, y_max } = *self;
-                    let (u_min, v_min) = if YX { (y_min, x_min) } else { (x_min, y_min) };
-                    let (u_max, v_max) = if YX { (y_max, x_max) } else { (x_max, y_max) };
-                    (u_min, v_min, u_max, v_max)
-                });
-                let v_lt_min = if_clip_u!($signess $Clip { _ = v_min; false } else { v < v_min });
+                let (u_min, v_min) = if_clip!($Self { (0, 0) } else { if YX { (self.y_min, self.x_min) } else { (self.x_min, self.y_min) } });
+                let (u_max, v_max) = if YX { (self.y_max, self.x_max) } else { (self.x_max, self.y_max) };
+                let v_lt_min = if_clip_u!($signess $Self { _ = v_min; false } else { v < v_min });
                 if v_lt_min || v_max < v {
                     return None;
                 }
                 if u0 <= u1 {
-                    let u1_le_min = if_clip_u!($signess $Clip { u1 == u_min } else { u1 <= u_min });
+                    let u1_le_min = if_clip_u!($signess $Self { u1 == u_min } else { u1 <= u_min });
                     if u1_le_min || u_max < u0 {
                         return None;
                     }
-                    let cu0 = if_clip_u!($signess $Clip { u0 } else { ops::<$UI>::max(u0, u_min) });
+                    let cu0 = if_clip_u!($signess $Self { u0 } else { ops::<$UI>::max(u0, u_min) });
                     let cu1 = ops::<$UI>::min_adj(u_max, u1);
                     Some((cu0, cu1, 1))
                 } else {
-                    let u0_lt_min = if_clip_u!($signess $Clip { false } else { u0 < u_min });
+                    let u0_lt_min = if_clip_u!($signess $Self { false } else { u0 < u_min });
                     if u_max <= u1 || u0_lt_min {
                         return None;
                     }
                     let cu0 = ops::<$UI>::min(u0, u_max);
-                    let cu1 = if_clip_u!($signess $Clip { u1 } else { ops::<$UI>::max_adj(u_min, u1) });
+                    let cu1 = if_clip_u!($signess $Self { u1 } else { ops::<$UI>::max_adj(u_min, u1) });
                     Some((cu0, cu1, -1))
                 }
             }
         }
     };
-    (@pub impl $Clip:ident<$UI:ty>) => {
-        impl $Clip<$UI> {
+    (@pub impl $Self:ident<$UI:ty>) => {
+        impl $Self<$UI> {
             pub const fn line_au<const YX: bool>(
                 &self,
                 v: $UI,
@@ -90,8 +82,8 @@ macro_rules! clip_line_a {
             }
         }
     };
-    (@pub impl $Clip:ident<$UI:ty, proj $U:ty>) => {
-        impl $Clip<$UI> {
+    (@pub impl $Self:ident<$UI:ty, proj $U:ty>) => {
+        impl $Self<$UI> {
             pub const fn line_au_proj<const YX: bool>(
                 &self,
                 v: $UI,
@@ -101,7 +93,7 @@ macro_rules! clip_line_a {
                 let Some((u0, u1, su)) = self.raw_line_au::<YX>(v, u0, u1) else {
                     return None;
                 };
-                let (v, u0, u1) = if_clip!($Clip {
+                let (v, u0, u1) = if_clip!($Self {
                     let v = v as $U;
                     let u0 = u0 as $U;
                     let u1 = u1 as $U;
