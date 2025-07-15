@@ -1,4 +1,4 @@
-use crate::clip::{Clip, ClipV};
+use crate::clip::{Clip, Viewport};
 use crate::line_b::{LineB, LineBu, LineBx, LineBy};
 use crate::math::Coord;
 
@@ -12,7 +12,7 @@ macro_rules! clip_line_b {
     };
     (common $UI:ty, $U:ty) => {
         impl Impl<$UI> {
-            const unsafe fn reject_bbox_closed<const FX: bool, const FY: bool>(
+            const fn reject_bbox_closed<const FX: bool, const FY: bool>(
                 x_min: $UI,
                 y_min: $UI,
                 x_max: $UI,
@@ -46,7 +46,7 @@ macro_rules! clip_line_b {
             }
         }
 
-        impl ClipV<$UI> {
+        impl Viewport<$UI> {
             pub const fn line_bu<const YX: bool>(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineBu<YX, $UI>> {
                 None
             }

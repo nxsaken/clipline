@@ -1,154 +1,88 @@
-use crate::clip::{Clip, ClipV};
+use crate::clip::{Clip, Viewport, if_clip, if_clip_u};
 use crate::line_a::{LineA, LineAu, LineAx, LineAy};
-use crate::math::{Coord, ops};
-
-struct Impl<C: Coord>(C);
+use crate::math::ops;
 
 macro_rules! clip_line_a {
-    ($Cu:ty | $Ci:ty) => {
-        clip_line_a!(common $Cu, $Cu);
-        clip_line_a!(common $Ci, $Cu);
-        clip_line_a!(signed $Ci, $Cu);
+    ($U:ty | $I:ty) => {
+        clip_line_a!(@impl Clip<unsigned $U>);
+        clip_line_a!(@impl Clip<signed $I>);
+        clip_line_a!(@pub impl Clip<$U>);
+        clip_line_a!(@pub impl Clip<$I>);
+        clip_line_a!(@pub impl Clip<$U, proj $U>);
+        clip_line_a!(@pub impl Clip<$I, proj $U>);
+
+        clip_line_a!(@impl Viewport<unsigned $U>);
+        clip_line_a!(@impl Viewport<signed $I>);
+        clip_line_a!(@pub impl Viewport<$U>);
+        clip_line_a!(@pub impl Viewport<$I>);
+        clip_line_a!(@pub impl Viewport<$U, proj $U>);
+        clip_line_a!(@pub impl Viewport<$I, proj $U>);
     };
-    (common $C:ty, $Cu:ty) => {
-        impl Impl<$C> {
-            #[inline]
-            const fn line_au(
-                u_min: $C,
-                v_min: $C,
-                u_max: $C,
-                v_max: $C,
-                v: $C,
-                u0: $C,
-                u1: $C,
-            ) -> Option<($C, $C, i8)> {
-                if v < v_min || v_max < v {
+    (@impl $Clip:ident<$signess:ident $UI:ty>) => {
+        impl $Clip<$UI> {
+            const fn raw_line_au<const YX: bool>(&self, v: $UI, u0: $UI, u1: $UI) -> Option<($UI, $UI, i8)> {
+                let (u_min, v_min, u_max, v_max) = if_clip!($Clip {
+                    let Self { x_max, y_max } = *self;
+                    let (u_max, v_max) = if YX { (y_max, x_max) } else { (x_max, y_max) };
+                    (0, 0, u_max, v_max)
+                } else {
+                    let Self { x_min, y_min, x_max, y_max } = *self;
+                    let (u_min, v_min) = if YX { (y_min, x_min) } else { (x_min, y_min) };
+                    let (u_max, v_max) = if YX { (y_max, x_max) } else { (x_max, y_max) };
+                    (u_min, v_min, u_max, v_max)
+                });
+                let v_lt_min = if_clip_u!($signess $Clip { _ = v_min; false } else { v < v_min });
+                if v_lt_min || v_max < v {
                     return None;
                 }
                 if u0 <= u1 {
-                    if u1 <= u_min || u_max < u0 {
+                    let u1_le_min = if_clip_u!($signess $Clip { u1 == u_min } else { u1 <= u_min });
+                    if u1_le_min || u_max < u0 {
                         return None;
                     }
-                    let cu0 = ops::<$C>::max(u0, u_min);
-                    let cu1 = ops::<$C>::min_adj(u_max, u1);
+                    let cu0 = if_clip_u!($signess $Clip { u0 } else { ops::<$UI>::max(u0, u_min) });
+                    let cu1 = ops::<$UI>::min_adj(u_max, u1);
                     Some((cu0, cu1, 1))
                 } else {
-                    if u_max <= u1 || u0 < u_min {
+                    let u0_lt_min = if_clip_u!($signess $Clip { false } else { u0 < u_min });
+                    if u_max <= u1 || u0_lt_min {
                         return None;
                     }
-                    let cu0 = ops::<$C>::min(u0, u_max);
-                    let cu1 = ops::<$C>::max_adj(u_min, u1);
+                    let cu0 = ops::<$UI>::min(u0, u_max);
+                    let cu1 = if_clip_u!($signess $Clip { u1 } else { ops::<$UI>::max_adj(u_min, u1) });
                     Some((cu0, cu1, -1))
                 }
             }
         }
-
-        impl Clip<$C> {
+    };
+    (@pub impl $Clip:ident<$UI:ty>) => {
+        impl $Clip<$UI> {
             pub const fn line_au<const YX: bool>(
                 &self,
-                v: $C,
-                u0: $C,
-                u1: $C,
-            ) -> Option<LineAu<YX, $C>> {
-                let Self { x_max, y_max } = *self;
-                let (u_max, v_max) = if YX { (y_max, x_max) } else { (x_max, y_max) };
-                let Some((u0, u1, su)) = Impl::<$C>::line_au(0, 0, u_max, v_max, v, u0, u1) else {
+                v: $UI,
+                u0: $UI,
+                u1: $UI,
+            ) -> Option<LineAu<YX, $UI>> {
+                let Some((u0, u1, su)) = self.raw_line_au::<YX>(v, u0, u1) else {
                     return None;
                 };
                 Some(LineAu { u0, u1, v, su })
             }
 
-            pub const fn line_ax(&self, y: $C, x0: $C, x1: $C) -> Option<LineAx<$C>> {
+            pub const fn line_ax(&self, y: $UI, x0: $UI, x1: $UI) -> Option<LineAx<$UI>> {
                 self.line_au(y, x0, x1)
             }
 
-            pub const fn line_ay(&self, x: $C, y0: $C, y1: $C) -> Option<LineAy<$C>> {
+            pub const fn line_ay(&self, x: $UI, y0: $UI, y1: $UI) -> Option<LineAy<$UI>> {
                 self.line_au(x, y0, y1)
             }
 
-            pub const fn line_a(&self, x0: $C, y0: $C, x1: $C, y1: $C) -> Option<LineA<$C>> {
+            pub const fn line_a(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineA<$UI>> {
                 if y0 == y1 {
                     let Some(line) = self.line_ax(y0, x0, x1) else { return None };
                     Some(LineA::Ax(line))
                 } else if x0 == x1 {
                     let Some(line) = self.line_ay(x0, y0, y1) else { return None };
-                    Some(LineA::Ay(line))
-                } else {
-                    None
-                }
-            }
-        }
-
-        impl ClipV<$C> {
-            pub const fn line_au<const YX: bool>(
-                &self,
-                v: $C,
-                u0: $C,
-                u1: $C,
-            ) -> Option<LineAu<YX, $C>> {
-                let Self { x_min, y_min, x_max, y_max } = *self;
-                let (u_min, v_min) = if YX { (y_min, x_min) } else { (x_min, y_min) };
-                let (u_max, v_max) = if YX { (y_max, x_max) } else { (x_max, y_max) };
-                let Some((u0, u1, su)) = Impl::<$C>::line_au(u_min, v_min, u_max, v_max, v, u0, u1)
-                else {
-                    return None;
-                };
-                Some(LineAu { u0, u1, v, su })
-            }
-
-            pub const fn line_ax(&self, y: $C, x0: $C, x1: $C) -> Option<LineAx<$C>> {
-                self.line_au::<false>(y, x0, x1)
-            }
-
-            pub const fn line_ay(&self, x: $C, y0: $C, y1: $C) -> Option<LineAy<$C>> {
-                self.line_au::<true>(x, y0, y1)
-            }
-
-            pub const fn line_a(&self, x0: $C, y0: $C, x1: $C, y1: $C) -> Option<LineA<$C>> {
-                if y0 == y1 {
-                    let Some(line) = self.line_ax(y0, x0, x1) else { return None };
-                    Some(LineA::Ax(line))
-                } else if x0 == x1 {
-                    let Some(line) = self.line_ay(x0, y0, y1) else { return None };
-                    Some(LineA::Ay(line))
-                } else {
-                    None
-                }
-            }
-
-            pub const fn line_au_o<const YX: bool>(
-                &self,
-                v: $C,
-                u0: $C,
-                u1: $C,
-            ) -> Option<LineAu<YX, $Cu>> {
-                let Self { x_min, y_min, x_max, y_max } = *self;
-                let (u_min, v_min) = if YX { (y_min, x_min) } else { (x_min, y_min) };
-                let (u_max, v_max) = if YX { (y_max, x_max) } else { (x_max, y_max) };
-                let Some((u0, u1, su)) = Impl::<$C>::line_au(u_min, v_min, u_max, v_max, v, u0, u1)
-                else {
-                    return None;
-                };
-                let v = ops::<$C>::abs_diff(v, v_min);
-                let u0 = ops::<$C>::abs_diff(u0, u_min);
-                let u1 = ops::<$C>::abs_diff(u1, u_min);
-                Some(LineAu { u0, u1, v, su })
-            }
-
-            pub const fn line_ax_o(&self, y: $C, x0: $C, x1: $C) -> Option<LineAx<$Cu>> {
-                self.line_au_o::<false>(y, x0, x1)
-            }
-
-            pub const fn line_ay_o(&self, x: $C, y0: $C, y1: $C) -> Option<LineAy<$Cu>> {
-                self.line_au_o::<true>(x, y0, y1)
-            }
-
-            pub const fn line_a_o(&self, x0: $C, y0: $C, x1: $C, y1: $C) -> Option<LineA<$Cu>> {
-                if y0 == y1 {
-                    let Some(line) = self.line_ax_o(y0, x0, x1) else { return None };
-                    Some(LineA::Ax(line))
-                } else if x0 == x1 {
-                    let Some(line) = self.line_ay_o(x0, y0, y1) else { return None };
                     Some(LineA::Ay(line))
                 } else {
                     None
@@ -156,39 +90,47 @@ macro_rules! clip_line_a {
             }
         }
     };
-    (signed $C:ty, $Cu:ty) => {
-        impl Clip<$C> {
-            pub const fn line_au_o<const YX: bool>(
+    (@pub impl $Clip:ident<$UI:ty, proj $U:ty>) => {
+        impl $Clip<$UI> {
+            pub const fn line_au_proj<const YX: bool>(
                 &self,
-                v: $C,
-                u0: $C,
-                u1: $C,
-            ) -> Option<LineAu<YX, $Cu>> {
-                let Self { x_max, y_max } = *self;
-                let (u_max, v_max) = if YX { (y_max, x_max) } else { (x_max, y_max) };
-                let Some((u0, u1, su)) = Impl::<$C>::line_au(0, 0, u_max, v_max, v, u0, u1) else {
+                v: $UI,
+                u0: $UI,
+                u1: $UI,
+            ) -> Option<LineAu<YX, $U>> {
+                let Some((u0, u1, su)) = self.raw_line_au::<YX>(v, u0, u1) else {
                     return None;
                 };
-                let v = v as $Cu;
-                let u0 = u0 as $Cu;
-                let u1 = u1 as $Cu;
+                let (v, u0, u1) = if_clip!($Clip {
+                    let v = v as $U;
+                    let u0 = u0 as $U;
+                    let u1 = u1 as $U;
+                    (v, u0, u1)
+                } else {
+                    let Self { x_min, y_min, .. } = *self;
+                    let (u_min, v_min) = if YX { (y_min, x_min) } else { (x_min, y_min) };
+                    let v = ops::<$UI>::abs_diff(v, v_min);
+                    let u0 = ops::<$UI>::abs_diff(u0, u_min);
+                    let u1 = ops::<$UI>::abs_diff(u1, u_min);
+                    (v, u0, u1)
+                });
                 Some(LineAu { u0, u1, v, su })
             }
 
-            pub const fn line_ax_o(&self, y: $C, x0: $C, x1: $C) -> Option<LineAx<$Cu>> {
-                self.line_au_o(y, x0, x1)
+            pub const fn line_ax_proj(&self, y: $UI, x0: $UI, x1: $UI) -> Option<LineAx<$U>> {
+                self.line_au_proj(y, x0, x1)
             }
 
-            pub const fn line_ay_o(&self, x: $C, y0: $C, y1: $C) -> Option<LineAy<$Cu>> {
-                self.line_au_o(x, y0, y1)
+            pub const fn line_ay_proj(&self, x: $UI, y0: $UI, y1: $UI) -> Option<LineAy<$U>> {
+                self.line_au_proj(x, y0, y1)
             }
 
-            pub const fn line_a_o(&self, x0: $C, y0: $C, x1: $C, y1: $C) -> Option<LineA<$Cu>> {
+            pub const fn line_a_proj(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineA<$U>> {
                 if y0 == y1 {
-                    let Some(line) = self.line_ax_o(y0, x0, x1) else { return None };
+                    let Some(line) = self.line_ax_proj(y0, x0, x1) else { return None };
                     Some(LineA::Ax(line))
                 } else if x0 == x1 {
-                    let Some(line) = self.line_ay_o(x0, y0, y1) else { return None };
+                    let Some(line) = self.line_ay_proj(x0, y0, y1) else { return None };
                     Some(LineA::Ay(line))
                 } else {
                     None

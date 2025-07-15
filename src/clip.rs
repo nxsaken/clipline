@@ -6,7 +6,7 @@ mod line_b;
 mod line_d;
 mod rect;
 
-pub struct Clip<C> {
+pub struct Clip<C: Coord> {
     pub(crate) x_max: C,
     pub(crate) y_max: C,
 }
@@ -14,13 +14,13 @@ pub struct Clip<C> {
 derive::clone!([C: Coord] Clip<C>);
 
 macro_rules! clip {
-    ($Cu:ty|$Ci:ty) => {
-        clip!(unsigned $Cu, <$Cu as Coord>::U);
-        clip!(signed $Ci, <$Ci as Coord>::U);
+    ($U:ty|$I:ty) => {
+        clip!(unsigned $U);
+        clip!(signed $I, $U);
     };
-    (unsigned $Cu:ty, $U:ty) => {
-        impl Clip<$Cu> {
-            pub const fn from_max(x_max: $Cu, y_max: $Cu) -> Self {
+    (unsigned $U:ty) => {
+        impl Clip<$U> {
+            pub const fn from_max(x_max: $U, y_max: $U) -> Self {
                 Self { x_max, y_max }
             }
 
@@ -45,7 +45,7 @@ macro_rules! clip {
 
             pub const fn from_size(width: $U, height: $U) -> Option<Self> {
                 const MAX: $U = <$Ci>::MAX as $U + 1;
-                if width == 0 && MAX < width && height == 0 && MAX < height {
+                if width == 0 || height == 0 || MAX < width || MAX < height {
                     return None;
                 }
                 let x_max = (width - 1) as $Ci;
@@ -62,23 +62,28 @@ clip!(u32 | i32);
 clip!(u64 | i64);
 clip!(usize | isize);
 
-pub struct ClipV<C> {
+pub struct Viewport<C: Coord> {
     pub(crate) x_min: C,
     pub(crate) y_min: C,
     pub(crate) x_max: C,
     pub(crate) y_max: C,
 }
 
-derive::clone!([C: Coord] ClipV<C>);
+derive::clone!([C: Coord] Viewport<C>);
 
-macro_rules! clip_v {
-    ($Cu:ty|$Ci:ty) => {
-        clip_v!($Cu, <$Cu as Coord>::U);
-        clip_v!($Ci, <$Ci as Coord>::U);
+macro_rules! viewport {
+    ($U:ty|$I:ty) => {
+        viewport!($U, $U);
+        viewport!($I, $U);
     };
-    ($C:ty, $U:ty) => {
-        impl ClipV<$C> {
-            pub const fn from_min_max(x_min: $C, y_min: $C, x_max: $C, y_max: $C) -> Option<Self> {
+    ($UI:ty, $U:ty) => {
+        impl Viewport<$UI> {
+            pub const fn from_min_max(
+                x_min: $UI,
+                y_min: $UI,
+                x_max: $UI,
+                y_max: $UI,
+            ) -> Option<Self> {
                 if x_max < x_min || y_max < y_min {
                     return None;
                 }
@@ -86,8 +91,8 @@ macro_rules! clip_v {
             }
 
             pub const fn from_min_size(
-                x_min: $C,
-                y_min: $C,
+                x_min: $UI,
+                y_min: $UI,
                 width: $U,
                 height: $U,
             ) -> Option<Self> {
@@ -96,16 +101,30 @@ macro_rules! clip_v {
                 }
                 let dx = width - 1;
                 let dy = height - 1;
-                let Some(x_max) = ops::<$C>::checked_add_u(x_min, dx) else { return None };
-                let Some(y_max) = ops::<$C>::checked_add_u(y_min, dy) else { return None };
+                let Some(x_max) = ops::<$UI>::checked_add_u(x_min, dx) else { return None };
+                let Some(y_max) = ops::<$UI>::checked_add_u(y_min, dy) else { return None };
                 Some(Self { x_min, y_min, x_max, y_max })
             }
         }
     };
 }
 
-clip_v!(u8 | i8);
-clip_v!(u16 | i16);
-clip_v!(u32 | i32);
-clip_v!(u64 | i64);
-clip_v!(usize | isize);
+viewport!(u8 | i8);
+viewport!(u16 | i16);
+viewport!(u32 | i32);
+viewport!(u64 | i64);
+viewport!(usize | isize);
+
+#[rustfmt::skip]
+macro_rules! if_clip {
+    (Clip     $Clip:block else $Viewport:block) => { $Clip };
+    (Viewport $Clip:block else $Viewport:block) => { $Viewport };
+}
+
+#[rustfmt::skip]
+macro_rules! if_clip_u {
+    (unsigned        Clip       $unsigned_clip:block else $other:block) => { $unsigned_clip };
+    ($signess:ident $Clip:ident $unsigned_clip:block else $other:block) => { $other };
+}
+
+use {if_clip, if_clip_u};

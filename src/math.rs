@@ -33,32 +33,53 @@ coord!(usize, isize, u64, i64);
 #[cfg(target_pointer_width = "16")]
 coord!(usize, isize, u32, i32);
 
+#[rustfmt::skip]
+macro_rules! if_unsigned {
+    (unsigned $unsigned:block else $signed:block) => { $unsigned };
+    (signed $unsigned:block else $signed:block) => { $signed };
+}
+
+pub(crate) use if_unsigned;
+
 #[allow(non_camel_case_types)]
 pub(crate) struct ops<C: Coord>(C);
 
 macro_rules! coord_ops {
-    (common $C:ty, $U:ty) => {
-        impl ops<$C> {
-            pub const fn min(a: $C, b: $C) -> $C {
+    (common $UI:ty, $U:ty) => {
+        impl ops<$UI> {
+            pub const fn min(a: $UI, b: $UI) -> $UI {
                 if a <= b { a } else { b }
             }
-            pub const fn max(a: $C, b: $C) -> $C {
+            pub const fn max(a: $UI, b: $UI) -> $UI {
                 if b <= a { a } else { b }
             }
-            pub const fn min_adj(incl: $C, excl: $C) -> $C {
+            pub const fn min_adj(incl: $UI, excl: $UI) -> $UI {
                 if incl < excl { incl + 1 } else { excl }
             }
-            pub const fn max_adj(incl: $C, excl: $C) -> $C {
+            pub const fn max_adj(incl: $UI, excl: $UI) -> $UI {
                 if excl < incl { incl - 1 } else { excl }
             }
-            pub const fn abs_diff_signed(lhs: $C, rhs: $C, sign: i8) -> $U {
+            pub const fn add_u_signed(lhs: $UI, rhs: $U, sign: i8) -> $UI {
+                if sign > 0 { Self::add_u(lhs, rhs) } else { Self::sub_u(lhs, rhs) }
+            }
+            pub const fn sub_u_signed(lhs: $UI, rhs: $U, sign: i8) -> $UI {
+                if sign > 0 { Self::sub_u(lhs, rhs) } else { Self::add_u(lhs, rhs) }
+            }
+            pub const fn abs_diff_const_signed<const F: bool>(lhs: $UI, rhs: $UI) -> $U {
+                if F {
+                    Self::abs_diff(rhs, lhs)
+                } else {
+                    Self::abs_diff(lhs, rhs)
+                }
+            }
+            pub const fn abs_diff_signed(lhs: $UI, rhs: $UI, sign: i8) -> $U {
                 if sign > 0 {
                     Self::abs_diff(lhs, rhs)
                 } else {
                     Self::abs_diff(rhs, lhs)
                 }
             }
-            pub const fn abs_diff_sign(lhs: $C, rhs: $C) -> ($U, i8) {
+            pub const fn abs_diff_sign(lhs: $UI, rhs: $UI) -> ($U, i8) {
                 if rhs <= lhs {(
                     Self::abs_diff(lhs, rhs), 1)
                 } else {
@@ -67,95 +88,86 @@ macro_rules! coord_ops {
             }
         }
     };
-    (unsigned $U:ty, $I:ty) => {
-        impl ops<$U> {
-            pub const fn add_u(lhs: $U, rhs: $U) -> $U {
-                lhs + rhs
+    ($signedness:ident $UI:ty, $U:ty, $I:ty) => {
+        impl ops<$UI> {
+            pub const fn add_u(lhs: $UI, rhs: $U) -> $UI {
+                if_unsigned!($signedness {
+                    lhs + rhs
+                } else {
+                    let (res, o) = lhs.overflowing_add_unsigned(rhs);
+                    if o && cfg!(debug_assertions) {
+                        panic!("overflow in add_u");
+                    }
+                    res
+                })
             }
-            pub const fn sub_u(lhs: $U, rhs: $U) -> $U {
-                lhs - rhs
+            pub const fn sub_u(lhs: $UI, rhs: $U) -> $UI {
+                if_unsigned!($signedness {
+                    lhs - rhs
+                } else {
+                    let (res, o) = lhs.overflowing_sub_unsigned(rhs);
+                    if o && cfg!(debug_assertions) {
+                        panic!("overflow in sub_u");
+                    }
+                    res
+                })
             }
-            pub const fn add_u_signed(lhs: $U, rhs: $U, sign: i8) -> $U {
-                if sign > 0 { Self::add_u(lhs, rhs) } else { Self::sub_u(lhs, rhs) }
+            pub const fn checked_add_u(lhs: $UI, rhs: $U) -> Option<$UI> {
+                if_unsigned!($signedness {
+                    lhs.checked_add(rhs)
+                } else {
+                    lhs.checked_add_unsigned(rhs)
+                })
             }
-            pub const fn sub_u_signed(lhs: $U, rhs: $U, sign: i8) -> $U {
-                if sign > 0 { Self::sub_u(lhs, rhs) } else { Self::add_u(lhs, rhs) }
+            pub const fn checked_sub_u(lhs: $UI, rhs: $U) -> Option<$UI> {
+                if_unsigned!($signedness {
+                    lhs.checked_sub(rhs)
+                } else {
+                    lhs.checked_sub_unsigned(rhs)
+                })
             }
-            pub const fn checked_add_u(lhs: $U, rhs: $U) -> Option<$U> {
-                lhs.checked_add(rhs)
+            pub const fn add_i(lhs: $UI, rhs: $I) -> $UI {
+                if_unsigned!($signedness {
+                    let (res, o) = lhs.overflowing_add_signed(rhs);
+                    if o && cfg!(debug_assertions) {
+                        panic!("overflow in add_i");
+                    }
+                    res
+                } else {
+                    lhs + rhs
+                })
             }
-            pub const fn checked_sub_u(lhs: $U, rhs: $U) -> Option<$U> {
-                lhs.checked_sub(rhs)
+            pub const fn sub_i(lhs: $UI, rhs: $I) -> $UI {
+                if_unsigned!($signedness {
+                    let (res, o) = lhs.overflowing_sub(rhs as $U);
+                    if (o ^ (rhs < 0)) && cfg!(debug_assertions) {
+                        panic!("overflow in sub_i");
+                    }
+                    res
+                } else {
+                    lhs - rhs
+                })
             }
-            pub const fn add_i(lhs: $U, rhs: $I) -> $U {
-                let (res, o) = lhs.overflowing_add_signed(rhs);
-                if o && cfg!(debug_assertions) {
-                    panic!("overflow in add_signed");
-                }
-                res
-            }
-            pub const fn sub_i(lhs: $U, rhs: $I) -> $U {
-                let (res, o) = lhs.overflowing_sub(rhs as $U);
-                if (o ^ (rhs < 0)) && cfg!(debug_assertions) {
-                    panic!("overflow in sub_signed");
-                }
-                res
-            }
-            pub const fn abs_diff(lhs: $U, rhs: $U) -> $U {
-                lhs - rhs
-            }
-        }
-    };
-    (signed $I:ty, $U:ty) => {
-        impl ops<$I> {
-            pub const fn add_u(lhs: $I, rhs: $U) -> $I {
-                let (res, o) = lhs.overflowing_add_unsigned(rhs);
-                if o && cfg!(debug_assertions) {
-                    panic!("overflow in add_unsigned");
-                }
-                res
-            }
-            pub const fn sub_u(lhs: $I, rhs: $U) -> $I {
-                let (res, o) = lhs.overflowing_sub_unsigned(rhs);
-                if o && cfg!(debug_assertions) {
-                    panic!("overflow in add_unsigned");
-                }
-                res
-            }
-            pub const fn add_u_signed(lhs: $I, rhs: $U, sign: i8) -> $I {
-                if sign > 0 { Self::add_u(lhs, rhs) } else { Self::sub_u(lhs, rhs) }
-            }
-            pub const fn sub_u_signed(lhs: $I, rhs: $U, sign: i8) -> $I {
-                if sign > 0 { Self::sub_u(lhs, rhs) } else { Self::add_u(lhs, rhs) }
-            }
-            pub const fn checked_add_u(lhs: $I, rhs: $U) -> Option<$I> {
-                lhs.checked_add_unsigned(rhs)
-            }
-            pub const fn checked_sub_u(lhs: $I, rhs: $U) -> Option<$I> {
-                lhs.checked_sub_unsigned(rhs)
-            }
-            pub const fn add_i(lhs: $I, rhs: $I) -> $I {
-                lhs + rhs
-            }
-            pub const fn sub_i(lhs: $I, rhs: $I) -> $I {
-                lhs - rhs
-            }
-            pub const fn abs_diff(lhs: $I, rhs: $I) -> $U {
-                debug_assert!(rhs <= lhs);
-                <$U>::wrapping_sub(lhs as $U, rhs as $U)
+            pub const fn abs_diff(lhs: $UI, rhs: $UI) -> $U {
+                if_unsigned!($signedness {
+                    lhs - rhs
+                } else {
+                    debug_assert!(rhs <= lhs);
+                    <$U>::wrapping_sub(lhs as $U, rhs as $U)
+                })
             }
         }
     };
-    ($U:ty, $I:ty) => (
-        coord_ops!(unsigned $U, $I);
-        coord_ops!(signed $I, $U);
+    ($U:ty | $I:ty) => (
+        coord_ops!(unsigned $U, $U, $I);
+        coord_ops!(signed $I, $U, $I);
         coord_ops!(common $U, $U);
         coord_ops!(common $I, $U);
     )
 }
 
-coord_ops!(u8, i8);
-coord_ops!(u16, i16);
-coord_ops!(u32, i32);
-coord_ops!(u64, i64);
-coord_ops!(usize, isize);
+coord_ops!(u8 | i8);
+coord_ops!(u16 | i16);
+coord_ops!(u32 | i32);
+coord_ops!(u64 | i64);
+coord_ops!(usize | isize);

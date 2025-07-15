@@ -1,4 +1,4 @@
-use crate::clip::{Clip, ClipV};
+use crate::clip::{Clip, Viewport};
 use crate::rect::Rect;
 
 impl Clip<i8> {
@@ -11,7 +11,7 @@ impl Clip<i8> {
     }
 }
 
-impl ClipV<i8> {
+impl Viewport<i8> {
     pub const fn rect(&self, x0: i8, y0: i8, x1: i8, y1: i8) -> Option<Rect<i8>> {
         None
     }
