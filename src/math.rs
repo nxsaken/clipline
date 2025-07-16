@@ -37,6 +37,8 @@ coord!(usize, isize, u32, i32);
 macro_rules! if_unsigned {
     (unsigned $unsigned:block else $signed:block) => { $unsigned };
     (signed $unsigned:block else $signed:block) => { $signed };
+    (unsigned [$unsigned:ty] else [$signed:ty]) => { $unsigned };
+    (signed   [$unsigned:ty] else [$signed:ty]) => { $signed };
 }
 
 pub(crate) use if_unsigned;
@@ -61,9 +63,6 @@ macro_rules! coord_ops {
             }
             pub const fn add_u_signed(lhs: $UI, rhs: $U, sign: i8) -> $UI {
                 if sign > 0 { Self::add_u(lhs, rhs) } else { Self::sub_u(lhs, rhs) }
-            }
-            pub const fn sub_u_signed(lhs: $UI, rhs: $U, sign: i8) -> $UI {
-                if sign > 0 { Self::sub_u(lhs, rhs) } else { Self::add_u(lhs, rhs) }
             }
             pub const fn abs_diff_const_signed<const F: bool>(lhs: $UI, rhs: $UI) -> $U {
                 if F {
@@ -117,13 +116,6 @@ macro_rules! coord_ops {
                     lhs.checked_add(rhs)
                 } else {
                     lhs.checked_add_unsigned(rhs)
-                })
-            }
-            pub const fn checked_sub_u(lhs: $UI, rhs: $U) -> Option<$UI> {
-                if_unsigned!($signedness {
-                    lhs.checked_sub(rhs)
-                } else {
-                    lhs.checked_sub_unsigned(rhs)
                 })
             }
             pub const fn add_i(lhs: $UI, rhs: $I) -> $UI {
