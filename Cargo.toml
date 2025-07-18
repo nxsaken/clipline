@@ -14,3 +14,5 @@ include = [
     "Cargo.toml",
     "LICENSE*",
 ]
+[dev-dependencies]
+proptest = "1.7.0"

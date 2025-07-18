@@ -5,6 +5,7 @@ use crate::util::try_opt;
 mod line_a;
 mod line_b;
 mod line_d;
+mod point;
 mod rect;
 
 pub struct Clip<C: Coord> {
@@ -29,15 +30,10 @@ macro_rules! clip {
         clip!(@impl Viewport<$U>, $U);
         clip!(@impl Viewport<$I>, $U);
 
-        clip!(@impl xy_min for Clip<$U> { self, 0, 0 });
-        clip!(@impl xy_min for Clip<$I> { self, 0, 0 });
-        clip!(@impl xy_min for Viewport<$U> { self, self.x_min, self.y_min });
-        clip!(@impl xy_min for Viewport<$I> { self, self.x_min, self.y_min });
-
-        clip!(@impl uv_min_max for Clip<$U>);
-        clip!(@impl uv_min_max for Clip<$I>);
-        clip!(@impl uv_min_max for Viewport<$U>);
-        clip!(@impl uv_min_max for Viewport<$I>);
+        clip!(@impl MinMax for Clip<$U> { self, 0, 0 });
+        clip!(@impl MinMax for Clip<$I> { self, 0, 0 });
+        clip!(@impl MinMax for Viewport<$U> { self, self.x_min, self.y_min });
+        clip!(@impl MinMax for Viewport<$I> { self, self.x_min, self.y_min });
     };
     (@impl Clip<$signedness:ident $UI:ty>, $U:ty) => {
         impl Clip<$UI> {
@@ -107,7 +103,7 @@ macro_rules! clip {
             }
         }
     };
-    (@impl xy_min for $Self:ident<$UI:ty> { $self:ident, $x_min:expr, $y_min:expr }) => {
+    (@impl MinMax for $Self:ident<$UI:ty> { $self:ident, $x_min:expr, $y_min:expr }) => {
         impl $Self<$UI> {
             const fn x_min(&$self) -> $UI {
                 $x_min
@@ -116,10 +112,7 @@ macro_rules! clip {
             const fn y_min(&$self) -> $UI {
                 $y_min
             }
-        }
-    };
-    (@impl uv_min_max for $Self:ident<$UI:ty>) => {
-        impl $Self<$UI> {
+
             const fn u_min<const YX: bool>(&self) -> $UI {
                 if YX { self.y_min() } else { self.x_min() }
             }

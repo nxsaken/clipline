@@ -7,14 +7,15 @@ macro_rules! clip_line_d {
     ($U:ty | $I:ty) => {
         clip_line_d!(@impl Clip<$U>, $U);
         clip_line_d!(@impl Clip<$I>, $U);
-        clip_line_d!(@pub impl Clip<$U>);
-        clip_line_d!(@pub impl Clip<$I>);
-        clip_line_d!(@pub impl Clip<$I, proj $U>);
-
         clip_line_d!(@impl Viewport<$U>, $U);
         clip_line_d!(@impl Viewport<$I>, $U);
+
+        clip_line_d!(@pub impl Clip<$U>);
+        clip_line_d!(@pub impl Clip<$I>);
         clip_line_d!(@pub impl Viewport<$U>);
         clip_line_d!(@pub impl Viewport<$I>);
+
+        clip_line_d!(@pub impl Clip<$I, proj $U>);
         clip_line_d!(@pub impl Viewport<$U, proj $U>);
         clip_line_d!(@pub impl Viewport<$I, proj $U>);
     };

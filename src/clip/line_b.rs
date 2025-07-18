@@ -7,17 +7,19 @@ macro_rules! clip_line_b {
     ($U:ty | $I:ty) => {
         clip_line_b!(@impl Clip<$U>, $U, <$U as Coord>::U2, <$U as Coord>::I2);
         clip_line_b!(@impl Clip<$I>, $U, <$U as Coord>::U2, <$U as Coord>::I2);
-        clip_line_b!(@impl Clip<$I, proj $U>);
-        clip_line_b!(@pub impl Clip<$U>);
-        clip_line_b!(@pub impl Clip<$I>);
-        clip_line_b!(@pub impl Clip<$I, proj $U>);
-
         clip_line_b!(@impl Viewport<$U>, $U, <$U as Coord>::U2, <$U as Coord>::I2);
         clip_line_b!(@impl Viewport<$I>, $U, <$U as Coord>::U2, <$U as Coord>::I2);
-        clip_line_b!(@impl Viewport<$U, proj $U>);
-        clip_line_b!(@impl Viewport<$I, proj $U>);
+
+        clip_line_b!(@pub impl Clip<$U>);
+        clip_line_b!(@pub impl Clip<$I>);
         clip_line_b!(@pub impl Viewport<$U>);
         clip_line_b!(@pub impl Viewport<$I>);
+
+        clip_line_b!(@impl Clip<$I, proj $U>);
+        clip_line_b!(@impl Viewport<$U, proj $U>);
+        clip_line_b!(@impl Viewport<$I, proj $U>);
+
+        clip_line_b!(@pub impl Clip<$I, proj $U>);
         clip_line_b!(@pub impl Viewport<$U, proj $U>);
         clip_line_b!(@pub impl Viewport<$I, proj $U>);
     };
