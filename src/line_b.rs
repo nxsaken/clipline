@@ -1,5 +1,6 @@
 use crate::derive;
 use crate::math::{Coord, ops};
+use crate::util::try_opt;
 
 pub struct LineBu<const YX: bool, C: Coord> {
     pub(crate) u0: C,
@@ -64,6 +65,10 @@ macro_rules! line_bu {
                 Some(Self { u0, v0, du, dv, err, u1, su, sv })
             }
 
+            pub(crate) const fn new_au(v0: $C, u0: $C, u1: $C, su: i8) -> Self {
+                Self { u0, v0, du: 0, dv: 0, err: -1, u1, su, sv: 0 }
+            }
+
             derive::iter_methods!(
                 C = $C,
                 U = $U,
@@ -78,7 +83,7 @@ macro_rules! line_bu {
                     Some((x0, y0))
                 },
                 fn pop_head = {
-                    let Some((x0, y0)) = self.head() else { return None };
+                    let (x0, y0) = try_opt!(self.head());
                     if 0 <= self.err {
                         self.v0 = ops::<$C>::add_i(self.v0, self.sv as $I);
                         self.err -= self.du as $I2;

@@ -1,5 +1,6 @@
 use crate::derive;
 use crate::math::{Coord, ops};
+use crate::util::try_opt;
 
 pub struct LineD<C: Coord> {
     pub(crate) x0: C,
@@ -65,7 +66,7 @@ macro_rules! line_d {
                     Some((self.x0, self.y0))
                 },
                 fn pop_head = {
-                    let Some((x0, y0)) = self.head() else { return None };
+                    let (x0, y0) = try_opt!(self.head());
                     self.x0 = ops::<$C>::add_i(self.x0, self.sx as $I);
                     self.y0 = ops::<$C>::add_i(self.y0, self.sy as $I);
                     Some((x0, y0))
@@ -80,7 +81,7 @@ macro_rules! line_d {
                     Some((xt, yt))
                 },
                 fn pop_tail = {
-                    let Some((xt, yt)) = self.tail() else { return None };
+                    let (xt, yt) = try_opt!(self.tail());
                     self.x1 = xt;
                     Some((xt, yt))
                 }
@@ -163,7 +164,7 @@ macro_rules! line_d2 {
                     Some((self.x0, self.y0))
                 },
                 fn pop_head = {
-                    let Some((x0, y0)) = self.head() else { return None };
+                    let (x0, y0) = try_opt!(self.head());
                     self.x0 = ops::<$C>::add_i(self.x0, self.sx as $I);
                     self.y0 = ops::<$C>::add_i(self.y0, self.sy as $I);
                     Some((x0, y0))
@@ -177,7 +178,7 @@ macro_rules! line_d2 {
                     Some((xt, yt))
                 },
                 fn pop_tail = {
-                    let Some((xt, yt)) = self.tail() else { return None };
+                    let (xt, yt) = try_opt!(self.tail());
                     self.x1 = xt;
                     self.y1 = yt;
                     Some((xt, yt))

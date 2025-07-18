@@ -7,6 +7,7 @@ mod line_b;
 mod line_d;
 mod math;
 mod rect;
+mod util;
 
 pub use clip::{Clip, Viewport};
 pub use line_a::{LineA, LineAu, LineAx, LineAy};

@@ -1,6 +1,7 @@
-use crate::clip::{Clip, Viewport, if_clip};
+use crate::clip::{Clip, Viewport};
 use crate::line_b::{LineB, LineBu, LineBx, LineBy};
 use crate::math::{Coord, ops};
+use crate::util::try_opt;
 
 macro_rules! clip_line_b {
     ($U:ty | $I:ty) => {
@@ -35,209 +36,219 @@ macro_rules! clip_line_b {
                     || FY && (y0 < self.y_min() || self.y_max < y1)
             }
 
-            pub(super) const fn outcode<const FX: bool, const FY: bool>(
+            pub(super) const fn outcode<const YX: bool, const FU: bool, const FV: bool>(
                 &self,
-                x0: $UI,
-                y0: $UI,
-                x1: $UI,
-                y1: $UI,
+                u0: $UI,
+                v0: $UI,
+                u1: $UI,
+                v1: $UI,
             ) -> [bool; 4] {
-                let maybe_ix = if FX { self.x_max < x0 } else { x0 < self.x_min() };
-                let maybe_iy = if FY { self.y_max < y0 } else { y0 < self.y_min() };
-                let maybe_ox = if FX { x1 < self.x_min() } else { self.x_max < x1 };
-                let maybe_oy = if FY { y1 < self.y_min() } else { self.y_max < y1 };
-                [maybe_ix, maybe_iy, maybe_ox, maybe_oy]
+                let (u_min, v_min, u_max, v_max) = self.uv_min_max::<YX>();
+                let maybe_iu = if FU { v_max < u0 } else { u0 < u_min };
+                let maybe_iv = if FV { v_max < v0 } else { v0 < v_min };
+                let maybe_ou = if FU { u1 < u_min } else { u_max < u1 };
+                let maybe_ov = if FV { v1 < v_min } else { v_max < v1 };
+                [maybe_iu, maybe_iv, maybe_ou, maybe_ov]
             }
 
-            pub(super) const fn dx<const FX: bool, const OI: bool>(
+            pub(super) const fn du<const YX: bool, const FU: bool, const OI: bool>(
                 &self,
-                x0: $UI,
+                u0: $UI,
             ) -> $U {
-                let (x_min, x_max) = if OI { (self.x_max, self.x_min()) } else { (self.x_min(), self.x_max) };
-                let (lhs, rhs) = if FX { (x0, x_max) } else { (x_min, x0) };
+                let (lhs, rhs) = match (FU, OI) {
+                    (false, false) => (self.u_min::<YX>(), u0),
+                    (false, true) => (self.u_max::<YX>(), u0),
+                    (true, false) => (u0, self.u_max::<YX>()),
+                    (true, true) => (u0, self.u_min::<YX>()),
+                };
                 ops::<$UI>::abs_diff(lhs, rhs)
             }
 
-            pub(super) const fn dy<const FY: bool, const OI: bool>(
+            pub(super) const fn dv<const YX: bool, const FV: bool, const OI: bool>(
                 &self,
-                y0: $UI,
+                v0: $UI,
             ) -> $U {
-                let (y_min, y_max) = if OI { (self.y_max, self.y_min()) } else { (self.y_min(), self.y_max) };
-                let (lhs, rhs) = if FY { (y0, y_max) } else { (y_min, y0) };
+                let (lhs, rhs) = match (FV, OI) {
+                    (false, false) => (self.v_min::<YX>(), v0),
+                    (false, true) => (self.v_max::<YX>(), v0),
+                    (true, false) => (v0, self.v_max::<YX>()),
+                    (true, true) => (v0, self.v_min::<YX>()),
+                };
                 ops::<$UI>::abs_diff(lhs, rhs)
             }
 
-            const fn tx0<const FX: bool>(
+            const fn tu0<const YX: bool, const FU: bool>(
                 &self,
-                x0: $UI,
-                dy: $U,
+                u0: $UI,
+                dv: $U,
             ) -> $U2 {
-                let dx0 = self.dx::<FX, false>(x0);
-                dx0 as $U2 * dy as $U2
+                let du0 = self.du::<YX, FU, false>(u0);
+                du0 as $U2 * dv as $U2
             }
 
-            const fn tx1<const FX: bool>(
+            const fn tu1<const YX: bool, const FU: bool>(
                 &self,
-                x0: $UI,
-                dy: $U,
+                u0: $UI,
+                dv: $U,
             ) -> $U2 {
-                let dx1 = self.dx::<FX, true>(x0);
-                dx1 as $U2 * dy as $U2
+                let du1 = self.du::<YX, FU, true>(u0);
+                du1 as $U2 * dv as $U2
             }
 
-            const fn ty0<const FY: bool>(
+            const fn tv0<const YX: bool, const FV: bool>(
                 &self,
-                y0: $UI,
-                dx: $U,
-                dx_half: $U,
+                v0: $UI,
+                du: $U,
+                du_half: $U,
             ) -> $U2 {
-                let dy0 = self.dy::<FY, false>(y0);
-                let ty0_raw = dy0 as $U2 * dx as $U2;
-                ty0_raw - dx_half as $U2
+                let dv0 = self.dv::<YX, FV, false>(v0);
+                let tv0_raw = dv0 as $U2 * du as $U2;
+                tv0_raw - du_half as $U2
             }
 
-            const fn ty1<const FY: bool>(
+            const fn tv1<const YX: bool, const FV: bool>(
                 &self,
-                y0: $UI,
-                dx: $U,
-                dx_half: $U,
+                v0: $UI,
+                du: $U,
+                du_half: $U,
             ) -> $U2 {
-                let dy1 = self.dy::<FY, true>(y0);
-                let ty1_raw = dy1 as $U2 * dx as $U2;
-                ty1_raw + dx_half as $U2
+                let dv1 = self.dv::<YX, FV, true>(v0);
+                let tv1_raw = dv1 as $U2 * du as $U2;
+                tv1_raw + du_half as $U2
             }
 
-            const fn cxy0_ix_bx<const FX: bool, const FY: bool>(
+            const fn cuv0_iu_bu<const YX: bool, const FU: bool, const FV: bool>(
                 &self,
-                y0: $UI,
-                dx: $U,
-                tx0: $U2,
+                v0: $UI,
+                du: $U,
+                tu0: $U2,
                 mut err: $I2,
             ) -> ($UI, $UI, $I2) {
-                let (mut dyc, dyc_rem) = {
-                    // SAFETY: this is never called with dx == 0.
-                    unsafe { core::hint::assert_unchecked(dx != 0) };
-                    let (dyc, dyc_rem) = (tx0 / dx as $U2, tx0 % dx as $U2);
-                    debug_assert!(dyc <= <$U>::MAX as $U2);
-                    (dyc as $U, dyc_rem as $U)
+                let (mut dvc, dvc_rem) = {
+                    // SAFETY: this is never called with du == 0.
+                    unsafe { core::hint::assert_unchecked(du != 0) };
+                    let (dvc, dvc_rem) = (tu0 / du as $U2, tu0 % du as $U2);
+                    debug_assert!(dvc <= <$U>::MAX as $U2);
+                    (dvc as $U, dvc_rem as $U)
                 };
-                err += dyc_rem as $I2;
-                if dx as $U2 <= dyc_rem as $U2 * 2 {
-                    dyc += 1;
-                    err -= dx as $I2;
+                err += dvc_rem as $I2;
+                if du as $U2 <= dvc_rem as $U2 * 2 {
+                    dvc += 1;
+                    err -= du as $I2;
                 }
-                let cx0 = if FX { self.x_max } else { self.x_min() };
-                let cy0 = if FY { ops::<$UI>::sub_u(y0, dyc) } else { ops::<$UI>::add_u(y0, dyc) };
-                (cx0, cy0, err)
+                let cu0 = if FU { self.u_max::<YX>() } else { self.u_min::<YX>() };
+                let cv0 = if FV { ops::<$UI>::sub_u(v0, dvc) } else { ops::<$UI>::add_u(v0, dvc) };
+                (cu0, cv0, err)
             }
 
-            const fn cxy0_iy_bx<const FX: bool, const FY: bool>(
+            const fn cuv0_iv_bu<const YX: bool, const FU: bool, const FV: bool>(
                 &self,
-                x0: $UI,
-                dy: $U,
-                ty0: $U2,
+                u0: $UI,
+                dv: $U,
+                tv0: $U2,
                 mut err: $I2,
-                dx_half: $U,
+                du_half: $U,
             ) -> ($UI, $UI, $I2) {
-                let (mut dxc, dxc_rem) = {
-                    // SAFETY: this is never called with dy == 0.
-                    unsafe { core::hint::assert_unchecked(dy != 0) };
-                    let (dxc, dxc_rem) = (ty0 / dy as $U2, ty0 % dy as $U2);
-                    debug_assert!(dxc <= <$U>::MAX as $U2);
-                    (dxc as $U, dxc_rem as $U)
+                let (mut duc, duc_rem) = {
+                    // SAFETY: this is never called with dv == 0.
+                    unsafe { core::hint::assert_unchecked(dv != 0) };
+                    let (duc, duc_rem) = (tv0 / dv as $U2, tv0 % dv as $U2);
+                    debug_assert!(duc <= <$U>::MAX as $U2);
+                    (duc as $U, duc_rem as $U)
                 };
-                err -= dx_half as $I2;
-                err -= dxc_rem as $I2;
-                if 0 < dxc_rem {
-                    dxc += 1;
-                    err += dy as $I2;
+                err -= du_half as $I2;
+                err -= duc_rem as $I2;
+                if 0 < duc_rem {
+                    duc += 1;
+                    err += dv as $I2;
                 }
-                let cx0 = if FX { ops::<$UI>::sub_u(x0, dxc) } else { ops::<$UI>::add_u(x0, dxc) };
-                let cy0 = if FY { self.y_max } else { self.y_min() };
-                (cx0, cy0, err)
+                let cu0 = if FU { ops::<$UI>::sub_u(u0, duc) } else { ops::<$UI>::add_u(u0, duc) };
+                let cv0 = if FV { self.v_max::<YX>() } else { self.v_min::<YX>() };
+                (cu0, cv0, err)
             }
 
-            const fn cxy0_ixy_bx<const FX: bool, const FY: bool>(
+            #[expect(clippy::too_many_arguments)]
+            const fn cuv0_iuv_bu<const YX: bool, const FU: bool, const FV: bool>(
                 &self,
-                x0: $UI,
-                y0: $UI,
-                dx: $U,
-                dy: $U,
-                tx0: $U2,
-                ty0: $U2,
+                u0: $UI,
+                v0: $UI,
+                du: $U,
+                dv: $U,
+                tu0: $U2,
+                tv0: $U2,
                 err: $I2,
-                dx_half: $U,
+                du_half: $U,
             ) -> ($UI, $UI, $I2) {
-                if ty0 <= tx0 {
-                    self.cxy0_ix_bx::<FX, FY>(y0, dx, tx0, err)
+                if tv0 <= tu0 {
+                    self.cuv0_iu_bu::<YX, FU, FV>(v0, du, tu0, err)
                 } else {
-                    self.cxy0_iy_bx::<FX, FY>(x0, dy, ty0, err, dx_half)
+                    self.cuv0_iv_bu::<YX, FU, FV>(u0, dv, tv0, err, du_half)
                 }
             }
 
-            const fn cx1_ox_bx<const FX: bool>(
+            const fn cu1_ou_bu<const YX: bool, const FU: bool>(
                 &self,
             ) -> $UI {
-                let exit = if FX { self.x_min() } else { self.x_max };
-                let su = if FX { -1 } else { 1 };
-                ops::<$UI>::add_i(exit, su)
+                let ou = if FU { self.u_min::<YX>() } else { self.u_max::<YX>() };
+                let su = if FU { -1 } else { 1 };
+                ops::<$UI>::add_i(ou, su)
             }
 
-            const fn cx1_oy_bx<const FX: bool>(
-                x0: $UI,
-                dy: $U,
-                ty1: $U2,
-                dx_odd: bool,
+            const fn cu1_ov_bu<const FU: bool>(
+                u0: $UI,
+                dv: $U,
+                tv1: $U2,
+                du_odd: bool,
             ) -> $UI {
-                let (mut dxc, dxc_rem) = {
-                    // SAFETY: this is never called with dy == 0.
-                    unsafe { core::hint::assert_unchecked(dy != 0) };
-                    let (dxc, dxc_rem) = (ty1 / dy as $U2, ty1 % dy as $U2);
-                    debug_assert!(dxc <= <$U>::MAX as $U2);
-                    (dxc as $U, dxc_rem as $U)
+                let (mut duc, duc_rem) = {
+                    // SAFETY: this is never called with dv == 0.
+                    unsafe { core::hint::assert_unchecked(dv != 0) };
+                    let (duc, duc_rem) = (tv1 / dv as $U2, tv1 % dv as $U2);
+                    debug_assert!(duc <= <$U>::MAX as $U2);
+                    (duc as $U, duc_rem as $U)
                 };
-                dxc += (dxc_rem != 0 || dx_odd) as $U;
-                if FX { ops::<$UI>::sub_u(x0, dxc) } else { ops::<$UI>::add_u(x0, dxc) }
+                duc += (duc_rem != 0 || du_odd) as $U;
+                if FU { ops::<$UI>::sub_u(u0, duc) } else { ops::<$UI>::add_u(u0, duc) }
             }
 
-            const fn cx1_oxy_bx<const FX: bool>(
+            const fn cu1_ouv_bu<const YX: bool, const FU: bool>(
                 &self,
-                x0: $UI,
-                dy: $U,
-                tx1: $U2,
-                ty1: $U2,
-                dx_odd: bool,
+                u0: $UI,
+                dv: $U,
+                tu1: $U2,
+                tv1: $U2,
+                du_odd: bool,
             ) -> $UI {
-                if tx1 <= ty1 {
-                    self.cx1_ox_bx::<FX>()
+                if tu1 <= tv1 {
+                    self.cu1_ou_bu::<YX, FU>()
                 } else {
-                    Self::cx1_oy_bx::<FX>(x0, dy, ty1, dx_odd)
+                    Self::cu1_ov_bu::<FU>(u0, dv, tv1, du_odd)
                 }
             }
 
-            const fn raw_line_bx<const FX: bool, const FY: bool>(
+            const fn raw_line_bu_fufv<const YX: bool, const FU: bool, const FV: bool>(
                 &self,
-                x0: $UI,
-                y0: $UI,
-                x1: $UI,
-                y1: $UI,
-                dx: $U,
-                dy: $U,
+                u0: $UI,
+                v0: $UI,
+                u1: $UI,
+                v1: $UI,
+                du: $U,
+                dv: $U,
             ) -> Option<($UI, $UI, $I2, $UI, i8, i8)> {
-                if !FX && x1 == self.x_min() || FX && x1 == self.x_max {
+                if !FU && u1 == self.u_min::<YX>() || FU && u1 == self.u_max::<YX>() {
                     // ends on the entry along the major axis
                     return None;
                 }
-                let (dx_half, dx_odd) = (dx / 2, dx % 2 != 0);
-                let err = dy as $I2 - (dx_half + dx_odd as $U) as $I2;
-                let (x0, y0, err, x1) = match self.outcode::<FX, FY>(x0, y0, x1, y1) {
+                let (du_half, du_odd) = (du / 2, du % 2 != 0);
+                let err = dv as $I2 - (du_half + du_odd as $U) as $I2;
+                let (u0, v0, err, u1) = match self.outcode::<YX, FU, FV>(u0, v0, u1, v1) {
                     [false, false, false, false] => {
                         //    |   |
                         // ---+---+---
                         //    |0 1|
                         // ---+---+---
                         //    |   |
-                        (x0, y0, err, x1)
+                        (u0, v0, err, u1)
                     },
                     [false, false, false, true] => {
                         //    | 1 |
@@ -245,9 +256,9 @@ macro_rules! clip_line_b {
                         //    | 0 |
                         // ---+---+---
                         //    |   |
-                        let ty1 = self.ty1::<FY>(y0, dx, dx_half);
-                        let cx1 = Self::cx1_oy_bx::<FX>(x0, dy, ty1, dx_odd);
-                        (x0, y0, err, cx1)
+                        let tv1 = self.tv1::<YX, FV>(v0, du, du_half);
+                        let cu1 = Self::cu1_ov_bu::<FU>(u0, dv, tv1, du_odd);
+                        (u0, v0, err, cu1)
                     },
                     [false, false, true, false] => {
                         //    |   |
@@ -255,8 +266,8 @@ macro_rules! clip_line_b {
                         //    | 0 # 1
                         // ---+---+---
                         //    |   |
-                        let cx1 = self.cx1_ox_bx::<FX>();
-                        (x0, y0, err, cx1)
+                        let cu1 = self.cu1_ou_bu::<YX, FU>();
+                        (u0, v0, err, cu1)
                     },
                     [false, false, true, true] => {
                         //    |   | 1
@@ -264,10 +275,10 @@ macro_rules! clip_line_b {
                         //    | 0 #
                         // ---+---+---
                         //    |   |
-                        let tx1 = self.tx1::<FX>(x0, dy);
-                        let ty1 = self.ty1::<FY>(y0, dx, dx_half);
-                        let cx1 = self.cx1_oxy_bx::<FX>(x0, dy, tx1, ty1, dx_odd);
-                        (x0, y0, err, cx1)
+                        let tu1 = self.tu1::<YX, FU>(u0, dv);
+                        let tv1 = self.tv1::<YX, FV>(v0, du, du_half);
+                        let cu1 = self.cu1_ouv_bu::<YX, FU>(u0, dv, tu1, tv1, du_odd);
+                        (u0, v0, err, cu1)
                     },
                     [false, true, false, false] => {
                         //    |   |
@@ -275,9 +286,9 @@ macro_rules! clip_line_b {
                         //    | 1 |
                         // ---+-@-+---
                         //    | 0 |
-                        let ty0 = self.ty0::<FY>(y0, dx, dx_half);
-                        let (cx0, cy0, err) = self.cxy0_iy_bx::<FX, FY>(x0, dy, ty0, err, dx_half);
-                        (cx0, cy0, err, x1)
+                        let tv0 = self.tv0::<YX, FV>(v0, du, du_half);
+                        let (cu0, cv0, err) = self.cuv0_iv_bu::<YX, FU, FV>(u0, dv, tv0, err, du_half);
+                        (cu0, cv0, err, u1)
                     },
                     [false, true, false, true] => {
                         //    | 1 |
@@ -285,11 +296,11 @@ macro_rules! clip_line_b {
                         //    |   |
                         // ---+-@-+---
                         //    | 0 |
-                        let ty0 = self.ty0::<FY>(y0, dx, dx_half);
-                        let (cx0, cy0, err) = self.cxy0_iy_bx::<FX, FY>(x0, dy, ty0, err, dx_half);
-                        let ty1 = self.ty1::<FY>(y0, dx, dx_half);
-                        let cx1 = Self::cx1_oy_bx::<FX>(x0, dy, ty1, dx_odd);
-                        (cx0, cy0, err, cx1)
+                        let tv0 = self.tv0::<YX, FV>(v0, du, du_half);
+                        let (cu0, cv0, err) = self.cuv0_iv_bu::<YX, FU, FV>(u0, dv, tv0, err, du_half);
+                        let tv1 = self.tv1::<YX, FV>(v0, du, du_half);
+                        let cu1 = Self::cu1_ov_bu::<FU>(u0, dv, tv1, du_odd);
+                        (cu0, cv0, err, cu1)
                     },
                     [false, true, true, false] => {
                         //    |   |
@@ -297,14 +308,14 @@ macro_rules! clip_line_b {
                         //    |   # 1
                         // ---+-@-+-/-
                         //    | 0 |
-                        let ty0 = self.ty0::<FY>(y0, dx, dx_half);
-                        let tx1 = self.tx1::<FX>(x0, dy);
-                        if tx1 < ty0 {
+                        let tv0 = self.tv0::<YX, FV>(v0, du, du_half);
+                        let tu1 = self.tu1::<YX, FU>(u0, dv);
+                        if tu1 < tv0 {
                             return None;
                         }
-                        let (cx0, cy0, err) = self.cxy0_iy_bx::<FX, FY>(x0, dy, ty0, err, dx_half);
-                        let cx1 = self.cx1_ox_bx::<FX>();
-                        (cx0, cy0, err, cx1)
+                        let (cu0, cv0, err) = self.cuv0_iv_bu::<YX, FU, FV>(u0, dv, tv0, err, du_half);
+                        let cu1 = self.cu1_ou_bu::<YX, FU>();
+                        (cu0, cv0, err, cu1)
                     },
                     [false, true, true, true] => {
                         //    |   | 1
@@ -312,15 +323,15 @@ macro_rules! clip_line_b {
                         //    |   #
                         // ---+-@-+-/-
                         //    | 0 |
-                        let ty0 = self.ty0::<FY>(y0, dx, dx_half);
-                        let tx1 = self.tx1::<FX>(x0, dy);
-                        if tx1 < ty0 {
+                        let tv0 = self.tv0::<YX, FV>(v0, du, du_half);
+                        let tu1 = self.tu1::<YX, FU>(u0, dv);
+                        if tu1 < tv0 {
                             return None;
                         }
-                        let (cx0, cy0, err) = self.cxy0_iy_bx::<FX, FY>(x0, dy, ty0, err, dx_half);
-                        let ty1 = self.ty1::<FY>(y0, dx, dx_half);
-                        let cx1 = self.cx1_oxy_bx::<FX>(x0, dy, tx1, ty1, dx_odd);
-                        (cx0, cy0, err, cx1)
+                        let (cu0, cv0, err) = self.cuv0_iv_bu::<YX, FU, FV>(u0, dv, tv0, err, du_half);
+                        let tv1 = self.tv1::<YX, FV>(v0, du, du_half);
+                        let cu1 = self.cu1_ouv_bu::<YX, FU>(u0, dv, tu1, tv1, du_odd);
+                        (cu0, cv0, err, cu1)
                     },
                     [true, false, false, false] => {
                         //    |   |
@@ -328,9 +339,9 @@ macro_rules! clip_line_b {
                         //  0 @ 1 |
                         // ---+---+---
                         //    |   |
-                        let tx0 = self.tx0::<FX>(x0, dy);
-                        let (cx0, cy0, err) = self.cxy0_ix_bx::<FX, FY>(y0, dx, tx0, err);
-                        (cx0, cy0, err, x1)
+                        let tu0 = self.tu0::<YX, FU>(u0, dv);
+                        let (cu0, cv0, err) = self.cuv0_iu_bu::<YX, FU, FV>(v0, du, tu0, err);
+                        (cu0, cv0, err, u1)
                     },
                     [true, false, false, true] => {
                         //    | 1 |
@@ -338,14 +349,14 @@ macro_rules! clip_line_b {
                         //  0 @   |
                         // ---+---+---
                         //    |   |
-                        let tx0 = self.tx0::<FX>(x0, dy);
-                        let ty1 = self.ty1::<FY>(y0, dx, dx_half);
-                        if ty1 < tx0 {
+                        let tu0 = self.tu0::<YX, FU>(u0, dv);
+                        let tv1 = self.tv1::<YX, FV>(v0, du, du_half);
+                        if tv1 < tu0 {
                             return None;
                         }
-                        let (cx0, cy0, err) = self.cxy0_ix_bx::<FX, FY>(y0, dx, tx0, err);
-                        let cx1 = Self::cx1_oy_bx::<FX>(x0, dy, ty1, dx_odd);
-                        (cx0, cy0, err, cx1)
+                        let (cu0, cv0, err) = self.cuv0_iu_bu::<YX, FU, FV>(v0, du, tu0, err);
+                        let cu1 = Self::cu1_ov_bu::<FU>(u0, dv, tv1, du_odd);
+                        (cu0, cv0, err, cu1)
                     },
                     [true, false, true, false] => {
                         //    |   |
@@ -353,10 +364,10 @@ macro_rules! clip_line_b {
                         //  0 @   # 1
                         // ---+---+---
                         //    |   |
-                        let tx0 = self.tx0::<FX>(x0, dy);
-                        let (cx0, cy0, err) = self.cxy0_ix_bx::<FX, FY>(y0, dx, tx0, err);
-                        let cx1 = self.cx1_ox_bx::<FX>();
-                        (cx0, cy0, err, cx1)
+                        let tu0 = self.tu0::<YX, FU>(u0, dv);
+                        let (cu0, cv0, err) = self.cuv0_iu_bu::<YX, FU, FV>(v0, du, tu0, err);
+                        let cu1 = self.cu1_ou_bu::<YX, FU>();
+                        (cu0, cv0, err, cu1)
                     },
                     [true, false, true, true] => {
                         //    |   | 1
@@ -364,15 +375,15 @@ macro_rules! clip_line_b {
                         //  0 @   #
                         // ---+---+---
                         //    |   |
-                        let tx0 = self.tx0::<FX>(x0, dy);
-                        let ty1 = self.ty1::<FY>(y0, dx, dx_half);
-                        if ty1 < tx0 {
+                        let tu0 = self.tu0::<YX, FU>(u0, dv);
+                        let tv1 = self.tv1::<YX, FV>(v0, du, du_half);
+                        if tv1 < tu0 {
                             return None;
                         }
-                        let (cx0, cy0, err) = self.cxy0_ix_bx::<FX, FY>(y0, dx, tx0, err);
-                        let tx1 = self.tx1::<FX>(x0, dy);
-                        let cx1 = self.cx1_oxy_bx::<FX>(x0, dy, tx1, ty1, dx_odd);
-                        (cx0, cy0, err, cx1)
+                        let (cu0, cv0, err) = self.cuv0_iu_bu::<YX, FU, FV>(v0, du, tu0, err);
+                        let tu1 = self.tu1::<YX, FU>(u0, dv);
+                        let cu1 = self.cu1_ouv_bu::<YX, FU>(u0, dv, tu1, tv1, du_odd);
+                        (cu0, cv0, err, cu1)
                     },
                     [true, true, false, false] => {
                         //    |   |
@@ -380,10 +391,10 @@ macro_rules! clip_line_b {
                         //    @ 1 |
                         // ---+-@-+---
                         //  0 |   |
-                        let tx0 = self.tx0::<FX>(x0, dy);
-                        let ty0 = self.ty0::<FY>(y0, dx, dx_half);
-                        let (cx0, cy0, err) = self.cxy0_ixy_bx::<FX, FY>(x0, y0, dx, dy, tx0, ty0, err, dx_half);
-                        (cx0, cy0, err, x1)
+                        let tu0 = self.tu0::<YX, FU>(u0, dv);
+                        let tv0 = self.tv0::<YX, FV>(v0, du, du_half);
+                        let (cu0, cv0, err) = self.cuv0_iuv_bu::<YX, FU, FV>(u0, v0, du, dv, tu0, tv0, err, du_half);
+                        (cu0, cv0, err, u1)
                     },
                     [true, true, false, true] => {
                         //    | 1 |
@@ -391,15 +402,15 @@ macro_rules! clip_line_b {
                         //    @   |
                         // ---+-@-+---
                         //  0 |   |
-                        let tx0 = self.tx0::<FX>(x0, dy);
-                        let ty1 = self.ty1::<FY>(y0, dx, dx_half);
-                        if ty1 < tx0 {
+                        let tu0 = self.tu0::<YX, FU>(u0, dv);
+                        let tv1 = self.tv1::<YX, FV>(v0, du, du_half);
+                        if tv1 < tu0 {
                             return None;
                         }
-                        let ty0 = self.ty0::<FY>(y0, dx, dx_half);
-                        let (cx0, cy0, err) = self.cxy0_ixy_bx::<FX, FY>(x0, y0, dx, dy, tx0, ty0, err, dx_half);
-                        let cx1 = Self::cx1_oy_bx::<FX>(x0, dy, ty1, dx_odd);
-                        (cx0, cy0, err, cx1)
+                        let tv0 = self.tv0::<YX, FV>(v0, du, du_half);
+                        let (cu0, cv0, err) = self.cuv0_iuv_bu::<YX, FU, FV>(u0, v0, du, dv, tu0, tv0, err, du_half);
+                        let cu1 = Self::cu1_ov_bu::<FU>(u0, dv, tv1, du_odd);
+                        (cu0, cv0, err, cu1)
                     },
                     [true, true, true, false] => {
                         //    |   |
@@ -407,15 +418,15 @@ macro_rules! clip_line_b {
                         //    @   # 1
                         // ---+-@-+-/-
                         //  0 |   |
-                        let ty0 = self.ty0::<FY>(y0, dx, dx_half);
-                        let tx1 = self.tx1::<FX>(x0, dy);
-                        if tx1 < ty0 {
+                        let tv0 = self.tv0::<YX, FV>(v0, du, du_half);
+                        let tu1 = self.tu1::<YX, FU>(u0, dv);
+                        if tu1 < tv0 {
                             return None;
                         }
-                        let tx0 = self.tx0::<FX>(x0, dy);
-                        let (cx0, cy0, err) = self.cxy0_ixy_bx::<FX, FY>(x0, y0, dx, dy, tx0, ty0, err, dx_half);
-                        let cx1 = self.cx1_ox_bx::<FX>();
-                        (cx0, cy0, err, cx1)
+                        let tu0 = self.tu0::<YX, FU>(u0, dv);
+                        let (cu0, cv0, err) = self.cuv0_iuv_bu::<YX, FU, FV>(u0, v0, du, dv, tu0, tv0, err, du_half);
+                        let cu1 = self.cu1_ou_bu::<YX, FU>();
+                        (cu0, cv0, err, cu1)
                     },
                     [true, true, true, true] => {
                         //    |   | 1
@@ -423,93 +434,63 @@ macro_rules! clip_line_b {
                         //    @   #
                         // ---+-@-+-/-
                         //  0 |   |
-                        let tx0 = self.tx0::<FX>(x0, dy);
-                        let ty1 = self.ty1::<FY>(y0, dx, dx_half);
-                        if ty1 < tx0 {
+                        let tu0 = self.tu0::<YX, FU>(u0, dv);
+                        let tv1 = self.tv1::<YX, FV>(v0, du, du_half);
+                        if tv1 < tu0 {
                             return None;
                         }
-                        let ty0 = self.ty0::<FY>(y0, dx, dx_half);
-                        let tx1 = self.tx1::<FX>(x0, dy);
-                        if tx1 < ty0 {
+                        let tv0 = self.tv0::<YX, FV>(v0, du, du_half);
+                        let tu1 = self.tu1::<YX, FU>(u0, dv);
+                        if tu1 < tv0 {
                             return None;
                         }
-                        let (cx0, cy0, err) = self.cxy0_ixy_bx::<FX, FY>(x0, y0, dx, dy, tx0, ty0, err, dx_half);
-                        let cx1 = self.cx1_oxy_bx::<FX>(x0, dy, tx1, ty1, dx_odd);
-                        (cx0, cy0, err, cx1)
+                        let (cu0, cv0, err) = self.cuv0_iuv_bu::<YX, FU, FV>(u0, v0, du, dv, tu0, tv0, err, du_half);
+                        let cu1 = self.cu1_ouv_bu::<YX, FU>(u0, dv, tu1, tv1, du_odd);
+                        (cu0, cv0, err, cu1)
                     },
                 };
-                let sx = if FX { -1 } else { 1 };
-                let sy = if FY { -1 } else { 1 };
-                Some((x0, y0, err, x1, sx, sy))
+                let su = if FU { -1 } else { 1 };
+                let sv = if FV { -1 } else { 1 };
+                Some((u0, v0, err, u1, su, sv))
             }
 
-            const fn raw_line_bq<const FX: bool, const FY: bool>(
+            const fn line_b_fxfy<const FX: bool, const FY: bool>(
                 &self,
                 x0: $UI,
                 y0: $UI,
                 x1: $UI,
                 y1: $UI,
             ) -> Option<LineB<$UI>> {
-                if !FY && y0 == y1 {}
-                if !FX && x0 == x1 {}
+                if !FY && y0 == y1 {
+                    let (x0, x1, sx) = try_opt!(self.raw_line_au_fu::<false, FX>(y0, x0, x1));
+                    return Some(LineB::Bx(LineBx::<$UI>::new_au(y0, x0, x1, sx)))
+                }
+                if !FX && x0 == x1 {
+                    let (y0, y1, sy) = try_opt!(self.raw_line_au_fu::<true, FY>(x0, y0, y1));
+                    return Some(LineB::By(LineBy::<$UI>::new_au(x0, y0, y1, sy)))
+                }
                 if self.reject_bbox_closed::<FX, FY>(x0, y0, x1, y1) {
                     return None;
                 }
                 let dx = ops::<$UI>::abs_diff_const_signed::<FX>(x1, x0);
                 let dy = ops::<$UI>::abs_diff_const_signed::<FY>(y1, y0);
                 if dy <= dx {
-                    let Some((u0, v0, err, u1, su, sv)) = self.raw_line_bx::<FX, FY>(x0, y0, x1, y1, dx, dy)
-                    else {
-                        return None;
-                    };
                     let (du, dv) = (dx, dy);
-                    Some(LineB::Bx(LineBx { u0, v0, du, dv, err, u1, su, sv }))
+                    let (u0, v0, err, u1, su, sv) =
+                        try_opt!(self.raw_line_bu_fufv::<false, FX, FY>(x0, y0, x1, y1, du, dv));
+                    Some(LineB::Bx(LineBu { u0, v0, du, dv, err, u1, su, sv }))
                 } else {
-                    let clip = self.yx();
-                    let Some((u0, v0, err, u1, su, sv)) = clip.raw_line_bx::<FY, FX>(y0, x0, y1, x1, dy, dx)
-                    else {
-                        return None;
-                    };
                     let (du, dv) = (dy, dx);
-                    Some(LineB::By(LineBy { u0, v0, du, dv, err, u1, su, sv }))
+                    let (u0, v0, err, u1, su, sv) =
+                        try_opt!(self.raw_line_bu_fufv::<true, FY, FX>(y0, x0, y1, x1, du, dv));
+                    Some(LineB::By(LineBu { u0, v0, du, dv, err, u1, su, sv }))
                 }
             }
         }
     };
     (@impl $Self:ident<$UI:ty, proj $U:ty>) => {
         impl $Self<$UI> {
-            const fn raw_line_bu_proj<const YX: bool, const FX: bool, const FY: bool>(
-                &self,
-                x0: $UI,
-                y0: $UI,
-                x1: $UI,
-                y1: $UI,
-                dx: $U,
-                dy: $U,
-            ) -> Option<LineBu<YX, $U>> {
-                let Some((u0, v0, err, u1, su, sv)) = (if YX {
-                    self.yx().raw_line_bx::<FY, FX>(y0, x0, y1, x1, dy, dx)
-                } else {
-                    self.raw_line_bx::<FX, FY>(x0, y0, x1, y1, dx, dy)
-                }) else {
-                    return None;
-                };
-                let (du, dv) = if YX { (dy, dx) } else { (dx, dy) };
-                let (u0, v0, u1) = if_clip!($Self {
-                    let u0 = u0 as $U;
-                    let v0 = v0 as $U;
-                    let u1 = u1 as $U;
-                    (u0, v0, u1)
-                } else {
-                    let u0 = ops::<$UI>::abs_diff(u0, if YX { self.y_min() } else { self.x_min() });
-                    let v0 = ops::<$UI>::abs_diff(v0, if YX { self.x_min() } else { self.y_min() });
-                    let u1 = ops::<$UI>::abs_diff(u1, if YX { self.y_min() } else { self.x_min() });
-                    (u0, v0, u1)
-                });
-                Some(LineBu { u0, v0, du, dv, err, u1, su, sv })
-            }
-
-            const fn raw_line_bq_proj<const FX: bool, const FY: bool>(
+            const fn line_b_fxfy_proj<const FX: bool, const FY: bool>(
                 &self,
                 x0: $UI,
                 y0: $UI,
@@ -517,18 +498,12 @@ macro_rules! clip_line_b {
                 y1: $UI,
             ) -> Option<LineB<$U>> {
                 if !FY && y0 == y1 {
-                    let Some((v0, u0, u1, su)) = self.raw_line_axs_proj::<FX>(y0, x0, x1)
-                    else {
-                        return None;
-                    };
-                    return Some(LineB::Bx(LineBx { u0, v0, du: 0, dv: 0, err: -1, u1, su, sv: 0 }))
+                    let (y0, x0, x1, sx) = try_opt!(self.raw_line_au_fu_proj::<false, FX>(y0, x0, x1));
+                    return Some(LineB::Bx(LineBx::<$U>::new_au(y0, x0, x1, sx)))
                 }
                 if !FX && x0 == x1 {
-                    let Some((v0, u0, u1, su)) = self.yx().raw_line_axs_proj::<FY>(y0, x0, x1)
-                    else {
-                        return None;
-                    };
-                    return Some(LineB::By(LineBy { u0, v0, du: 0, dv: 0, err: -1, u1, su, sv: 0 }))
+                    let (x0, y0, y1, sy) = try_opt!(self.raw_line_au_fu_proj::<true, FY>(x0, y0, y1));
+                    return Some(LineB::By(LineBy::<$U>::new_au(x0, y0, y1, sy)))
                 }
                 if self.reject_bbox_closed::<FX, FY>(x0, y0, x1, y1) {
                     return None;
@@ -536,17 +511,21 @@ macro_rules! clip_line_b {
                 let dx = ops::<$UI>::abs_diff_const_signed::<FX>(x1, x0);
                 let dy = ops::<$UI>::abs_diff_const_signed::<FY>(y1, y0);
                 if dy <= dx {
-                    let Some(line) = self.raw_line_bu_proj::<false, FX, FY>(x0, y0, x1, y1, dx, dy)
-                    else {
-                        return None;
-                    };
-                    Some(LineB::Bx(line))
+                    let (du, dv) = (dx, dy);
+                    let (u0, v0, err, u1, su, sv) =
+                        try_opt!(self.raw_line_bu_fufv::<false, FX, FY>(x0, y0, x1, y1, du, dv));
+                    let u0 = ops::<$UI>::abs_diff(u0, self.x_min());
+                    let v0 = ops::<$UI>::abs_diff(v0, self.y_min());
+                    let u1 = ops::<$UI>::abs_diff(u1, self.x_min());
+                    Some(LineB::Bx(LineBu { u0, v0, du, dv, err, u1, su, sv }))
                 } else {
-                    let Some(line) = self.raw_line_bu_proj::<true, FY, FX>(x0, y0, x1, y1, dx, dy)
-                    else {
-                        return None;
-                    };
-                    Some(LineB::By(line))
+                    let (du, dv) = (dy, dx);
+                    let (u0, v0, err, u1, su, sv) =
+                        try_opt!(self.raw_line_bu_fufv::<true, FY, FX>(y0, x0, y1, x1, du, dv));
+                    let u0 = ops::<$UI>::abs_diff(u0, self.y_min());
+                    let v0 = ops::<$UI>::abs_diff(v0, self.x_min());
+                    let u1 = ops::<$UI>::abs_diff(u1, self.y_min());
+                    Some(LineB::By(LineBu { u0, v0, du, dv, err, u1, su, sv }))
                 }
             }
         }
@@ -557,10 +536,10 @@ macro_rules! clip_line_b {
                 let fx = x1 < x0;
                 let fy = y1 < y0;
                 match (fx, fy) {
-                    (false, false) => self.raw_line_bq::<false, false>(x0, y0, x1, y1),
-                    (false, true) => self.raw_line_bq::<false, true>(x0, y0, x1, y1),
-                    (true, false) => self.raw_line_bq::<true, false>(x0, y0, x1, y1),
-                    (true, true) => self.raw_line_bq::<true, true>(x0, y0, x1, y1),
+                    (false, false) => self.line_b_fxfy::<false, false>(x0, y0, x1, y1),
+                    (false, true) => self.line_b_fxfy::<false, true>(x0, y0, x1, y1),
+                    (true, false) => self.line_b_fxfy::<true, false>(x0, y0, x1, y1),
+                    (true, true) => self.line_b_fxfy::<true, true>(x0, y0, x1, y1),
                 }
             }
         }
@@ -571,10 +550,10 @@ macro_rules! clip_line_b {
                 let fx = x1 < x0;
                 let fy = y1 < y0;
                 match (fx, fy) {
-                    (false, false) => self.raw_line_bq_proj::<false, false>(x0, y0, x1, y1),
-                    (false, true) => self.raw_line_bq_proj::<false, true>(x0, y0, x1, y1),
-                    (true, false) => self.raw_line_bq_proj::<true, false>(x0, y0, x1, y1),
-                    (true, true) => self.raw_line_bq_proj::<true, true>(x0, y0, x1, y1),
+                    (false, false) => self.line_b_fxfy_proj::<false, false>(x0, y0, x1, y1),
+                    (false, true) => self.line_b_fxfy_proj::<false, true>(x0, y0, x1, y1),
+                    (true, false) => self.line_b_fxfy_proj::<true, false>(x0, y0, x1, y1),
+                    (true, true) => self.line_b_fxfy_proj::<true, true>(x0, y0, x1, y1),
                 }
             }
         }

@@ -36,7 +36,7 @@ coord!(usize, isize, u32, i32);
 #[rustfmt::skip]
 macro_rules! if_unsigned {
     (unsigned $unsigned:block else $signed:block) => { $unsigned };
-    (signed $unsigned:block else $signed:block) => { $signed };
+    (signed   $unsigned:block else $signed:block) => { $signed };
     (unsigned [$unsigned:ty] else [$signed:ty]) => { $unsigned };
     (signed   [$unsigned:ty] else [$signed:ty]) => { $signed };
 }

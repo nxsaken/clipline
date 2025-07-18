@@ -2,16 +2,16 @@ use crate::derive;
 use crate::math::Coord;
 
 pub struct Rect<C: Coord> {
-    pub(crate) x0: C,
-    pub(crate) y0: C,
-    pub(crate) x1: C,
-    pub(crate) y1: C,
+    pub(crate) _x0: C,
+    pub(crate) _y0: C,
+    pub(crate) _x1: C,
+    pub(crate) _y1: C,
 }
 
 derive::clone!([C: Coord] Rect<C>);
 
 impl<C: Coord> Rect<C> {
-    pub const fn new(x0: C, y0: C, x1: C, y1: C) -> Self {
-        Self { x0, y0, x1, y1 }
+    pub const fn new(_x0: C, _y0: C, _x1: C, _y1: C) -> Self {
+        Self { _x0, _y0, _x1, _y1 }
     }
 }

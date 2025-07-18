@@ -1,5 +1,6 @@
 use crate::derive;
 use crate::math::{Coord, ops};
+use crate::util::try_opt;
 
 pub struct LineAu<const YX: bool, C: Coord> {
     pub(crate) u0: C,
@@ -55,7 +56,7 @@ macro_rules! line_au {
                     Some((x0, y0))
                 },
                 fn pop_head = {
-                    let Some((x0, y0)) = self.head() else { return None };
+                    let (x0, y0) = try_opt!(self.head());
                     self.u0 = ops::<$C>::add_i(self.u0, self.su as _);
                     Some((x0, y0))
                 },
@@ -68,7 +69,7 @@ macro_rules! line_au {
                     Some((xt, yt))
                 },
                 fn pop_tail = {
-                    let Some((xt, yt)) = self.tail() else { return None };
+                    let (xt, yt) = try_opt!(self.tail());
                     self.u1 = if YX { yt } else { xt };
                     Some((xt, yt))
                 }

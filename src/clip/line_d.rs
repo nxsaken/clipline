@@ -1,6 +1,7 @@
-use crate::clip::{Clip, Viewport, if_clip};
+use crate::clip::{Clip, Viewport};
 use crate::line_d::{LineD, LineD2};
 use crate::math::ops;
+use crate::util::try_opt;
 
 macro_rules! clip_line_d {
     ($U:ty | $I:ty) => {
@@ -33,19 +34,19 @@ macro_rules! clip_line_d {
             }
 
             const fn dx0<const FX: bool>(&self, x0: $UI) -> $U {
-                self.dx::<FX, false>(x0)
+                self.du::<false, FX, false>(x0)
             }
 
             const fn dx1<const FX: bool>(&self, x0: $UI) -> $U {
-                self.dx::<FX, true>(x0)
+                self.du::<false, FX, true>(x0)
             }
 
             const fn dy0<const FY: bool>(&self, y0: $UI) -> $U {
-                self.dy::<FY, false>(y0)
+                self.dv::<false, FY, false>(y0)
             }
 
             const fn dy1<const FY: bool>(&self, y0: $UI) -> $U {
-                self.dy::<FY, true>(y0)
+                self.dv::<false, FY, true>(y0)
             }
 
             const fn cxy0_ix_d<const FX: bool, const FY: bool>(
@@ -101,7 +102,7 @@ macro_rules! clip_line_d {
                 }
             }
 
-            const fn raw_line_dq<const FX: bool, const FY: bool>(
+            const fn raw_line_d_fxfy<const FX: bool, const FY: bool>(
                 &self,
                 x0: $UI,
                 y0: $UI,
@@ -116,7 +117,7 @@ macro_rules! clip_line_d {
                 if dx != dy {
                     return None;
                 }
-                let (x0, y0, x1) = match self.outcode::<FX, FY>(x0, y0, x1, y1) {
+                let (x0, y0, x1) = match self.outcode::<false, FX, FY>(x0, y0, x1, y1) {
                     [false, false, false, false] => {
                         //    |   |
                         // ---+---+---
@@ -339,10 +340,10 @@ macro_rules! clip_line_d {
                 let fx = x1 < x0;
                 let fy = y1 < y0;
                 match (fx, fy) {
-                    (false, false) => self.raw_line_dq::<false, false>(x0, y0, x1, y1),
-                    (false, true) => self.raw_line_dq::<false, true>(x0, y0, x1, y1),
-                    (true, false) => self.raw_line_dq::<true, false>(x0, y0, x1, y1),
-                    (true, true) => self.raw_line_dq::<true, true>(x0, y0, x1, y1),
+                    (false, false) => self.raw_line_d_fxfy::<false, false>(x0, y0, x1, y1),
+                    (false, true) => self.raw_line_d_fxfy::<false, true>(x0, y0, x1, y1),
+                    (true, false) => self.raw_line_d_fxfy::<true, false>(x0, y0, x1, y1),
+                    (true, true) => self.raw_line_d_fxfy::<true, true>(x0, y0, x1, y1),
                 }
             }
         }
@@ -350,16 +351,12 @@ macro_rules! clip_line_d {
     (@pub impl $Self:ident<$UI:ty>) => {
         impl $Self<$UI> {
             pub const fn line_d(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineD<$UI>> {
-                let Some((x0, y0, x1, sx, sy)) = self.raw_line_d(x0, y0, x1, y1) else {
-                    return None;
-                };
+                let (x0, y0, x1, sx, sy) = try_opt!(self.raw_line_d(x0, y0, x1, y1));
                 Some(LineD { x0, y0, x1, sx, sy })
             }
 
             pub const fn line_d2(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineD2<$UI>> {
-                let Some(line_d) = self.line_d(x0, y0, x1, y1) else {
-                    return None;
-                };
+                let line_d = try_opt!(self.line_d(x0, y0, x1, y1));
                 // todo: can this be optimized?
                 Some(line_d.to_line_d2())
             }
@@ -368,28 +365,15 @@ macro_rules! clip_line_d {
     (@pub impl $Self:ident<$UI:ty, proj $U:ty>) => {
         impl $Self<$UI> {
             pub const fn line_d_proj(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineD<$U>> {
-                let Some((x0, y0, x1, sx, sy)) = self.raw_line_d(x0, y0, x1, y1) else {
-                    return None;
-                };
-                let (x0, y0, x1) = if_clip!($Self {
-                    let x0 = x0 as $U;
-                    let y0 = y0 as $U;
-                    let x1 = x1 as $U;
-                    (x0, y0, x1)
-                } else {
-                    let Self { x_min, y_min, .. } = *self;
-                    let x0 = ops::<$UI>::abs_diff(x0, x_min);
-                    let y0 = ops::<$UI>::abs_diff(y0, y_min);
-                    let x1 = ops::<$UI>::abs_diff(x1, x_min);
-                    (x0, y0, x1)
-                });
+                let (x0, y0, x1, sx, sy) = try_opt!(self.raw_line_d(x0, y0, x1, y1));
+                let x0 = ops::<$UI>::abs_diff(x0, self.x_min());
+                let y0 = ops::<$UI>::abs_diff(y0, self.y_min());
+                let x1 = ops::<$UI>::abs_diff(x1, self.x_min());
                 Some(LineD { x0, y0, x1, sx, sy })
             }
 
             pub const fn line_d2_proj(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineD2<$U>> {
-                let Some(line_d) = self.line_d_proj(x0, y0, x1, y1) else {
-                    return None;
-                };
+                let line_d = try_opt!(self.line_d_proj(x0, y0, x1, y1));
                 // todo: can this be optimized?
                 Some(line_d.to_line_d2())
             }
