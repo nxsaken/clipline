@@ -516,17 +516,17 @@ macro_rules! clip_line_b {
                     let (du, dv) = (dx, dy);
                     let (u0, v0, err, u1, su, sv) =
                         try_opt!(self.raw_line_bu_fufv::<false, FX, FY>(x0, y0, x1, y1, du, dv));
-                    let u0 = ops::<$UI>::abs_diff(u0, self.x_min());
-                    let v0 = ops::<$UI>::abs_diff(v0, self.y_min());
-                    let u1 = ops::<$UI>::abs_diff(u1, self.x_min());
+                    let u0 = ops::<$UI>::proj(u0, self.x_min());
+                    let v0 = ops::<$UI>::proj(v0, self.y_min());
+                    let u1 = ops::<$UI>::proj(u1, self.x_min());
                     Some(LineB::Bx(LineBu { u0, v0, du, dv, err, u1, su, sv }))
                 } else {
                     let (du, dv) = (dy, dx);
                     let (u0, v0, err, u1, su, sv) =
                         try_opt!(self.raw_line_bu_fufv::<true, FY, FX>(y0, x0, y1, x1, du, dv));
-                    let u0 = ops::<$UI>::abs_diff(u0, self.y_min());
-                    let v0 = ops::<$UI>::abs_diff(v0, self.x_min());
-                    let u1 = ops::<$UI>::abs_diff(u1, self.y_min());
+                    let u0 = ops::<$UI>::proj(u0, self.y_min());
+                    let v0 = ops::<$UI>::proj(v0, self.x_min());
+                    let u1 = ops::<$UI>::proj(u1, self.y_min());
                     Some(LineB::By(LineBu { u0, v0, du, dv, err, u1, su, sv }))
                 }
             }

@@ -367,9 +367,9 @@ macro_rules! clip_line_d {
         impl $Self<$UI> {
             pub const fn line_d_proj(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineD<$U>> {
                 let (x0, y0, x1, sx, sy) = try_opt!(self.raw_line_d(x0, y0, x1, y1));
-                let x0 = ops::<$UI>::abs_diff(x0, self.x_min());
-                let y0 = ops::<$UI>::abs_diff(y0, self.y_min());
-                let x1 = ops::<$UI>::abs_diff(x1, self.x_min());
+                let x0 = ops::<$UI>::proj(x0, self.x_min());
+                let y0 = ops::<$UI>::proj(y0, self.y_min());
+                let x1 = ops::<$UI>::proj(x1, self.x_min());
                 Some(LineD { x0, y0, x1, sx, sy })
             }
 

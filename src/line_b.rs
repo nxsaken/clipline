@@ -19,6 +19,28 @@ pub type LineBy<C> = LineBu<true, C>;
 
 derive::clone!([const YX: bool, C: Coord] LineBu<YX, C>);
 
+impl<const YX: bool, C: Coord> core::fmt::Debug for LineBu<YX, C> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let name = if YX { "LineBy" } else { "LineBx" };
+        let u0 = if YX { "y0" } else { "x0" };
+        let v0 = if YX { "x0" } else { "y0" };
+        let du = if YX { "dy" } else { "dx" };
+        let dv = if YX { "dx" } else { "dy" };
+        let u1 = if YX { "y1" } else { "x1" };
+        let su = if YX { "sy" } else { "sx" };
+        let sv = if YX { "sx" } else { "sy" };
+        f.debug_struct(name)
+            .field(u0, &self.u0)
+            .field(v0, &self.v0)
+            .field(du, &self.du)
+            .field(dv, &self.dv)
+            .field(u1, &self.u1)
+            .field(su, &self.su)
+            .field(sv, &self.sv)
+            .finish()
+    }
+}
+
 macro_rules! line_bu {
     (
         $Cu:ty|$Ci:ty$(,
@@ -108,6 +130,7 @@ line_bu!(u32 | i32, exact = ["32", "64"]);
 line_bu!(u64 | i64, exact = ["64"]);
 line_bu!(usize | isize);
 
+#[derive(Debug)]
 pub enum LineB<C: Coord> {
     Bx(LineBx<C>),
     By(LineBy<C>),

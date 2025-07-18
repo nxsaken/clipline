@@ -15,6 +15,16 @@ pub type LineAy<C> = LineAu<true, C>;
 
 derive::clone!([const YX: bool, C: Coord] LineAu<YX, C>);
 
+impl<const YX: bool, C: Coord> core::fmt::Debug for LineAu<YX, C> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let name = if YX { "LineAy" } else { "LineAx" };
+        let v = if YX { "x" } else { "y" };
+        let u0 = if YX { "y0" } else { "x0" };
+        let u1 = if YX { "y1" } else { "x1" };
+        f.debug_struct(name).field(v, &self.v).field(u0, &self.u0).field(u1, &self.u1).finish()
+    }
+}
+
 macro_rules! line_au {
     (
         $Cu:ty|$Ci:ty$(,
@@ -87,6 +97,7 @@ line_au!(u32 | i32, exact = ["32", "64"]);
 line_au!(u64 | i64, exact = ["64"]);
 line_au!(usize | isize);
 
+#[derive(Debug)]
 pub enum LineA<C: Coord> {
     Ax(LineAx<C>),
     Ay(LineAy<C>),

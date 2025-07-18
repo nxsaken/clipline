@@ -34,10 +34,15 @@ macro_rules! clip_line_a {
                 let (u_min, v_min, u_max, v_max) = self.uv_min_max::<YX>();
                 let reject_v = v < v_min || v_max < v;
                 if FU {
-                    if reject_v || u_max <= u1 || u0 < u_min {
+                    if reject_v || u0 < u_min || u_max <= u1 {
                         return None;
                     }
                     let cu0 = ops::<$UI>::min(u0, u_max);
+                    // fixme: projection breaks when cu1 = u_min - 1
+                    //  if u1 < u_min { u_min - 1 } else { u1 }
+                    //  u1_proj = if u1 < u_min { u_min - 1 - u_min } else { u1 - u_min }
+                    //  u1_proj = if u1 < u_min { -1 (doesn't fit into uN) } else { u1 - u_min }
+                    //  try wrapping? – tried, it works???
                     let cu1 = ops::<$UI>::max_adj(u_min, u1);
                     Some((cu0, cu1, -1))
                 } else {
@@ -73,9 +78,9 @@ macro_rules! clip_line_a {
                 u1: $UI,
             ) -> Option<($U, $U, $U, i8)> {
                 let (u0, u1, su) = try_opt!(self.raw_line_au_fu::<YX, FU>(v, u0, u1));
-                let v = ops::<$UI>::abs_diff(v, self.v_min::<YX>());
-                let u0 = ops::<$UI>::abs_diff(u0, self.u_min::<YX>());
-                let u1 = ops::<$UI>::abs_diff(u1, self.u_min::<YX>());
+                let v = ops::<$UI>::proj(v, self.v_min::<YX>());
+                let u0 = ops::<$UI>::proj(u0, self.u_min::<YX>());
+                let u1 = ops::<$UI>::proj(u1, self.u_min::<YX>());
                 Some((v, u0, u1, su))
             }
 
@@ -86,9 +91,9 @@ macro_rules! clip_line_a {
                 u1: $UI,
             ) -> Option<($U, $U, $U, i8)> {
                 let (u0, u1, su) = try_opt!(self.raw_line_au::<YX>(v, u0, u1));
-                let v = ops::<$UI>::abs_diff(v, self.v_min::<YX>());
-                let u0 = ops::<$UI>::abs_diff(u0, self.u_min::<YX>());
-                let u1 = ops::<$UI>::abs_diff(u1, self.u_min::<YX>());
+                let v = ops::<$UI>::proj(v, self.v_min::<YX>());
+                let u0 = ops::<$UI>::proj(u0, self.u_min::<YX>());
+                let u1 = ops::<$UI>::proj(u1, self.u_min::<YX>());
                 Some((v, u0, u1, su))
             }
         }

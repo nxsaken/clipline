@@ -1,8 +1,24 @@
-pub trait Coord: Copy {
-    type U: Copy;
-    type I: Copy;
-    type U2: Copy;
-    type I2: Copy;
+pub trait Num
+where
+    Self: Copy + Eq + Ord + Default,
+    Self: core::hash::Hash,
+    Self: core::fmt::Debug + core::fmt::Display,
+{
+}
+
+macro_rules! primitive {
+    ($($T:ty),+) => {
+        $(impl Num for $T {})+
+    };
+}
+
+primitive!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+
+pub trait Coord: Num {
+    type U: Num;
+    type I: Num;
+    type U2: Num;
+    type I2: Num;
 }
 
 macro_rules! coord {
@@ -119,25 +135,19 @@ macro_rules! coord_ops {
                 })
             }
             pub const fn add_i(lhs: $UI, rhs: $I) -> $UI {
+                // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
-                    let (res, o) = lhs.overflowing_add_signed(rhs);
-                    if o && cfg!(debug_assertions) {
-                        panic!("overflow in add_i");
-                    }
-                    res
+                    lhs.wrapping_add_signed(rhs)
                 } else {
-                    lhs + rhs
+                    lhs.wrapping_add(rhs)
                 })
             }
             pub const fn sub_i(lhs: $UI, rhs: $I) -> $UI {
+                // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
-                    let (res, o) = lhs.overflowing_sub(rhs as $U);
-                    if (o ^ (rhs < 0)) && cfg!(debug_assertions) {
-                        panic!("overflow in sub_i");
-                    }
-                    res
+                    lhs.wrapping_sub(rhs as $UI)
                 } else {
-                    lhs - rhs
+                    lhs.wrapping_sub(rhs)
                 })
             }
             pub const fn abs_diff(lhs: $UI, rhs: $UI) -> $U {
@@ -145,6 +155,14 @@ macro_rules! coord_ops {
                     lhs - rhs
                 } else {
                     debug_assert!(rhs <= lhs);
+                    <$U>::wrapping_sub(lhs as $U, rhs as $U)
+                })
+            }
+            pub const fn proj(lhs: $UI, rhs: $UI) -> $U {
+                // todo: document wrapping behavior when projecting
+                if_unsigned!($signedness {
+                    lhs.wrapping_sub(rhs)
+                } else {
                     <$U>::wrapping_sub(lhs as $U, rhs as $U)
                 })
             }
