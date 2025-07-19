@@ -87,7 +87,7 @@ macro_rules! line_bu {
                 Some(Self { u0, v0, du, dv, err, u1, su, sv })
             }
 
-            pub(crate) const fn new_au(v0: $C, u0: $C, u1: $C, su: i8) -> Self {
+            pub(crate) const fn from_line_au(v0: $C, u0: $C, u1: $C, su: i8) -> Self {
                 Self { u0, v0, du: 0, dv: 0, err: -1, u1, su, sv: 0 }
             }
 
@@ -96,7 +96,7 @@ macro_rules! line_bu {
                 U = $U,
                 self = self,
                 fn is_empty = self.u0 == self.u1,
-                fn len = self.u0.abs_diff(self.u1),
+                fn len = ops::<$C>::wrapping_abs_diff_signed(self.u1, self.u0, self.su),
                 fn head = {
                     if self.is_empty() {
                         return None;
@@ -107,10 +107,10 @@ macro_rules! line_bu {
                 fn pop_head = {
                     let (x0, y0) = try_opt!(self.head());
                     if 0 <= self.err {
-                        self.v0 = ops::<$C>::add_i(self.v0, self.sv as $I);
+                        self.v0 = ops::<$C>::wrapping_add_i(self.v0, self.sv as $I);
                         self.err -= self.du as $I2;
                     }
-                    self.u0 = ops::<$C>::add_i(self.u0, self.su as $I);
+                    self.u0 = ops::<$C>::wrapping_add_i(self.u0, self.su as $I);
                     self.err += self.dv as $I2;
                     Some((x0, y0))
                 }

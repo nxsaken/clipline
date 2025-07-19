@@ -21,7 +21,13 @@ impl<const YX: bool, C: Coord> core::fmt::Debug for LineAu<YX, C> {
         let v = if YX { "x" } else { "y" };
         let u0 = if YX { "y0" } else { "x0" };
         let u1 = if YX { "y1" } else { "x1" };
-        f.debug_struct(name).field(v, &self.v).field(u0, &self.u0).field(u1, &self.u1).finish()
+        let su = if YX { "sy" } else { "sx" };
+        f.debug_struct(name)
+            .field(v, &self.v)
+            .field(u0, &self.u0)
+            .field(u1, &self.u1)
+            .field(su, &self.su)
+            .finish()
     }
 }
 
@@ -57,7 +63,7 @@ macro_rules! line_au {
                 U = $U,
                 self = self,
                 fn is_empty = self.u0 == self.u1,
-                fn len = self.u0.abs_diff(self.u1),
+                fn len = ops::<$C>::wrapping_abs_diff_signed(self.u1, self.u0, self.su),
                 fn head = {
                     if self.is_empty() {
                         return None;
@@ -67,14 +73,14 @@ macro_rules! line_au {
                 },
                 fn pop_head = {
                     let (x0, y0) = try_opt!(self.head());
-                    self.u0 = ops::<$C>::add_i(self.u0, self.su as _);
+                    self.u0 = ops::<$C>::wrapping_add_i(self.u0, self.su as _);
                     Some((x0, y0))
                 },
                 fn tail = {
                     if self.is_empty() {
                         return None;
                     }
-                    let ut = ops::<$C>::sub_i(self.u1, self.su as _);
+                    let ut = ops::<$C>::wrapping_sub_i(self.u1, self.su as _);
                     let (xt, yt) = if YX { (self.v, ut) } else { (ut, self.v) };
                     Some((xt, yt))
                 },

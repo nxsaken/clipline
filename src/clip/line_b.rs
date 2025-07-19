@@ -46,7 +46,7 @@ macro_rules! clip_line_b {
                 v1: $UI,
             ) -> [bool; 4] {
                 let (u_min, v_min, u_max, v_max) = self.uv_min_max::<YX>();
-                let maybe_iu = if FU { v_max < u0 } else { u0 < u_min };
+                let maybe_iu = if FU { u_max < u0 } else { u0 < u_min };
                 let maybe_iv = if FV { v_max < v0 } else { v0 < v_min };
                 let maybe_ou = if FU { u1 < u_min } else { u_max < u1 };
                 let maybe_ov = if FV { v1 < v_min } else { v_max < v1 };
@@ -143,6 +143,12 @@ macro_rules! clip_line_b {
                 (cu0, cv0, err)
             }
 
+            // rejection: cu0 = u1
+            // cu0 = u0 + tv0.div_ceil(dv) = u1
+            // ((v_min - v0) * du).div_ceil(dv) = du
+            // du = u1 - u0, dv = v1 - v0 (v0 <= v1, u0 <= u1)
+            // find the condition for which cu0 = u1
+
             const fn cuv0_iv_bu<const YX: bool, const FU: bool, const FV: bool>(
                 &self,
                 u0: $UI,
@@ -181,7 +187,7 @@ macro_rules! clip_line_b {
                 err: $I2,
                 du_half: $U,
             ) -> ($UI, $UI, $I2) {
-                if tv0 <= tu0 {
+                if tv0 < tu0 {
                     self.cuv0_iu_bu::<YX, FU, FV>(v0, du, tu0, err)
                 } else {
                     self.cuv0_iv_bu::<YX, FU, FV>(u0, dv, tv0, err, du_half)
@@ -193,7 +199,7 @@ macro_rules! clip_line_b {
             ) -> $UI {
                 let ou = if FU { self.u_min::<YX>() } else { self.u_max::<YX>() };
                 let su = if FU { -1 } else { 1 };
-                ops::<$UI>::add_i(ou, su)
+                ops::<$UI>::wrapping_add_i(ou, su)
             }
 
             const fn cu1_ov_bu<const FU: bool>(
@@ -221,7 +227,7 @@ macro_rules! clip_line_b {
                 tv1: $U2,
                 du_odd: bool,
             ) -> $UI {
-                if tu1 <= tv1 {
+                if tu1 < tv1 {
                     self.cu1_ou_bu::<YX, FU>()
                 } else {
                     Self::cu1_ov_bu::<FU>(u0, dv, tv1, du_odd)
@@ -465,11 +471,11 @@ macro_rules! clip_line_b {
             ) -> Option<LineB<$UI>> {
                 if !FY && y0 == y1 {
                     let (x0, x1, sx) = try_opt!(self.raw_line_au_fu::<false, FX>(y0, x0, x1));
-                    return Some(LineB::Bx(LineBx::<$UI>::new_au(y0, x0, x1, sx)))
+                    return Some(LineB::Bx(LineBx::<$UI>::from_line_au(y0, x0, x1, sx)))
                 }
                 if !FX && x0 == x1 {
                     let (y0, y1, sy) = try_opt!(self.raw_line_au_fu::<true, FY>(x0, y0, y1));
-                    return Some(LineB::By(LineBy::<$UI>::new_au(x0, y0, y1, sy)))
+                    return Some(LineB::By(LineBy::<$UI>::from_line_au(x0, y0, y1, sy)))
                 }
                 if self.reject_bbox_closed::<FX, FY>(x0, y0, x1, y1) {
                     return None;
@@ -501,11 +507,11 @@ macro_rules! clip_line_b {
             ) -> Option<LineB<$U>> {
                 if !FY && y0 == y1 {
                     let (y0, x0, x1, sx) = try_opt!(self.raw_line_au_fu_proj::<false, FX>(y0, x0, x1));
-                    return Some(LineB::Bx(LineBx::<$U>::new_au(y0, x0, x1, sx)))
+                    return Some(LineB::Bx(LineBx::<$U>::from_line_au(y0, x0, x1, sx)))
                 }
                 if !FX && x0 == x1 {
                     let (x0, y0, y1, sy) = try_opt!(self.raw_line_au_fu_proj::<true, FY>(x0, y0, y1));
-                    return Some(LineB::By(LineBy::<$U>::new_au(x0, y0, y1, sy)))
+                    return Some(LineB::By(LineBy::<$U>::from_line_au(x0, y0, y1, sy)))
                 }
                 if self.reject_bbox_closed::<FX, FY>(x0, y0, x1, y1) {
                     return None;
@@ -516,17 +522,17 @@ macro_rules! clip_line_b {
                     let (du, dv) = (dx, dy);
                     let (u0, v0, err, u1, su, sv) =
                         try_opt!(self.raw_line_bu_fufv::<false, FX, FY>(x0, y0, x1, y1, du, dv));
-                    let u0 = ops::<$UI>::proj(u0, self.x_min());
-                    let v0 = ops::<$UI>::proj(v0, self.y_min());
-                    let u1 = ops::<$UI>::proj(u1, self.x_min());
+                    let u0 = ops::<$UI>::wrapping_abs_diff(u0, self.x_min());
+                    let v0 = ops::<$UI>::wrapping_abs_diff(v0, self.y_min());
+                    let u1 = ops::<$UI>::wrapping_abs_diff(u1, self.x_min());
                     Some(LineB::Bx(LineBu { u0, v0, du, dv, err, u1, su, sv }))
                 } else {
                     let (du, dv) = (dy, dx);
                     let (u0, v0, err, u1, su, sv) =
                         try_opt!(self.raw_line_bu_fufv::<true, FY, FX>(y0, x0, y1, x1, du, dv));
-                    let u0 = ops::<$UI>::proj(u0, self.y_min());
-                    let v0 = ops::<$UI>::proj(v0, self.x_min());
-                    let u1 = ops::<$UI>::proj(u1, self.y_min());
+                    let u0 = ops::<$UI>::wrapping_abs_diff(u0, self.y_min());
+                    let v0 = ops::<$UI>::wrapping_abs_diff(v0, self.x_min());
+                    let u1 = ops::<$UI>::wrapping_abs_diff(u1, self.y_min());
                     Some(LineB::By(LineBu { u0, v0, du, dv, err, u1, su, sv }))
                 }
             }

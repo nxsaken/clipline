@@ -48,8 +48,8 @@ macro_rules! line_d {
 
             pub const fn to_line_d2(self) -> LineD2<$C> {
                 let Self { x0, y0, x1, sx, sy } = self;
-                let dx = x0.abs_diff(x1);
-                let y1 = ops::<$C>::add_u_signed(self.y0, dx, sy);
+                let dx = ops::<$C>::wrapping_abs_diff_signed(x1, x0, sx);
+                let y1 = ops::<$C>::wrapping_add_u_signed(self.y0, dx, sy);
                 LineD2 { x0, y0, x1, y1, sx, sy }
             }
 
@@ -58,7 +58,7 @@ macro_rules! line_d {
                 U = $U,
                 self = self,
                 fn is_empty = self.x0 == self.x1,
-                fn len = self.x0.abs_diff(self.x1),
+                fn len = ops::<$C>::wrapping_abs_diff_signed(self.x1, self.x0, self.sx),
                 fn head = {
                     if self.is_empty() {
                         return None;
@@ -67,17 +67,17 @@ macro_rules! line_d {
                 },
                 fn pop_head = {
                     let (x0, y0) = try_opt!(self.head());
-                    self.x0 = ops::<$C>::add_i(self.x0, self.sx as $I);
-                    self.y0 = ops::<$C>::add_i(self.y0, self.sy as $I);
+                    self.x0 = ops::<$C>::wrapping_add_i(self.x0, self.sx as $I);
+                    self.y0 = ops::<$C>::wrapping_add_i(self.y0, self.sy as $I);
                     Some((x0, y0))
                 },
                 fn tail = {
                     if self.is_empty() {
                         return None;
                     }
-                    let xt = ops::<$C>::sub_i(self.x1, self.sx as $I);
-                    let dxt = ops::<$C>::abs_diff_signed(self.x0, xt, self.sx);
-                    let yt = ops::<$C>::add_u_signed(self.y0, dxt, self.sy);
+                    let xt = ops::<$C>::wrapping_sub_i(self.x1, self.sx as $I);
+                    let dxt = ops::<$C>::wrapping_abs_diff_signed(xt, self.x0, self.sx);
+                    let yt = ops::<$C>::wrapping_add_u_signed(self.y0, dxt, self.sy);
                     Some((xt, yt))
                 },
                 fn pop_tail = {
@@ -109,13 +109,6 @@ pub struct LineD2<C: Coord> {
 }
 
 derive::clone!([C: Coord] LineD2<C>);
-
-impl<C: Coord> LineD2<C> {
-    pub const fn to_line_d(self) -> LineD<C> {
-        let Self { x0, y0, x1, sx, sy, .. } = self;
-        LineD { x0, y0, x1, sx, sy }
-    }
-}
 
 macro_rules! line_d2 {
     (
@@ -151,12 +144,17 @@ macro_rules! line_d2 {
                 Some(Self { x0, y0, x1, y1, sx, sy })
             }
 
+            pub const fn to_line_d(self) -> LineD<$C> {
+                let Self { x0, y0, x1, sx, sy, .. } = self;
+                LineD { x0, y0, x1, sx, sy }
+            }
+
             derive::iter_methods!(
                 C = $C,
                 U = $U,
                 self = self,
                 fn is_empty = self.x0 == self.x1,
-                fn len = self.x0.abs_diff(self.x1),
+                fn len = ops::<$C>::wrapping_abs_diff_signed(self.x1, self.x0, self.sx),
                 fn head = {
                     if self.is_empty() {
                         return None;
@@ -165,16 +163,16 @@ macro_rules! line_d2 {
                 },
                 fn pop_head = {
                     let (x0, y0) = try_opt!(self.head());
-                    self.x0 = ops::<$C>::add_i(self.x0, self.sx as $I);
-                    self.y0 = ops::<$C>::add_i(self.y0, self.sy as $I);
+                    self.x0 = ops::<$C>::wrapping_add_i(self.x0, self.sx as $I);
+                    self.y0 = ops::<$C>::wrapping_add_i(self.y0, self.sy as $I);
                     Some((x0, y0))
                 },
                 fn tail = {
                     if self.is_empty() {
                         return None;
                     }
-                    let xt = ops::<$C>::sub_i(self.x1, self.sx as $I);
-                    let yt = ops::<$C>::sub_i(self.y1, self.sy as $I);
+                    let xt = ops::<$C>::wrapping_sub_i(self.x1, self.sx as $I);
+                    let yt = ops::<$C>::wrapping_sub_i(self.y1, self.sy as $I);
                     Some((xt, yt))
                 },
                 fn pop_tail = {

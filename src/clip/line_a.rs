@@ -78,9 +78,9 @@ macro_rules! clip_line_a {
                 u1: $UI,
             ) -> Option<($U, $U, $U, i8)> {
                 let (u0, u1, su) = try_opt!(self.raw_line_au_fu::<YX, FU>(v, u0, u1));
-                let v = ops::<$UI>::proj(v, self.v_min::<YX>());
-                let u0 = ops::<$UI>::proj(u0, self.u_min::<YX>());
-                let u1 = ops::<$UI>::proj(u1, self.u_min::<YX>());
+                let v = ops::<$UI>::wrapping_abs_diff(v, self.v_min::<YX>());
+                let u0 = ops::<$UI>::wrapping_abs_diff(u0, self.u_min::<YX>());
+                let u1 = ops::<$UI>::wrapping_abs_diff(u1, self.u_min::<YX>());
                 Some((v, u0, u1, su))
             }
 
@@ -91,9 +91,9 @@ macro_rules! clip_line_a {
                 u1: $UI,
             ) -> Option<($U, $U, $U, i8)> {
                 let (u0, u1, su) = try_opt!(self.raw_line_au::<YX>(v, u0, u1));
-                let v = ops::<$UI>::proj(v, self.v_min::<YX>());
-                let u0 = ops::<$UI>::proj(u0, self.u_min::<YX>());
-                let u1 = ops::<$UI>::proj(u1, self.u_min::<YX>());
+                let v = ops::<$UI>::wrapping_abs_diff(v, self.v_min::<YX>());
+                let u0 = ops::<$UI>::wrapping_abs_diff(u0, self.u_min::<YX>());
+                let u1 = ops::<$UI>::wrapping_abs_diff(u1, self.u_min::<YX>());
                 Some((v, u0, u1, su))
             }
         }
