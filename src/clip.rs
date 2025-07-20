@@ -39,6 +39,7 @@ macro_rules! clip {
     };
     (@impl Clip<$signedness:ident $UI:ty>, $U:ty) => {
         impl Clip<$UI> {
+            #[inline]
             pub const fn from_max(
                 x_max: $UI,
                 y_max: $UI,
@@ -53,6 +54,7 @@ macro_rules! clip {
                 })
             }
 
+            #[inline]
             pub const fn from_size(width: $U, height: $U) -> Option<Self> {
                 let (x_max, y_max) = if_unsigned!($signedness {
                     if width == 0 || height == 0 {
@@ -76,6 +78,7 @@ macro_rules! clip {
     };
     (@impl Viewport<$UI:ty>, $U:ty) => {
         impl Viewport<$UI> {
+            #[inline]
             pub const fn from_min_max(
                 x_min: $UI,
                 y_min: $UI,
@@ -88,6 +91,7 @@ macro_rules! clip {
                 Some(Self { x_min, y_min, x_max, y_max })
             }
 
+            #[inline]
             pub const fn from_min_size(
                 x_min: $UI,
                 y_min: $UI,
@@ -107,30 +111,47 @@ macro_rules! clip {
     };
     (@impl MinMax for $Self:ident<$UI:ty> { $self:ident, $x_min:expr, $y_min:expr }) => {
         impl $Self<$UI> {
-            const fn x_min(&$self) -> $UI {
+            #[inline]
+            pub const fn x_min(&$self) -> $UI {
                 $x_min
             }
 
-            const fn y_min(&$self) -> $UI {
+            #[inline]
+            pub const fn y_min(&$self) -> $UI {
                 $y_min
             }
 
+            #[inline]
+            pub const fn x_max(&self) -> $UI {
+                self.x_max
+            }
+
+            #[inline]
+            pub const fn y_max(&self) -> $UI {
+                self.y_max
+            }
+
+            #[inline]
             const fn u_min<const YX: bool>(&self) -> $UI {
                 if YX { self.y_min() } else { self.x_min() }
             }
 
+            #[inline]
             const fn v_min<const YX: bool>(&self) -> $UI {
                 if YX { self.x_min() } else { self.y_min() }
             }
 
+            #[inline]
             const fn u_max<const YX: bool>(&self) -> $UI {
                 if YX { self.y_max } else { self.x_max }
             }
 
+            #[inline]
             const fn v_max<const YX: bool>(&self) -> $UI {
                 if YX { self.x_max } else { self.y_max }
             }
 
+            #[inline]
             const fn uv_min_max<const YX: bool>(&self) -> ($UI, $UI, $UI, $UI) {
                 (
                     self.u_min::<YX>(),

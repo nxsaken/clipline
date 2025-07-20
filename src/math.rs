@@ -65,24 +65,27 @@ pub(crate) struct ops<C: Coord>(C);
 macro_rules! coord_ops {
     (common $UI:ty, $U:ty) => {
         impl ops<$UI> {
+            #[inline]
             pub const fn min(a: $UI, b: $UI) -> $UI {
                 if a <= b { a } else { b }
             }
+            #[inline]
             pub const fn max(a: $UI, b: $UI) -> $UI {
                 if b <= a { a } else { b }
             }
+            #[inline]
             pub const fn min_adj(incl: $UI, excl: $UI) -> $UI {
                 if incl < excl { incl + 1 } else { excl }
             }
+            #[inline]
             pub const fn max_adj(incl: $UI, excl: $UI) -> $UI {
                 if excl < incl { incl - 1 } else { excl }
             }
+            #[inline]
             pub const fn add_fu<const F: bool>(lhs: $UI, rhs: $U) -> $UI {
                 if F { Self::sub_u(lhs, rhs) } else { Self::add_u(lhs, rhs) }
             }
-            pub const fn sub_fu<const F: bool>(lhs: $UI, rhs: $U) -> $UI {
-                if F { Self::add_u(lhs, rhs) } else { Self::sub_u(lhs, rhs) }
-            }
+            #[inline]
             pub const fn wadd_su(lhs: $UI, rhs: $U, sign: i8) -> $UI {
                 if sign > 0 {
                     Self::wadd_u(lhs, rhs)
@@ -90,6 +93,7 @@ macro_rules! coord_ops {
                     Self::wsub_u(lhs, rhs)
                 }
             }
+            #[inline]
             pub const fn usub_f<const F: bool>(lhs: $UI, rhs: $UI) -> $U {
                 if F {
                     Self::usub(rhs, lhs)
@@ -97,6 +101,7 @@ macro_rules! coord_ops {
                     Self::usub(lhs, rhs)
                 }
             }
+            #[inline]
             pub const fn wusub_s(lhs: $UI, rhs: $UI, sign: i8) -> $U {
                 if sign > 0 {
                     Self::wusub(lhs, rhs)
@@ -104,6 +109,7 @@ macro_rules! coord_ops {
                     Self::wusub(rhs, lhs)
                 }
             }
+            #[inline]
             pub const fn susub(lhs: $UI, rhs: $UI) -> ($U, i8) {
                 if rhs <= lhs {(
                     Self::usub(lhs, rhs), 1)
@@ -115,6 +121,7 @@ macro_rules! coord_ops {
     };
     ($signedness:ident $UI:ty, $U:ty, $I:ty) => {
         impl ops<$UI> {
+            #[inline]
             pub const fn add_u(lhs: $UI, rhs: $U) -> $UI {
                 if_unsigned!($signedness {
                     lhs + rhs
@@ -126,6 +133,7 @@ macro_rules! coord_ops {
                     res
                 })
             }
+            #[inline]
             pub const fn sub_u(lhs: $UI, rhs: $U) -> $UI {
                 if_unsigned!($signedness {
                     lhs - rhs
@@ -137,6 +145,7 @@ macro_rules! coord_ops {
                     res
                 })
             }
+            #[inline]
             pub const fn wadd_u(lhs: $UI, rhs: $U) -> $UI {
                 // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
@@ -145,6 +154,7 @@ macro_rules! coord_ops {
                     lhs.wrapping_add_unsigned(rhs)
                 })
             }
+            #[inline]
             pub const fn wsub_u(lhs: $UI, rhs: $U) -> $UI {
                 // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
@@ -153,6 +163,7 @@ macro_rules! coord_ops {
                     lhs.wrapping_sub_unsigned(rhs)
                 })
             }
+            #[inline]
             pub const fn chadd_u(lhs: $UI, rhs: $U) -> Option<$UI> {
                 if_unsigned!($signedness {
                     lhs.checked_add(rhs)
@@ -160,6 +171,7 @@ macro_rules! coord_ops {
                     lhs.checked_add_unsigned(rhs)
                 })
             }
+            #[inline]
             pub const fn wadd_i(lhs: $UI, rhs: $I) -> $UI {
                 // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
@@ -168,6 +180,7 @@ macro_rules! coord_ops {
                     lhs.wrapping_add(rhs)
                 })
             }
+            #[inline]
             pub const fn wsub_i(lhs: $UI, rhs: $I) -> $UI {
                 // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
@@ -176,6 +189,7 @@ macro_rules! coord_ops {
                     lhs.wrapping_sub(rhs)
                 })
             }
+            #[inline]
             pub const fn usub(lhs: $UI, rhs: $UI) -> $U {
                 if_unsigned!($signedness {
                     lhs - rhs
@@ -184,6 +198,7 @@ macro_rules! coord_ops {
                     <$U>::wrapping_sub(lhs as $U, rhs as $U)
                 })
             }
+            #[inline]
             pub const fn wusub(lhs: $UI, rhs: $UI) -> $U {
                 // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {

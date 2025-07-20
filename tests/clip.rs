@@ -81,11 +81,11 @@ macro_rules! line_d {
 line_d!(u8 | i8);
 
 macro_rules! test {
-    (@line_a, $clip:ident, $LineAu:ident, $line_au:ident, $($uiN:ident)|+, $(proj $uiN_p:ident)|+) => {
+    (@line_a, $cases:literal, $clip:ident, $LineAu:ident, $line_au:ident, $($uiN:ident)|+, $(proj $uiN_p:ident)|+) => {
         paste::paste! {
             proptest! {
                 #![proptest_config(ProptestConfig {
-                    cases: 1_000_000,
+                    cases: $cases,
                     failure_persistence: None,
                     ..ProptestConfig::default()
                 })]
@@ -123,11 +123,11 @@ macro_rules! test {
             }
         }
     };
-    (@line_b, $clip:ident, $($uiN:ident)|+, $(proj $uiN_p:ident)|+) => {
+    (@line_b, $cases:literal, $clip:ident, $($uiN:ident)|+, $(proj $uiN_p:ident)|+) => {
         paste::paste! {
             proptest! {
                 #![proptest_config(ProptestConfig {
-                    cases: 1_000_000,
+                    cases: $cases,
                     failure_persistence: None,
                     ..ProptestConfig::default()
                 })]
@@ -165,11 +165,11 @@ macro_rules! test {
             }
         }
     };
-    (@line_d, $clip:ident, $($uiN:ident)|+, $(proj $uiN_p:ident)|+) => {
+    (@line_d, $cases:literal, $clip:ident, $($uiN:ident)|+, $(proj $uiN_p:ident)|+) => {
         paste::paste! {
             proptest! {
                 #![proptest_config(ProptestConfig {
-                    cases: 1_000_000,
+                    cases: $cases,
                     failure_persistence: None,
                     ..ProptestConfig::default()
                 })]
@@ -213,13 +213,13 @@ macro_rules! test {
     };
 }
 
-test!(@line_a, clip, LineAx, line_ax, u8 | i8, proj i8);
-test!(@line_a, clip, LineAy, line_ay, u8 | i8, proj i8);
-test!(@line_a, viewport, LineAx, line_ax, u8 | i8, proj u8 | proj i8);
-test!(@line_a, viewport, LineAy, line_ay, u8 | i8, proj u8 | proj i8);
+test!(@line_a, 4_000_000, clip, LineAx, line_ax, u8 | i8, proj i8);
+test!(@line_a, 4_000_000, clip, LineAy, line_ay, u8 | i8, proj i8);
+test!(@line_a, 4_000_000, viewport, LineAx, line_ax, u8 | i8, proj u8 | proj i8);
+test!(@line_a, 4_000_000, viewport, LineAy, line_ay, u8 | i8, proj u8 | proj i8);
 
-test!(@line_b, clip, u8 | i8, proj i8);
-test!(@line_b, viewport, u8 | i8, proj u8 | proj i8);
+test!(@line_b, 4_000_000, clip, u8 | i8, proj i8);
+test!(@line_b, 4_000_000, viewport, u8 | i8, proj u8 | proj i8);
 
-test!(@line_d, clip, u8 | i8, proj i8);
-test!(@line_d, viewport, u8 | i8, proj u8 | proj i8);
+test!(@line_d, 4_000_000, clip, u8 | i8, proj i8);
+test!(@line_d, 4_000_000, viewport, u8 | i8, proj u8 | proj i8);

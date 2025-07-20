@@ -25,6 +25,7 @@ macro_rules! clip_line_a {
     };
     (@impl $Self:ident<$UI:ty>) => {
         impl $Self<$UI> {
+            #[inline]
             pub(super) const fn raw_line_au_fu<const YX: bool, const FU: bool>(
                 &self,
                 v: $UI,
@@ -40,11 +41,6 @@ macro_rules! clip_line_a {
                         return None;
                     }
                     let cu0 = ops::<$UI>::min(u0, u_max);
-                    // fixme: projection breaks when cu1 = u_min - 1
-                    //  if u1 < u_min { u_min - 1 } else { u1 }
-                    //  u1_proj = if u1 < u_min { u_min - 1 - u_min } else { u1 - u_min }
-                    //  u1_proj = if u1 < u_min { -1 (doesn't fit into uN) } else { u1 - u_min }
-                    //  try wrapping? – tried, it works???
                     let cu1 = ops::<$UI>::max_adj(u_min, u1);
                     Some((cu0, cu1, -1))
                 } else {
@@ -57,6 +53,7 @@ macro_rules! clip_line_a {
                 }
             }
 
+            #[inline]
             const fn raw_line_au<const YX: bool>(
                 &self,
                 v: $UI,
@@ -73,6 +70,7 @@ macro_rules! clip_line_a {
     };
     (@impl $Self:ident<$UI:ty, proj $U:ty>) => {
         impl $Self<$UI> {
+            #[inline]
             pub(super) const fn raw_line_au_fu_proj<const YX: bool, const FU: bool>(
                 &self,
                 v: $UI,
@@ -86,6 +84,7 @@ macro_rules! clip_line_a {
                 Some((v, u0, u1, su))
             }
 
+            #[inline]
             const fn raw_line_au_proj<const YX: bool>(
                 &self,
                 v: $UI,
@@ -102,6 +101,7 @@ macro_rules! clip_line_a {
     };
     (@pub impl $Self:ident<$UI:ty>) => {
         impl $Self<$UI> {
+            #[inline]
             pub const fn line_au<const YX: bool>(
                 &self,
                 v: $UI,
@@ -112,14 +112,17 @@ macro_rules! clip_line_a {
                 Some(LineAu { u0, u1, v, su })
             }
 
+            #[inline]
             pub const fn line_ax(&self, y: $UI, x0: $UI, x1: $UI) -> Option<LineAx<$UI>> {
                 self.line_au(y, x0, x1)
             }
 
+            #[inline]
             pub const fn line_ay(&self, x: $UI, y0: $UI, y1: $UI) -> Option<LineAy<$UI>> {
                 self.line_au(x, y0, y1)
             }
 
+            #[inline]
             pub const fn line_a(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineA<$UI>> {
                 if y0 == y1 {
                     let line = try_opt!(self.line_ax(y0, x0, x1));
@@ -135,6 +138,7 @@ macro_rules! clip_line_a {
     };
     (@pub impl $Self:ident<$UI:ty, proj $U:ty>) => {
         impl $Self<$UI> {
+            #[inline]
             pub const fn line_au_proj<const YX: bool>(
                 &self,
                 v: $UI,
@@ -145,14 +149,17 @@ macro_rules! clip_line_a {
                 Some(LineAu { u0, u1, v, su })
             }
 
+            #[inline]
             pub const fn line_ax_proj(&self, y: $UI, x0: $UI, x1: $UI) -> Option<LineAx<$U>> {
                 self.line_au_proj(y, x0, x1)
             }
 
+            #[inline]
             pub const fn line_ay_proj(&self, x: $UI, y0: $UI, y1: $UI) -> Option<LineAy<$U>> {
                 self.line_au_proj(x, y0, y1)
             }
 
+            #[inline]
             pub const fn line_a_proj(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineA<$U>> {
                 if y0 == y1 {
                     let line = try_opt!(self.line_ax_proj(y0, x0, x1));

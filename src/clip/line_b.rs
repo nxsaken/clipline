@@ -25,6 +25,7 @@ macro_rules! clip_line_b {
     };
     (@impl $Self:ident<$UI:ty>, $U:ty, $U2:ty, $I2:ty) => {
         impl $Self<$UI> {
+            #[inline]
             const fn reject_bbox_closed<const FX: bool, const FY: bool>(
                 &self,
                 x0: $UI,
@@ -38,6 +39,7 @@ macro_rules! clip_line_b {
                     || FY && (y0 < self.y_min() || self.y_max < y1)
             }
 
+            #[inline]
             pub(super) const fn outcode<const YX: bool, const FU: bool, const FV: bool>(
                 &self,
                 u0: $UI,
@@ -53,6 +55,7 @@ macro_rules! clip_line_b {
                 [maybe_iu, maybe_iv, maybe_ou, maybe_ov]
             }
 
+            #[inline]
             pub(super) const fn du<const YX: bool, const FU: bool, const OI: bool>(
                 &self,
                 u0: $UI,
@@ -66,6 +69,7 @@ macro_rules! clip_line_b {
                 ops::<$UI>::usub(lhs, rhs)
             }
 
+            #[inline]
             pub(super) const fn dv<const YX: bool, const FV: bool, const OI: bool>(
                 &self,
                 v0: $UI,
@@ -79,6 +83,7 @@ macro_rules! clip_line_b {
                 ops::<$UI>::usub(lhs, rhs)
             }
 
+            #[inline]
             const fn tu0<const YX: bool, const FU: bool>(
                 &self,
                 u0: $UI,
@@ -88,6 +93,7 @@ macro_rules! clip_line_b {
                 du0 as $U2 * dv as $U2
             }
 
+            #[inline]
             const fn tu1<const YX: bool, const FU: bool>(
                 &self,
                 u0: $UI,
@@ -97,6 +103,7 @@ macro_rules! clip_line_b {
                 du1 as $U2 * dv as $U2
             }
 
+            #[inline]
             const fn tv0<const YX: bool, const FV: bool>(
                 &self,
                 v0: $UI,
@@ -108,6 +115,7 @@ macro_rules! clip_line_b {
                 tv0_raw - du_half as $U2
             }
 
+            #[inline]
             const fn tv1<const YX: bool, const FV: bool>(
                 &self,
                 v0: $UI,
@@ -119,6 +127,7 @@ macro_rules! clip_line_b {
                 tv1_raw + du_half as $U2
             }
 
+            #[inline]
             const fn dc_rem(t0: $U2, d: $U) -> ($U, $U) {
                 // SAFETY: this is never called with d == 0.
                 unsafe { core::hint::assert_unchecked(d != 0) };
@@ -127,22 +136,22 @@ macro_rules! clip_line_b {
                 (dc as $U, dc_rem as $U)
             }
 
-            const fn u_near<const YX: bool, const FU: bool>(&self) -> $UI {
+            #[inline]
+            pub(super) const fn u_near<const YX: bool, const FU: bool>(&self) -> $UI {
                 if FU { self.u_max::<YX>() } else { self.u_min::<YX>() }
             }
 
-            const fn u_far<const YX: bool, const FU: bool>(&self) -> $UI {
+            #[inline]
+            pub(super) const fn u_far<const YX: bool, const FU: bool>(&self) -> $UI {
                 if FU { self.u_min::<YX>() } else { self.u_max::<YX>() }
             }
 
-            const fn v_near<const YX: bool, const FV: bool>(&self) -> $UI {
+            #[inline]
+            pub(super) const fn v_near<const YX: bool, const FV: bool>(&self) -> $UI {
                 if FV { self.v_max::<YX>() } else { self.v_min::<YX>() }
             }
 
-            const fn v_far<const YX: bool, const FV: bool>(&self) -> $UI {
-                if FV { self.v_min::<YX>() } else { self.v_max::<YX>() }
-            }
-
+            #[inline]
             const fn cuv0_iu_bu<const YX: bool, const FU: bool, const FV: bool>(
                 &self,
                 v0: $UI,
@@ -162,6 +171,7 @@ macro_rules! clip_line_b {
                 (cu0, cv0, err)
             }
 
+            #[inline]
             const fn cuv0_iu_bu_noadj<const YX: bool, const FU: bool, const FV: bool>(
                 &self,
                 v0: $UI,
@@ -175,6 +185,7 @@ macro_rules! clip_line_b {
                 (cu0, cv0, err)
             }
 
+            #[inline]
             const fn cuv0_iv_bu<const YX: bool, const FU: bool, const FV: bool>(
                 &self,
                 u0: $UI,
@@ -195,6 +206,7 @@ macro_rules! clip_line_b {
                 (cu0, cv0, err)
             }
 
+            #[inline]
             const fn cu1_ou_bu<const YX: bool, const FU: bool>(
                 &self,
             ) -> $UI {
@@ -203,6 +215,7 @@ macro_rules! clip_line_b {
                 ops::<$UI>::wadd_i(ou, su)
             }
 
+            #[inline]
             const fn cu1_ov_bu<const FU: bool>(
                 u0: $UI,
                 dv: $U,
@@ -214,6 +227,7 @@ macro_rules! clip_line_b {
                 ops::<$UI>::add_fu::<FU>(u0, duc)
             }
 
+            #[inline]
             const fn cu1_ouv_bu<const YX: bool, const FU: bool>(
                 &self,
                 u0: $UI,
@@ -229,6 +243,7 @@ macro_rules! clip_line_b {
                 }
             }
 
+            #[inline]
             const fn raw_line_bu_fufv<const YX: bool, const FU: bool, const FV: bool>(
                 &self,
                 u0: $UI,
@@ -499,9 +514,10 @@ macro_rules! clip_line_b {
                 };
                 let su = if FU { -1 } else { 1 };
                 let sv = if FV { -1 } else { 1 };
-                Some((u0, v0, err, u1, su, sv))
+                Some((cu0, cv0, err, cu1, su, sv))
             }
 
+            #[inline]
             const fn line_b_fxfy<const FX: bool, const FY: bool>(
                 &self,
                 x0: $UI,
@@ -538,6 +554,7 @@ macro_rules! clip_line_b {
     };
     (@impl $Self:ident<$UI:ty, proj $U:ty>) => {
         impl $Self<$UI> {
+            #[inline]
             const fn line_b_fxfy_proj<const FX: bool, const FY: bool>(
                 &self,
                 x0: $UI,
@@ -580,6 +597,7 @@ macro_rules! clip_line_b {
     };
     (@pub impl $Self:ident<$UI:ty>) => {
         impl $Self<$UI> {
+            #[inline]
             pub const fn line_b(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineB<$UI>> {
                 let fx = x1 < x0;
                 let fy = y1 < y0;
@@ -594,6 +612,7 @@ macro_rules! clip_line_b {
     };
     (@pub impl $Self:ident<$UI:ty, proj $U:ty>) => {
         impl $Self<$UI> {
+            #[inline]
             pub const fn line_b_proj(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineB<$U>> {
                 let fx = x1 < x0;
                 let fy = y1 < y0;

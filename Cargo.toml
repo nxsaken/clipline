@@ -19,7 +19,7 @@ include = [
 proptest = "1.7.0"
 paste = "1.0.15"
 
-#[profile.test]
-#opt-level = 3
-#overflow-checks = true
-#debug-assertions = true
+[profile.test]
+opt-level = 3
+overflow-checks = true
+debug-assertions = true

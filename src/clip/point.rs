@@ -14,6 +14,7 @@ macro_rules! clip_point {
     };
     (@pub impl $Self:ident<$UI:ty>) => {
         impl $Self<$UI> {
+            #[inline]
             pub const fn point(&self, x: $UI, y: $UI) -> bool {
                 self.x_min() <= x && x <= self.x_max && self.y_min() <= y && y <= self.y_max
             }
@@ -21,6 +22,7 @@ macro_rules! clip_point {
     };
     (@pub impl $Self:ident<$UI:ty, proj $U:ty>) => {
         impl $Self<$UI> {
+            #[inline]
             pub const fn point_proj(&self, x: $UI, y: $UI) -> Option<($U, $U)> {
                 if !self.point(x, y) {
                     return None;

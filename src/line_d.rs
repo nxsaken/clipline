@@ -37,6 +37,7 @@ macro_rules! line_d {
         exact = [$($ptr_size:literal),+])?
     ) => {
         impl LineD<$C> {
+            #[inline]
             pub const fn new(x0: $C, y0: $C, x1: $C, y1: $C) -> Option<Self> {
                 let (dx, sx) = ops::<$C>::susub(x1, x0);
                 let (dy, sy) = ops::<$C>::susub(y1, y0);
@@ -46,6 +47,7 @@ macro_rules! line_d {
                 Some(Self { x0, y0, x1, sx, sy })
             }
 
+            #[inline]
             pub const fn to_line_d2(self) -> LineD2<$C> {
                 let Self { x0, y0, x1, sx, sy } = self;
                 let dx = ops::<$C>::wusub_s(x1, x0, sx);
@@ -135,6 +137,7 @@ macro_rules! line_d2 {
         exact = [$($ptr_size:literal),+])?
     ) => {
         impl LineD2<$C> {
+            #[inline]
             pub const fn new(x0: $C, y0: $C, x1: $C, y1: $C) -> Option<Self> {
                 let (dx, sx) = ops::<$C>::susub(x1, x0);
                 let (dy, sy) = ops::<$C>::susub(y1, y0);
@@ -144,6 +147,7 @@ macro_rules! line_d2 {
                 Some(Self { x0, y0, x1, y1, sx, sy })
             }
 
+            #[inline]
             pub const fn to_line_d(self) -> LineD<$C> {
                 let Self { x0, y0, x1, sx, sy, .. } = self;
                 LineD { x0, y0, x1, sx, sy }

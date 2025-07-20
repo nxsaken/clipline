@@ -72,6 +72,7 @@ macro_rules! line_bu {
         exact = [$($ptr_size:literal),+])?
     ) => {
         impl<const YX: bool> LineBu<YX, $C> {
+            #[inline]
             pub const fn new(x0: $C, y0: $C, x1: $C, y1: $C) -> Option<Self> {
                 let (dx, sx) = ops::<$C>::susub(x1, x0);
                 let (dy, sy) = ops::<$C>::susub(y1, y0);
@@ -87,6 +88,7 @@ macro_rules! line_bu {
                 Some(Self { u0, v0, du, dv, err, u1, su, sv })
             }
 
+            #[inline]
             pub(crate) const fn from_line_au(v0: $C, u0: $C, u1: $C, su: i8) -> Self {
                 Self { u0, v0, du: 0, dv: 0, err: -1, u1, su, sv: 0 }
             }
@@ -169,6 +171,7 @@ macro_rules! line_b {
         exact = [$($ptr_size:literal),+])?
     ) => {
         impl LineB<$C> {
+            #[inline]
             pub const fn new(x0: $C, y0: $C, x1: $C, y1: $C) -> Self {
                 let (dx, sx) = ops::<$C>::susub(x1, x0);
                 let (dy, sy) = ops::<$C>::susub(y1, y0);

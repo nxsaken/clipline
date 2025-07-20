@@ -53,6 +53,7 @@ macro_rules! line_au {
         exact = [$($ptr_size:literal),+])?
     ) => {
         impl<const YX: bool> LineAu<YX, $C> {
+            #[inline]
             pub const fn new(v: $C, u0: $C, u1: $C) -> Self {
                 let su = if u0 <= u1 { 1 } else { -1 };
                 Self { u0, u1, v, su }
@@ -133,6 +134,7 @@ macro_rules! line_a {
         exact = [$($ptr_size:literal),+])?
     ) => {
         impl LineA<$C> {
+            #[inline]
             pub const fn new(x0: $C, y0: $C, x1: $C, y1: $C) -> Option<Self> {
                 if y0 == y1 {
                     Some(Self::Ax(LineAx::<$C>::new(y0, x0, x1)))
