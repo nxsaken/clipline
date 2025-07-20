@@ -97,7 +97,7 @@ macro_rules! test {
                 ) {
                     let naive = $LineAu::<$uiN>::new(v, u0, u1).filter(|&(x, y)| clip.point(x, y));
                     if let Some(smart) = clip.$line_au(v, u0, u1) {
-                        prop_assert!(smart.len() != 0 || u0 == u1);
+                        prop_assert!(smart.len() != 0 || u0 == u1, "completely clipped line segment was not rejected");
                         prop_assert!(naive.eq(smart), "smart clip doesn't match naive clip");
                     } else {
                         prop_assert_eq!(naive.count(), 0);
@@ -113,7 +113,7 @@ macro_rules! test {
                 ) {
                     let naive = $LineAu::<$uiN_p>::new(v, u0, u1).filter_map(|(x, y)| clip.point_proj(x, y));
                     if let Some(smart) = clip.[<$line_au _ proj>](v, u0, u1) {
-                        prop_assert!(smart.len() != 0 || u0 == u1);
+                        prop_assert!(smart.len() != 0 || u0 == u1, "completely clipped line segment was not rejected");
                         prop_assert!(naive.eq(smart), "smart clip projection doesn't match naive clip projection");
                     } else {
                         prop_assert_eq!(naive.count(), 0);
@@ -139,6 +139,7 @@ macro_rules! test {
                 ) {
                     let naive = LineB::<$uiN>::new(x0, y0, x1, y1).filter(|&(x, y)| clip.point(x, y));
                     if let Some(smart) = clip.line_b(x0, y0, x1, y1) {
+                        prop_assert!(smart.len() != 0 || x0 == x1 || y0 == y1, "completely clipped line segment was not rejected");
                         prop_assert!(naive.eq(smart), "smart clip doesn't match naive clip");
                     } else {
                         prop_assert_eq!(naive.count(), 0);
@@ -154,6 +155,7 @@ macro_rules! test {
                 ) {
                     let naive = LineB::<$uiN_p>::new(x0, y0, x1, y1).filter_map(|(x, y)| clip.point_proj(x, y));
                     if let Some(smart) = clip.line_b_proj(x0, y0, x1, y1) {
+                        prop_assert!(smart.len() != 0 || x0 == x1 || y0 == y1, "completely clipped line segment was not rejected");
                         prop_assert!(naive.eq(smart), "smart clip projection doesn't match naive clip projection");
                     } else {
                         prop_assert_eq!(naive.count(), 0);
@@ -181,7 +183,7 @@ macro_rules! test {
                         .unwrap()
                         .filter(|&(x, y)| clip.point(x, y));
                     if let Some(smart) = clip.line_d(x0, y0, x1, y1) {
-                        prop_assert!(smart.len() != 0 || x0 == x1);
+                        prop_assert!(smart.len() != 0 || x0 == x1, "completely clipped line segment was not rejected");
                         prop_assert!(naive.eq(smart), "smart clip doesn't match naive clip");
                     } else {
                         prop_assert_eq!(naive.count(), 0);
@@ -199,7 +201,7 @@ macro_rules! test {
                         .unwrap()
                         .filter_map(|(x, y)| clip.point_proj(x, y));
                     if let Some(smart) = clip.line_d_proj(x0, y0, x1, y1) {
-                        prop_assert!(smart.len() != 0 || x0 == x1);
+                        prop_assert!(smart.len() != 0 || x0 == x1, "completely clipped line segment was not rejected");
                         prop_assert!(naive.eq(smart), "smart clip projection doesn't match naive clip projection");
                     } else {
                         prop_assert_eq!(naive.count(), 0);

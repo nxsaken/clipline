@@ -25,8 +25,8 @@ macro_rules! clip_point {
                 if !self.point(x, y) {
                     return None;
                 }
-                let x = ops::<$UI>::wrapping_abs_diff(x, self.x_min());
-                let y = ops::<$UI>::wrapping_abs_diff(y, self.y_min());
+                let x = ops::<$UI>::wusub(x, self.x_min());
+                let y = ops::<$UI>::wusub(y, self.y_min());
                 Some((x, y))
             }
         }

@@ -73,8 +73,8 @@ macro_rules! line_bu {
     ) => {
         impl<const YX: bool> LineBu<YX, $C> {
             pub const fn new(x0: $C, y0: $C, x1: $C, y1: $C) -> Option<Self> {
-                let (dx, sx) = ops::<$C>::abs_diff_sign(x1, x0);
-                let (dy, sy) = ops::<$C>::abs_diff_sign(y1, y0);
+                let (dx, sx) = ops::<$C>::susub(x1, x0);
+                let (dy, sy) = ops::<$C>::susub(y1, y0);
                 if YX && dy <= dx || !YX && dx < dy {
                     return None;
                 }
@@ -96,7 +96,7 @@ macro_rules! line_bu {
                 U = $U,
                 self = self,
                 fn is_empty = self.u0 == self.u1,
-                fn len = ops::<$C>::wrapping_abs_diff_signed(self.u1, self.u0, self.su),
+                fn len = ops::<$C>::wusub_s(self.u1, self.u0, self.su),
                 fn head = {
                     if self.is_empty() {
                         return None;
@@ -107,10 +107,10 @@ macro_rules! line_bu {
                 fn pop_head = {
                     let (x0, y0) = try_opt!(self.head());
                     if 0 <= self.err {
-                        self.v0 = ops::<$C>::wrapping_add_i(self.v0, self.sv as $I);
+                        self.v0 = ops::<$C>::wadd_i(self.v0, self.sv as $I);
                         self.err -= self.du as $I2;
                     }
-                    self.u0 = ops::<$C>::wrapping_add_i(self.u0, self.su as $I);
+                    self.u0 = ops::<$C>::wadd_i(self.u0, self.su as $I);
                     self.err += self.dv as $I2;
                     Some((x0, y0))
                 }
@@ -170,8 +170,8 @@ macro_rules! line_b {
     ) => {
         impl LineB<$C> {
             pub const fn new(x0: $C, y0: $C, x1: $C, y1: $C) -> Self {
-                let (dx, sx) = ops::<$C>::abs_diff_sign(x1, x0);
-                let (dy, sy) = ops::<$C>::abs_diff_sign(y1, y0);
+                let (dx, sx) = ops::<$C>::susub(x1, x0);
+                let (dy, sy) = ops::<$C>::susub(y1, y0);
                 if dx < dy {
                     let (u0, v0, u1, du, dv, su, sv) = (y0, x0, y1, dy, dx, sy, sx);
                     let err = dv as $I2 - du.div_ceil(2) as $I2;

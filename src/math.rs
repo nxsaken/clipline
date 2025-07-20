@@ -77,32 +77,38 @@ macro_rules! coord_ops {
             pub const fn max_adj(incl: $UI, excl: $UI) -> $UI {
                 if excl < incl { incl - 1 } else { excl }
             }
-            pub const fn wrapping_add_u_signed(lhs: $UI, rhs: $U, sign: i8) -> $UI {
+            pub const fn add_fu<const F: bool>(lhs: $UI, rhs: $U) -> $UI {
+                if F { Self::sub_u(lhs, rhs) } else { Self::add_u(lhs, rhs) }
+            }
+            pub const fn sub_fu<const F: bool>(lhs: $UI, rhs: $U) -> $UI {
+                if F { Self::add_u(lhs, rhs) } else { Self::sub_u(lhs, rhs) }
+            }
+            pub const fn wadd_su(lhs: $UI, rhs: $U, sign: i8) -> $UI {
                 if sign > 0 {
-                    Self::wrapping_add_u(lhs, rhs)
+                    Self::wadd_u(lhs, rhs)
                 } else {
-                    Self::wrapping_sub_u(lhs, rhs)
+                    Self::wsub_u(lhs, rhs)
                 }
             }
-            pub const fn abs_diff_const_signed<const F: bool>(lhs: $UI, rhs: $UI) -> $U {
+            pub const fn usub_f<const F: bool>(lhs: $UI, rhs: $UI) -> $U {
                 if F {
-                    Self::abs_diff(rhs, lhs)
+                    Self::usub(rhs, lhs)
                 } else {
-                    Self::abs_diff(lhs, rhs)
+                    Self::usub(lhs, rhs)
                 }
             }
-            pub const fn wrapping_abs_diff_signed(lhs: $UI, rhs: $UI, sign: i8) -> $U {
+            pub const fn wusub_s(lhs: $UI, rhs: $UI, sign: i8) -> $U {
                 if sign > 0 {
-                    Self::wrapping_abs_diff(lhs, rhs)
+                    Self::wusub(lhs, rhs)
                 } else {
-                    Self::wrapping_abs_diff(rhs, lhs)
+                    Self::wusub(rhs, lhs)
                 }
             }
-            pub const fn abs_diff_sign(lhs: $UI, rhs: $UI) -> ($U, i8) {
+            pub const fn susub(lhs: $UI, rhs: $UI) -> ($U, i8) {
                 if rhs <= lhs {(
-                    Self::abs_diff(lhs, rhs), 1)
+                    Self::usub(lhs, rhs), 1)
                 } else {
-                    (Self::abs_diff(rhs, lhs), -1)
+                    (Self::usub(rhs, lhs), -1)
                 }
             }
         }
@@ -131,7 +137,7 @@ macro_rules! coord_ops {
                     res
                 })
             }
-            pub const fn wrapping_add_u(lhs: $UI, rhs: $U) -> $UI {
+            pub const fn wadd_u(lhs: $UI, rhs: $U) -> $UI {
                 // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
                     lhs.wrapping_add(rhs)
@@ -139,7 +145,7 @@ macro_rules! coord_ops {
                     lhs.wrapping_add_unsigned(rhs)
                 })
             }
-            pub const fn wrapping_sub_u(lhs: $UI, rhs: $U) -> $UI {
+            pub const fn wsub_u(lhs: $UI, rhs: $U) -> $UI {
                 // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
                     lhs.wrapping_sub(rhs)
@@ -147,14 +153,14 @@ macro_rules! coord_ops {
                     lhs.wrapping_sub_unsigned(rhs)
                 })
             }
-            pub const fn checked_add_u(lhs: $UI, rhs: $U) -> Option<$UI> {
+            pub const fn chadd_u(lhs: $UI, rhs: $U) -> Option<$UI> {
                 if_unsigned!($signedness {
                     lhs.checked_add(rhs)
                 } else {
                     lhs.checked_add_unsigned(rhs)
                 })
             }
-            pub const fn wrapping_add_i(lhs: $UI, rhs: $I) -> $UI {
+            pub const fn wadd_i(lhs: $UI, rhs: $I) -> $UI {
                 // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
                     lhs.wrapping_add_signed(rhs)
@@ -162,7 +168,7 @@ macro_rules! coord_ops {
                     lhs.wrapping_add(rhs)
                 })
             }
-            pub const fn wrapping_sub_i(lhs: $UI, rhs: $I) -> $UI {
+            pub const fn wsub_i(lhs: $UI, rhs: $I) -> $UI {
                 // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
                     lhs.wrapping_sub(rhs as $UI)
@@ -170,7 +176,7 @@ macro_rules! coord_ops {
                     lhs.wrapping_sub(rhs)
                 })
             }
-            pub const fn abs_diff(lhs: $UI, rhs: $UI) -> $U {
+            pub const fn usub(lhs: $UI, rhs: $UI) -> $U {
                 if_unsigned!($signedness {
                     lhs - rhs
                 } else {
@@ -178,7 +184,7 @@ macro_rules! coord_ops {
                     <$U>::wrapping_sub(lhs as $U, rhs as $U)
                 })
             }
-            pub const fn wrapping_abs_diff(lhs: $UI, rhs: $UI) -> $U {
+            pub const fn wusub(lhs: $UI, rhs: $UI) -> $U {
                 // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
                     lhs.wrapping_sub(rhs)

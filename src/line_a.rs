@@ -63,7 +63,7 @@ macro_rules! line_au {
                 U = $U,
                 self = self,
                 fn is_empty = self.u0 == self.u1,
-                fn len = ops::<$C>::wrapping_abs_diff_signed(self.u1, self.u0, self.su),
+                fn len = ops::<$C>::wusub_s(self.u1, self.u0, self.su),
                 fn head = {
                     if self.is_empty() {
                         return None;
@@ -73,14 +73,14 @@ macro_rules! line_au {
                 },
                 fn pop_head = {
                     let (x0, y0) = try_opt!(self.head());
-                    self.u0 = ops::<$C>::wrapping_add_i(self.u0, self.su as _);
+                    self.u0 = ops::<$C>::wadd_i(self.u0, self.su as _);
                     Some((x0, y0))
                 },
                 fn tail = {
                     if self.is_empty() {
                         return None;
                     }
-                    let ut = ops::<$C>::wrapping_sub_i(self.u1, self.su as _);
+                    let ut = ops::<$C>::wsub_i(self.u1, self.su as _);
                     let (xt, yt) = if YX { (self.v, ut) } else { (ut, self.v) };
                     Some((xt, yt))
                 },

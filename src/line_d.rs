@@ -38,8 +38,8 @@ macro_rules! line_d {
     ) => {
         impl LineD<$C> {
             pub const fn new(x0: $C, y0: $C, x1: $C, y1: $C) -> Option<Self> {
-                let (dx, sx) = ops::<$C>::abs_diff_sign(x1, x0);
-                let (dy, sy) = ops::<$C>::abs_diff_sign(y1, y0);
+                let (dx, sx) = ops::<$C>::susub(x1, x0);
+                let (dy, sy) = ops::<$C>::susub(y1, y0);
                 if dx != dy {
                     return None;
                 }
@@ -48,8 +48,8 @@ macro_rules! line_d {
 
             pub const fn to_line_d2(self) -> LineD2<$C> {
                 let Self { x0, y0, x1, sx, sy } = self;
-                let dx = ops::<$C>::wrapping_abs_diff_signed(x1, x0, sx);
-                let y1 = ops::<$C>::wrapping_add_u_signed(self.y0, dx, sy);
+                let dx = ops::<$C>::wusub_s(x1, x0, sx);
+                let y1 = ops::<$C>::wadd_su(self.y0, dx, sy);
                 LineD2 { x0, y0, x1, y1, sx, sy }
             }
 
@@ -58,7 +58,7 @@ macro_rules! line_d {
                 U = $U,
                 self = self,
                 fn is_empty = self.x0 == self.x1,
-                fn len = ops::<$C>::wrapping_abs_diff_signed(self.x1, self.x0, self.sx),
+                fn len = ops::<$C>::wusub_s(self.x1, self.x0, self.sx),
                 fn head = {
                     if self.is_empty() {
                         return None;
@@ -67,17 +67,17 @@ macro_rules! line_d {
                 },
                 fn pop_head = {
                     let (x0, y0) = try_opt!(self.head());
-                    self.x0 = ops::<$C>::wrapping_add_i(self.x0, self.sx as $I);
-                    self.y0 = ops::<$C>::wrapping_add_i(self.y0, self.sy as $I);
+                    self.x0 = ops::<$C>::wadd_i(self.x0, self.sx as $I);
+                    self.y0 = ops::<$C>::wadd_i(self.y0, self.sy as $I);
                     Some((x0, y0))
                 },
                 fn tail = {
                     if self.is_empty() {
                         return None;
                     }
-                    let xt = ops::<$C>::wrapping_sub_i(self.x1, self.sx as $I);
-                    let dxt = ops::<$C>::wrapping_abs_diff_signed(xt, self.x0, self.sx);
-                    let yt = ops::<$C>::wrapping_add_u_signed(self.y0, dxt, self.sy);
+                    let xt = ops::<$C>::wsub_i(self.x1, self.sx as $I);
+                    let dxt = ops::<$C>::wusub_s(xt, self.x0, self.sx);
+                    let yt = ops::<$C>::wadd_su(self.y0, dxt, self.sy);
                     Some((xt, yt))
                 },
                 fn pop_tail = {
@@ -136,8 +136,8 @@ macro_rules! line_d2 {
     ) => {
         impl LineD2<$C> {
             pub const fn new(x0: $C, y0: $C, x1: $C, y1: $C) -> Option<Self> {
-                let (dx, sx) = ops::<$C>::abs_diff_sign(x1, x0);
-                let (dy, sy) = ops::<$C>::abs_diff_sign(y1, y0);
+                let (dx, sx) = ops::<$C>::susub(x1, x0);
+                let (dy, sy) = ops::<$C>::susub(y1, y0);
                 if dx != dy {
                     return None;
                 }
@@ -154,7 +154,7 @@ macro_rules! line_d2 {
                 U = $U,
                 self = self,
                 fn is_empty = self.x0 == self.x1,
-                fn len = ops::<$C>::wrapping_abs_diff_signed(self.x1, self.x0, self.sx),
+                fn len = ops::<$C>::wusub_s(self.x1, self.x0, self.sx),
                 fn head = {
                     if self.is_empty() {
                         return None;
@@ -163,16 +163,16 @@ macro_rules! line_d2 {
                 },
                 fn pop_head = {
                     let (x0, y0) = try_opt!(self.head());
-                    self.x0 = ops::<$C>::wrapping_add_i(self.x0, self.sx as $I);
-                    self.y0 = ops::<$C>::wrapping_add_i(self.y0, self.sy as $I);
+                    self.x0 = ops::<$C>::wadd_i(self.x0, self.sx as $I);
+                    self.y0 = ops::<$C>::wadd_i(self.y0, self.sy as $I);
                     Some((x0, y0))
                 },
                 fn tail = {
                     if self.is_empty() {
                         return None;
                     }
-                    let xt = ops::<$C>::wrapping_sub_i(self.x1, self.sx as $I);
-                    let yt = ops::<$C>::wrapping_sub_i(self.y1, self.sy as $I);
+                    let xt = ops::<$C>::wsub_i(self.x1, self.sx as $I);
+                    let yt = ops::<$C>::wsub_i(self.y1, self.sy as $I);
                     Some((xt, yt))
                 },
                 fn pop_tail = {

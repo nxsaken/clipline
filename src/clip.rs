@@ -99,8 +99,8 @@ macro_rules! clip {
                 }
                 let dx = width - 1;
                 let dy = height - 1;
-                let x_max = try_opt!(ops::<$UI>::checked_add_u(x_min, dx));
-                let y_max = try_opt!(ops::<$UI>::checked_add_u(y_min, dy));
+                let x_max = try_opt!(ops::<$UI>::chadd_u(x_min, dx));
+                let y_max = try_opt!(ops::<$UI>::chadd_u(y_min, dy));
                 Some(Self { x_min, y_min, x_max, y_max })
             }
         }

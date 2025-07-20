@@ -87,7 +87,7 @@ macro_rules! clip_line_d {
             const fn cx1_ox_d<const FX: bool>(&self) -> $UI {
                 let exit = if FX { self.x_min() } else { self.x_max };
                 let sx = if FX { -1 } else { 1 };
-                ops::<$UI>::wrapping_add_i(exit, sx)
+                ops::<$UI>::wadd_i(exit, sx)
             }
 
             const fn cx1_oy_d<const FX: bool>(x0: $UI, dy1: $U) -> $UI {
@@ -113,8 +113,8 @@ macro_rules! clip_line_d {
                 if self.reject_bbox_half_open::<FX, FY>(x0, y0, x1, y1) {
                     return None;
                 }
-                let dx = ops::<$UI>::abs_diff_const_signed::<FX>(x1, x0);
-                let dy = ops::<$UI>::abs_diff_const_signed::<FY>(y1, y0);
+                let dx = ops::<$UI>::usub_f::<FX>(x1, x0);
+                let dy = ops::<$UI>::usub_f::<FY>(y1, y0);
                 if dx != dy {
                     return None;
                 }
@@ -367,9 +367,9 @@ macro_rules! clip_line_d {
         impl $Self<$UI> {
             pub const fn line_d_proj(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineD<$U>> {
                 let (x0, y0, x1, sx, sy) = try_opt!(self.raw_line_d(x0, y0, x1, y1));
-                let x0 = ops::<$UI>::wrapping_abs_diff(x0, self.x_min());
-                let y0 = ops::<$UI>::wrapping_abs_diff(y0, self.y_min());
-                let x1 = ops::<$UI>::wrapping_abs_diff(x1, self.x_min());
+                let x0 = ops::<$UI>::wusub(x0, self.x_min());
+                let y0 = ops::<$UI>::wusub(y0, self.y_min());
+                let x1 = ops::<$UI>::wusub(x1, self.x_min());
                 Some(LineD { x0, y0, x1, sx, sy })
             }
 
