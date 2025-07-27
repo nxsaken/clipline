@@ -13,4 +13,3 @@ pub use clip::{Clip, Viewport};
 pub use line_a::{LineA, LineAu, LineAx, LineAy};
 pub use line_b::{LineB, LineBu, LineBx, LineBy};
 pub use line_d::{LineD, LineD2};
-pub use rect::Rect;

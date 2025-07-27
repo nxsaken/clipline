@@ -8,13 +8,13 @@ mod line_d;
 mod point;
 mod rect;
 
-#[derive(Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Clip<C: Coord> {
     pub(crate) x_max: C,
     pub(crate) y_max: C,
 }
 
-#[derive(Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Viewport<C: Coord> {
     pub(crate) x_min: C,
     pub(crate) y_min: C,

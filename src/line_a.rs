@@ -2,6 +2,7 @@ use crate::derive;
 use crate::math::{Coord, ops};
 use crate::util::try_opt;
 
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct LineAu<const YX: bool, C: Coord> {
     pub(crate) u0: C,
     pub(crate) u1: C,
@@ -104,7 +105,7 @@ line_au!(u32 | i32, exact = ["32", "64"]);
 line_au!(u64 | i64, exact = ["64"]);
 line_au!(usize | isize);
 
-#[derive(Debug)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum LineA<C: Coord> {
     Ax(LineAx<C>),
     Ay(LineAy<C>),

@@ -2,6 +2,7 @@ use crate::derive;
 use crate::math::{Coord, ops};
 use crate::util::try_opt;
 
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct LineD<C: Coord> {
     pub(crate) x0: C,
     pub(crate) y0: C,
@@ -101,6 +102,7 @@ line_d!(u32 | i32, exact = ["32", "64"]);
 line_d!(u64 | i64, exact = ["64"]);
 line_d!(usize | isize);
 
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct LineD2<C: Coord> {
     pub(crate) x0: C,
     pub(crate) y0: C,

@@ -147,7 +147,6 @@ macro_rules! coord_ops {
             }
             #[inline]
             pub const fn wadd_u(lhs: $UI, rhs: $U) -> $UI {
-                // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
                     lhs.wrapping_add(rhs)
                 } else {
@@ -156,7 +155,6 @@ macro_rules! coord_ops {
             }
             #[inline]
             pub const fn wsub_u(lhs: $UI, rhs: $U) -> $UI {
-                // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
                     lhs.wrapping_sub(rhs)
                 } else {
@@ -173,7 +171,6 @@ macro_rules! coord_ops {
             }
             #[inline]
             pub const fn wadd_i(lhs: $UI, rhs: $I) -> $UI {
-                // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
                     lhs.wrapping_add_signed(rhs)
                 } else {
@@ -182,7 +179,6 @@ macro_rules! coord_ops {
             }
             #[inline]
             pub const fn wsub_i(lhs: $UI, rhs: $I) -> $UI {
-                // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
                     lhs.wrapping_sub(rhs as $UI)
                 } else {
@@ -200,7 +196,6 @@ macro_rules! coord_ops {
             }
             #[inline]
             pub const fn wusub(lhs: $UI, rhs: $UI) -> $U {
-                // todo: document wrapping behavior when projecting
                 if_unsigned!($signedness {
                     lhs.wrapping_sub(rhs)
                 } else {
