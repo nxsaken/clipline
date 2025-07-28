@@ -1,8 +1,15 @@
-use crate::derive;
+use crate::macros::*;
 use crate::math::{Coord, ops};
-use crate::util::try_opt;
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+/// An iterator over the rasterized points of a
+/// directed, half-open line segment aligned to axis `U`.
+///
+/// `YX` determines the axis:
+/// * `false`: [`LineAx`] (endpoints `(u0, v)` and `(u1, v)`).
+/// * `true`: [`LineAy`] (endpoints `(v, u0)` and `(v, u1)`).
+///
+/// Use [`LineA`] if the axis needs to be determined at runtime.
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct LineAu<const YX: bool, C: Coord> {
     pub(crate) u0: C,
     pub(crate) u1: C,
@@ -10,11 +17,17 @@ pub struct LineAu<const YX: bool, C: Coord> {
     pub(crate) su: i8,
 }
 
+/// An iterator over the rasterized points of a
+/// directed, half-open line segment aligned to axis `X`.
+///
+/// Use [`LineA`] if the axis needs to be determined at runtime.
 pub type LineAx<C> = LineAu<false, C>;
 
+/// An iterator over the rasterized points of a
+/// directed, half-open line segment aligned to axis `Y`.
+///
+/// Use [`LineA`] if the axis needs to be determined at runtime.
 pub type LineAy<C> = LineAu<true, C>;
-
-derive::clone!([const YX: bool, C: Coord] LineAu<YX, C>);
 
 impl<const YX: bool, C: Coord> core::fmt::Debug for LineAu<YX, C> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -54,13 +67,16 @@ macro_rules! line_au {
         exact = [$($ptr_size:literal),+])?
     ) => {
         impl<const YX: bool> LineAu<YX, $C> {
+            /// Returns a [`LineAu`] over the directed, half-open line segment aligned to axis `U`:
+            /// - `(u0, v) -> (u1, v)` if `YX == false`,
+            /// - `(v, u0) -> (v, u1)` if `YX == true`.
             #[inline]
             pub const fn new(v: $C, u0: $C, u1: $C) -> Self {
                 let su = if u0 <= u1 { 1 } else { -1 };
                 Self { u0, u1, v, su }
             }
 
-            derive::iter_methods!(
+            iter_methods!(
                 C = $C,
                 U = $U,
                 self = self,
@@ -94,10 +110,12 @@ macro_rules! line_au {
             );
         }
 
-        derive::iter_fwd!(LineAu<const YX, $C>$(, exact = [$($ptr_size),+])?);
-        derive::iter_rev!(LineAu<const YX, $C>);
+        iter_fwd!(LineAu<const YX, $C>$(, exact = [$($ptr_size),+])?);
+        iter_rev!(LineAu<const YX, $C>);
     };
 }
+
+clone!([const YX: bool, C: Coord] LineAu<YX, C>);
 
 line_au!(u8 | i8);
 line_au!(u16 | i16, exact = ["16", "32", "64"]);
@@ -105,13 +123,20 @@ line_au!(u32 | i32, exact = ["32", "64"]);
 line_au!(u64 | i64, exact = ["64"]);
 line_au!(usize | isize);
 
+/// An iterator over the rasterized points of a directed, half-open
+/// line segment aligned to axis `X` or `Y` (determined at runtime).
+///
+/// Use [`LineAx`] or [`LineAy`] if the axis is known at compile-time.
+///
+/// [`Iterator::fold`] is implemented to forward to the underlying variant,
+/// thus using [`Iterator::for_each`] might be faster than a for loop.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum LineA<C: Coord> {
+    /// See [`LineAx`].
     Ax(LineAx<C>),
+    /// See [`LineAy`].
     Ay(LineAy<C>),
 }
-
-derive::clone!([C: Coord] LineA<C> {Ax, Ay});
 
 macro_rules! line_a {
     (
@@ -135,6 +160,8 @@ macro_rules! line_a {
         exact = [$($ptr_size:literal),+])?
     ) => {
         impl LineA<$C> {
+            /// Returns a [`LineA`] over the directed, half-open line segment `(x0, y0) -> (x1, y1)`
+            /// if it is aligned to axis `X` or `Y`, otherwise returns [`None`].
             #[inline]
             pub const fn new(x0: $C, y0: $C, x1: $C, y1: $C) -> Option<Self> {
                 if y0 == y1 {
@@ -146,7 +173,7 @@ macro_rules! line_a {
                 }
             }
 
-            derive::iter_methods!(
+            iter_methods!(
                 C = $C,
                 U = $U,
                 self = self,
@@ -165,11 +192,19 @@ macro_rules! line_a {
                 fn pop_head = match self {
                     Self::Ax(line) => line.pop_head(),
                     Self::Ay(line) => line.pop_head(),
+                },
+                fn tail = match self {
+                    Self::Ax(line) => line.tail(),
+                    Self::Ay(line) => line.tail(),
+                },
+                fn pop_tail = match self {
+                    Self::Ax(line) => line.pop_tail(),
+                    Self::Ay(line) => line.pop_tail(),
                 }
             );
         }
 
-        derive::iter_fwd!(
+        iter_fwd!(
             LineA<$C>,
             fn fold(self, accum, f) = match self {
                 Self::Ax(line) => line.fold(accum, f),
@@ -177,8 +212,18 @@ macro_rules! line_a {
             }$(,
             exact = [$($ptr_size),+])?
         );
+
+        iter_rev!(
+            LineA<$C>,
+            fn rfold(self, accum, f) = match self {
+                Self::Ax(line) => line.rfold(accum, f),
+                Self::Ay(line) => line.rfold(accum, f),
+            }
+        );
     };
 }
+
+clone!([C: Coord] LineA<C> {Ax, Ay});
 
 line_a!(u8 | i8);
 line_a!(u16 | i16, exact = ["16", "32", "64"]);

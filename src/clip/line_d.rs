@@ -1,7 +1,7 @@
 use crate::clip::{Clip, Viewport};
 use crate::line_d::{LineD, LineD2};
+use crate::macros::*;
 use crate::math::ops;
-use crate::util::try_opt;
 
 macro_rules! clip_line_d {
     ($U:ty | $I:ty) => {
@@ -356,12 +356,22 @@ macro_rules! clip_line_d {
     };
     (@pub impl $Self:ident<$UI:ty>) => {
         impl $Self<$UI> {
+            /// Clips the directed, half-open line segment `(x0, y0) -> (x1, y1)` to this region
+            /// if it is diagonal.
+            ///
+            /// Returns a [`LineD`] over the portion of the segment inside this
+            /// clipping region, or [`None`] if the segment is not diagonal or lies fully outside.
             #[inline]
             pub const fn line_d(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineD<$UI>> {
                 let (x0, y0, x1, sx, sy) = try_opt!(self.raw_line_d(x0, y0, x1, y1));
                 Some(LineD { x0, y0, x1, sx, sy })
             }
 
+            /// Clips the directed, half-open line segment `(x0, y0) -> (x1, y1)` to this region
+            /// if it is diagonal.
+            ///
+            /// Returns a [`LineD2`] over the portion of the segment inside this
+            /// clipping region, or [`None`] if the segment is not diagonal or lies fully outside.
             #[inline]
             pub const fn line_d2(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineD2<$UI>> {
                 let line_d = try_opt!(self.line_d(x0, y0, x1, y1));
@@ -371,6 +381,12 @@ macro_rules! clip_line_d {
     };
     (@pub impl $Self:ident<$UI:ty, proj $U:ty>) => {
         impl $Self<$UI> {
+            /// Clips and projects the directed, half-open line segment `(x0, y0) -> (x1, y1)`
+            /// to this region if it is diagonal.
+            ///
+            /// Returns a [`LineD`] over the portion of the segment inside this
+            /// clipping region relative to the region, or [`None`] if the segment
+            /// is not diagonal or lies fully outside.
             #[inline]
             pub const fn line_d_proj(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineD<$U>> {
                 let (x0, y0, x1, sx, sy) = try_opt!(self.raw_line_d(x0, y0, x1, y1));
@@ -380,6 +396,12 @@ macro_rules! clip_line_d {
                 Some(LineD { x0, y0, x1, sx, sy })
             }
 
+            /// Clips and projects the directed, half-open line segment `(x0, y0) -> (x1, y1)`
+            /// to this region if it is diagonal.
+            ///
+            /// Returns a [`LineD2`] over the portion of the segment inside this
+            /// clipping region relative to the region, or [`None`] if the segment
+            /// is not diagonal or lies fully outside.
             #[inline]
             pub const fn line_d2_proj(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineD2<$U>> {
                 let line_d = try_opt!(self.line_d_proj(x0, y0, x1, y1));

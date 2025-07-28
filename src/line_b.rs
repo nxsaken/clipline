@@ -1,8 +1,19 @@
-use crate::derive;
+use crate::macros::*;
 use crate::math::{Coord, ops};
-use crate::util::try_opt;
 
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+/// An iterator over the rasterized points of a directed, half-open line segment
+/// with a "slow" slope relative to the major axis `U`. B stands for Bresenham.
+///
+/// `YX` determines the major axis:
+/// * `false`: [`LineBx`] for segments with a "slow" slope relative to `X` (`dy <= dx`).
+/// * `true`: [`LineBy`] for segments with a "fast" slope relative to `X` (`dx < dy`).
+///
+/// # Warning
+///
+/// Internally, this uses an error accumulator twice the size of [`C`].
+/// Keep this in mind when using `u64`, `i64`, `usize` and `isize` coordinates.
+/// If you do not need the whole range, prefer smaller coordinate types.
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct LineBu<const YX: bool, C: Coord> {
     pub(crate) u0: C,
     pub(crate) v0: C,
@@ -14,11 +25,25 @@ pub struct LineBu<const YX: bool, C: Coord> {
     pub(crate) sv: i8,
 }
 
+/// An iterator over the rasterized points of a directed, half-open line segment
+/// with a "slow" slope relative to axis `X` (`dy <= dx`). B stands for Bresenham.
+///
+/// # Warning
+///
+/// Internally, this uses an error accumulator twice the size of [`C`].
+/// Keep this in mind when using `u64`, `i64`, `usize` and `isize` coordinates.
+/// If you do not need the whole range, prefer smaller coordinate types.
 pub type LineBx<C> = LineBu<false, C>;
 
+/// An iterator over the rasterized points of a directed, half-open line segment
+/// with a "fast" slope relative to axis `X` (`dx < dy`). B stands for Bresenham.
+///
+/// # Warning
+///
+/// Internally, this uses an error accumulator twice the size of [`C`].
+/// Keep this in mind when using `u64`, `i64`, `usize` and `isize` coordinates.
+/// If you do not need the whole range, prefer smaller coordinate types.
 pub type LineBy<C> = LineBu<true, C>;
-
-derive::clone!([const YX: bool, C: Coord] LineBu<YX, C>);
 
 impl<const YX: bool, C: Coord> core::fmt::Debug for LineBu<YX, C> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -74,27 +99,11 @@ macro_rules! line_bu {
     ) => {
         impl<const YX: bool> LineBu<YX, $C> {
             #[inline]
-            pub const fn new(x0: $C, y0: $C, x1: $C, y1: $C) -> Option<Self> {
-                let (dx, sx) = ops::<$C>::susub(x1, x0);
-                let (dy, sy) = ops::<$C>::susub(y1, y0);
-                if YX && dy <= dx || !YX && dx < dy {
-                    return None;
-                }
-                let (u0, v0, u1, du, dv, su, sv) = if YX {
-                    (y0, x0, y1, dy, dx, sy, sx)
-                } else {
-                    (x0, y0, x1, dx, dy, sx, sy)
-                };
-                let err = dv as $I2 - du.div_ceil(2) as $I2;
-                Some(Self { u0, v0, du, dv, err, u1, su, sv })
-            }
-
-            #[inline]
             pub(crate) const fn from_line_au(v0: $C, u0: $C, u1: $C, su: i8) -> Self {
                 Self { u0, v0, du: 0, dv: 0, err: -1, u1, su, sv: 0 }
             }
 
-            derive::iter_methods!(
+            iter_methods!(
                 C = $C,
                 U = $U,
                 self = self,
@@ -120,12 +129,14 @@ macro_rules! line_bu {
             );
         }
 
-        derive::iter_fwd!(
+        iter_fwd!(
             LineBu<const YX, $C>$(,
             exact = [$($ptr_size),+])?
         );
     };
 }
+
+clone!([const YX: bool, C: Coord] LineBu<YX, C>);
 
 line_bu!(u8 | i8);
 line_bu!(u16 | i16, exact = ["16", "32", "64"]);
@@ -133,13 +144,24 @@ line_bu!(u32 | i32, exact = ["32", "64"]);
 line_bu!(u64 | i64, exact = ["64"]);
 line_bu!(usize | isize);
 
+/// An iterator over the rasterized points of a directed, half-open line segment
+/// with an arbitrary slope. B stands for Bresenham.
+///
+/// # Warning
+///
+/// Internally, this uses an error accumulator twice the size of [`C`].
+/// Keep this in mind when using `u64`, `i64`, `usize` and `isize` coordinates.
+/// If you do not need the whole range, prefer smaller coordinate types.
+///
+/// [`Iterator::fold`] is implemented to forward to the underlying variant,
+/// thus using [`Iterator::for_each`] might be faster than a for loop.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub enum LineB<C: Coord> {
+    /// See [`LineBx`].
     Bx(LineBx<C>),
+    /// See [`LineBy`].
     By(LineBy<C>),
 }
-
-derive::clone!([C: Coord] LineB<C> {Bx, By});
 
 macro_rules! line_b {
     (
@@ -172,6 +194,7 @@ macro_rules! line_b {
         exact = [$($ptr_size:literal),+])?
     ) => {
         impl LineB<$C> {
+            /// Returns a [`LineB`] over a directed, half-open line segment `(x0, y0) -> (x1, y1)`.
             #[inline]
             pub const fn new(x0: $C, y0: $C, x1: $C, y1: $C) -> Self {
                 let (dx, sx) = ops::<$C>::susub(x1, x0);
@@ -187,7 +210,7 @@ macro_rules! line_b {
                 }
             }
 
-            derive::iter_methods!(
+            iter_methods!(
                 C = $C,
                 U = $U,
                 self = self,
@@ -210,7 +233,7 @@ macro_rules! line_b {
             );
         }
 
-        derive::iter_fwd!(
+        iter_fwd!(
             LineB<$C>,
             fn fold(self, accum, f) = match self {
                 Self::Bx(line) => line.fold(accum, f),
@@ -220,6 +243,8 @@ macro_rules! line_b {
         );
     };
 }
+
+clone!([C: Coord] LineB<C> {Bx, By});
 
 line_b!(u8 | i8);
 line_b!(u16 | i16, exact = ["16", "32", "64"]);

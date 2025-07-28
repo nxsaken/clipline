@@ -1,7 +1,7 @@
 use crate::clip::{Clip, Viewport};
 use crate::line_a::{LineA, LineAu, LineAx, LineAy};
+use crate::macros::*;
 use crate::math::ops;
-use crate::util::try_opt;
 
 macro_rules! clip_line_a {
     ($U:ty | $I:ty) => {
@@ -101,6 +101,12 @@ macro_rules! clip_line_a {
     };
     (@pub impl $Self:ident<$UI:ty>) => {
         impl $Self<$UI> {
+            /// Clips the half-open line segment aligned to axis `U` to this region:
+            /// - `(u0, v) -> (u1, v)` if `YX == false`,
+            /// - `(v, u0) -> (v, u1)` if `YX == true`.
+            ///
+            /// Returns a [`LineAu`] over the portion of the segment inside this
+            /// clipping region, or [`None`] if the segment lies fully outside.
             #[inline]
             pub const fn line_au<const YX: bool>(
                 &self,
@@ -112,16 +118,30 @@ macro_rules! clip_line_a {
                 Some(LineAu { u0, u1, v, su })
             }
 
+            /// Clips the directed, half-open line segment `(x0, y) -> (x1, y)` to this region.
+            ///
+            /// Returns a [`LineAx`] over the portion of the segment inside this
+            /// clipping region, or [`None`] if the segment lies fully outside.
             #[inline]
             pub const fn line_ax(&self, y: $UI, x0: $UI, x1: $UI) -> Option<LineAx<$UI>> {
                 self.line_au(y, x0, x1)
             }
 
+            /// Clips the directed, half-open line segment `(x, y0) -> (x, y1)` to this region.
+            ///
+            /// Returns a [`LineAy`] over the portion of the segment inside this
+            /// clipping region, or [`None`] if the segment lies fully outside.
             #[inline]
             pub const fn line_ay(&self, x: $UI, y0: $UI, y1: $UI) -> Option<LineAy<$UI>> {
                 self.line_au(x, y0, y1)
             }
 
+            /// Clips the directed, half-open line segment `(x0, y0) -> (x1, y1)` to this region
+            /// if it is aligned to axis `X` or `Y`.
+            ///
+            /// Returns a [`LineA`] over the portion of the segment inside this
+            /// clipping region, or [`None`] if the segment is not aligned to an axis
+            /// or lies fully outside.
             #[inline]
             pub const fn line_a(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineA<$UI>> {
                 if y0 == y1 {
@@ -138,6 +158,14 @@ macro_rules! clip_line_a {
     };
     (@pub impl $Self:ident<$UI:ty, proj $U:ty>) => {
         impl $Self<$UI> {
+            /// Clips and projects the directed, half-open line segment aligned to axis `U`
+            /// to this region:
+            /// - `(u0, v) -> (u1, v)` if `YX == false`,
+            /// - `(v, u0) -> (v, u1)` if `YX == true`.
+            ///
+            /// Returns a [`LineAu`] over the portion of the segment inside this
+            /// clipping region relative to the region, or [`None`] if the segment
+            /// lies fully outside.
             #[inline]
             pub const fn line_au_proj<const YX: bool>(
                 &self,
@@ -149,16 +177,34 @@ macro_rules! clip_line_a {
                 Some(LineAu { u0, u1, v, su })
             }
 
+            /// Clips and projects the directed, half-open line segment `(x0, y) -> (x1, y)`
+            /// to this region.
+            ///
+            /// Returns a [`LineAx`] over the portion of the segment inside this
+            /// clipping region relative to the region, or [`None`] if the segment
+            /// lies fully outside.
             #[inline]
             pub const fn line_ax_proj(&self, y: $UI, x0: $UI, x1: $UI) -> Option<LineAx<$U>> {
                 self.line_au_proj(y, x0, x1)
             }
 
+            /// Clips and projects the directed, half-open line segment `(x, y0) -> (x, y1)`
+            /// to this region.
+            ///
+            /// Returns a [`LineAy`] over the portion of the segment inside this
+            /// clipping region relative to the region, or [`None`] if the segment
+            /// lies fully outside.
             #[inline]
             pub const fn line_ay_proj(&self, x: $UI, y0: $UI, y1: $UI) -> Option<LineAy<$U>> {
                 self.line_au_proj(x, y0, y1)
             }
 
+            /// Clips and projects the directed, half-open line segment `(x0, y0) -> (x1, y1)`
+            /// to this region if it is aligned to axis `X` or `Y`.
+            ///
+            /// Returns a [`LineA`] over the portion of the segment inside this
+            /// clipping region relative to the region, or [`None`] if the segment
+            /// is not aligned to an axis or lies fully outside.
             #[inline]
             pub const fn line_a_proj(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineA<$U>> {
                 if y0 == y1 {

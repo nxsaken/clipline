@@ -1,7 +1,9 @@
-use crate::derive;
+use crate::macros::*;
 use crate::math::{Coord, ops};
-use crate::util::try_opt;
 
+/// An iterator over the rasterized points of a directed, half-open diagonal line segment.
+///
+/// Use [`LineD2`] if you need fast double-ended iteration.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct LineD<C: Coord> {
     pub(crate) x0: C,
@@ -10,8 +12,6 @@ pub struct LineD<C: Coord> {
     pub(crate) sx: i8,
     pub(crate) sy: i8,
 }
-
-derive::clone!([C: Coord] LineD<C>);
 
 macro_rules! line_d {
     (
@@ -38,6 +38,8 @@ macro_rules! line_d {
         exact = [$($ptr_size:literal),+])?
     ) => {
         impl LineD<$C> {
+            /// Returns a [`LineD`] over the directed, half-open line segment
+            /// `(x0, y0) -> (x1, y1)` if it is diagonal, otherwise returns [`None`].
             #[inline]
             pub const fn new(x0: $C, y0: $C, x1: $C, y1: $C) -> Option<Self> {
                 let (dx, sx) = ops::<$C>::susub(x1, x0);
@@ -48,6 +50,7 @@ macro_rules! line_d {
                 Some(Self { x0, y0, x1, sx, sy })
             }
 
+            /// Converts this [`LineD`] into [`LineD2`].
             #[inline]
             pub const fn to_line_d2(self) -> LineD2<$C> {
                 let Self { x0, y0, x1, sx, sy } = self;
@@ -56,7 +59,7 @@ macro_rules! line_d {
                 LineD2 { x0, y0, x1, y1, sx, sy }
             }
 
-            derive::iter_methods!(
+            iter_methods!(
                 C = $C,
                 U = $U,
                 self = self,
@@ -91,10 +94,12 @@ macro_rules! line_d {
             );
         }
 
-        derive::iter_fwd!(LineD<$C>$(, exact = [$($ptr_size),+])?);
-        derive::iter_rev!(LineD<$C>);
+        iter_fwd!(LineD<$C>$(, exact = [$($ptr_size),+])?);
+        iter_rev!(LineD<$C>);
     };
 }
+
+clone!([C: Coord] LineD<C>);
 
 line_d!(u8 | i8);
 line_d!(u16 | i16);
@@ -102,6 +107,10 @@ line_d!(u32 | i32, exact = ["32", "64"]);
 line_d!(u64 | i64, exact = ["64"]);
 line_d!(usize | isize);
 
+/// An iterator over the rasterized points of a directed, half-open
+/// diagonal line segment with fast double-ended traversal.
+///
+/// Prefer [`LineD`] to save space if you do not need reversed iteration.
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct LineD2<C: Coord> {
     pub(crate) x0: C,
@@ -111,8 +120,6 @@ pub struct LineD2<C: Coord> {
     pub(crate) sx: i8,
     pub(crate) sy: i8,
 }
-
-derive::clone!([C: Coord] LineD2<C>);
 
 macro_rules! line_d2 {
     (
@@ -139,6 +146,8 @@ macro_rules! line_d2 {
         exact = [$($ptr_size:literal),+])?
     ) => {
         impl LineD2<$C> {
+            /// Returns a [`LineD2`] over the directed, half-open line segment
+            /// `(x0, y0) -> (x1, y1)` if it is diagonal, otherwise returns [`None`].
             #[inline]
             pub const fn new(x0: $C, y0: $C, x1: $C, y1: $C) -> Option<Self> {
                 let (dx, sx) = ops::<$C>::susub(x1, x0);
@@ -149,13 +158,14 @@ macro_rules! line_d2 {
                 Some(Self { x0, y0, x1, y1, sx, sy })
             }
 
+            /// Converts this [`LineD2`] into [`LineD`].
             #[inline]
             pub const fn to_line_d(self) -> LineD<$C> {
                 let Self { x0, y0, x1, sx, sy, .. } = self;
                 LineD { x0, y0, x1, sx, sy }
             }
 
-            derive::iter_methods!(
+            iter_methods!(
                 C = $C,
                 U = $U,
                 self = self,
@@ -190,10 +200,12 @@ macro_rules! line_d2 {
             );
         }
 
-        derive::iter_fwd!(LineD2<$C>$(, exact = [$($ptr_size),+])?);
-        derive::iter_rev!(LineD2<$C>);
+        iter_fwd!(LineD2<$C>$(, exact = [$($ptr_size),+])?);
+        iter_rev!(LineD2<$C>);
     };
 }
+
+clone!([C: Coord] LineD2<C>);
 
 line_d2!(u8 | i8);
 line_d2!(u16 | i16, exact = ["16", "32", "64"]);

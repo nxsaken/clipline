@@ -1,7 +1,7 @@
 use crate::clip::{Clip, Viewport};
 use crate::line_b::{LineB, LineBu, LineBx, LineBy};
+use crate::macros::*;
 use crate::math::{Coord, ops};
-use crate::util::try_opt;
 
 macro_rules! clip_line_b {
     ($U:ty | $I:ty) => {
@@ -597,6 +597,10 @@ macro_rules! clip_line_b {
     };
     (@pub impl $Self:ident<$UI:ty>) => {
         impl $Self<$UI> {
+            /// Clips the directed, half-open line segment `(x0, y0) -> (x1, y1)` to this region.
+            ///
+            /// Returns a [`LineB`] over the portion of the segment inside this
+            /// clipping region, or [`None`] if the segment lies fully outside.
             #[inline]
             pub const fn line_b(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineB<$UI>> {
                 let fx = x1 < x0;
@@ -612,6 +616,12 @@ macro_rules! clip_line_b {
     };
     (@pub impl $Self:ident<$UI:ty, proj $U:ty>) => {
         impl $Self<$UI> {
+            /// Clips and projects the directed, half-open line segment `(x0, y0) -> (x1, y1)`
+            /// to this region.
+            ///
+            /// Returns a [`LineB`] over the portion of the segment inside this
+            /// clipping region relative to the region, or [`None`] if the segment
+            /// lies fully outside.
             #[inline]
             pub const fn line_b_proj(&self, x0: $UI, y0: $UI, x1: $UI, y1: $UI) -> Option<LineB<$U>> {
                 let fx = x1 < x0;

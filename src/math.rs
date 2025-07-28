@@ -1,3 +1,5 @@
+use crate::macros::*;
+
 pub trait Num
 where
     Self: Copy + Eq + Ord + Default,
@@ -6,19 +8,20 @@ where
 {
 }
 
-macro_rules! primitive {
+macro_rules! num {
     ($($T:ty),+) => {
         $(impl Num for $T {})+
     };
 }
 
-primitive!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
+num!(u8, i8, u16, i16, u32, i32, u64, i64, u128, i128, usize, isize);
 
 pub trait Coord: Num {
     type U: Num;
     type I: Num;
     type U2: Num;
     type I2: Num;
+    const ZERO: Self;
 }
 
 macro_rules! coord {
@@ -28,12 +31,14 @@ macro_rules! coord {
             type I = $I;
             type U2 = $U2;
             type I2 = $I2;
+            const ZERO: Self = 0;
         }
         impl Coord for $I {
             type U = $U;
             type I = $I;
             type U2 = $U2;
             type I2 = $I2;
+            const ZERO: Self = 0;
         }
     };
 }
@@ -48,16 +53,6 @@ coord!(usize, isize, u128, i128);
 coord!(usize, isize, u64, i64);
 #[cfg(target_pointer_width = "16")]
 coord!(usize, isize, u32, i32);
-
-#[rustfmt::skip]
-macro_rules! if_unsigned {
-    (unsigned $unsigned:block else $signed:block) => { $unsigned };
-    (signed   $unsigned:block else $signed:block) => { $signed };
-    (unsigned [$unsigned:ty] else [$signed:ty]) => { $unsigned };
-    (signed   [$unsigned:ty] else [$signed:ty]) => { $signed };
-}
-
-pub(crate) use if_unsigned;
 
 #[allow(non_camel_case_types)]
 pub(crate) struct ops<C: Coord>(C);
