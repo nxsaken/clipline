@@ -6,16 +6,14 @@ on:
     paths-ignore:
       - "img/**"
       - "**.md"
-      - LICENSE-APACHE
-      - LICENSE-MIT
+      - LICENSE*
       - .gitignore
   push:
     branches: [ main ]
     paths-ignore:
       - "img/**"
       - "**.md"
-      - LICENSE-APACHE
-      - LICENSE-MIT
+      - LICENSE*
       - .gitignore
 
 env:
@@ -31,37 +29,25 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [ stable, beta, nightly ]
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-      - name: Install toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.rust }}
-      - name: Default features
-        run: cargo build --all-targets
-      - name: Nightly features
-        if: matrix.rust == 'nightly'
-        run: cargo build --all-targets -F "nightly try_fold is_empty"
-
-  clippy:
-    name: cargo clippy
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust: [ stable, beta, nightly ]
-    env:
-      RUSTFLAGS: -Dwarnings
+        rust: [ "1.85", stable, beta, nightly ]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
+      - run: cargo build --all-targets
+
+  clippy:
+    name: cargo clippy
+    runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -Dwarnings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
           components: clippy
       - run: cargo clippy --all-targets
-      - if: matrix.rust == 'nightly'
-        run: cargo clippy --all-targets --all-features
 
   fmt:
     name: cargo fmt
@@ -89,27 +75,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: [ stable, beta, nightly ]
+        rust: [ "1.85", stable, beta, nightly ]
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-      - name: Install toolchain
-        uses: dtolnay/rust-toolchain@master
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
-      - name: Default features
-        run: cargo test --no-fail-fast -- --skip proptest
-      - name: Nightly features
-        if: matrix.rust == 'nightly'
-        run: cargo test --no-fail-fast -F "nightly try_fold is_empty" -- --skip proptest
-
-  proptest:
-    name: proptest
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
-      - name: Install toolchain
-        uses: dtolnay/rust-toolchain@stable
-      - name: Default features
-        run: cargo test --no-fail-fast proptest
+      - uses: Leafwing-Studios/cargo-cache@v2
+      - run: cargo test --no-fail-fast

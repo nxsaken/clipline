@@ -1,179 +1,132 @@
-//! # clipline
+//! Line segment rasterization with pixel-perfect [clipping][clip].
 //!
-//! Efficient rasterization of line segments with pixel-perfect [clipping][clip].
+//! # Overview
 //!
-//! ## Overview
+//! This crate provides iterators over the rasterized points of directed, half-open line segments:
 //!
-//! - Provides iterators for clipped and unclipped rasterized line segments.
-//!   - Eliminates bounds checking: clipped line segments are guaranteed to be within the region.
-//!   - Guarantees clipped line segments match the unclipped versions of themselves.
-//! - Supports signed and unsigned integer coordinates of most sizes.
-//!   - Uses integer arithmetic only.
-//!   - Prevents overflow and division by zero, forbids `clippy::arithmetic_side_effects`.
+//! - **Axis-aligned**: [`LineA`] (dynamic axis), [`LineAu`] (static: [`LineAx`] or [`LineAy`]).
+//! - **Diagonal**: [`LineD`] and [`LineD2`] (fast double-ended iteration).
+//! - [**Bresenham**][bres]: [`LineB`], [`LineBu`] ("slow" [`LineBx`] and "fast" [`LineBy`]).
+//!
+//! Line segments can be [clipped](Clip::<i8>::line_b) to one of the two kinds of a closed
+//! rectangular region: a [`Clip`] with a zero origin, or a [`Viewport`] with an arbitrary origin.
+//! Additionally, segments can be clipped and [projected](Clip::<i8>::line_b_proj) to the region,
+//! yielding local coordinates. This is used for indexing into a grid backed by the clipping region.
+//!
+//! ## Features
+//!
+//! - Supports unsigned and signed coordinates (`{u|i}{8|16|32|64|size}`).
 //!   - Defines the iterators on the entire domains of the underlying numeric types.
+//!   - Avoids integer overflow without overhead.
+//! - Guarantees that clipped segments match the unclipped versions of themselves.
 //! - Usable in `const` contexts and `#![no_std]` environments.
 //!
-//! ## Usage
-//!
-//! - **Unclipped** iterators are created using constructors: [`AnyOctant::<i8>::new`].
-//! - For **clipped** iterators:
-//!   - Define a rectangular clipping region using the [`Clip`] type.
-//!   - Construct the desired iterator, e.g. [`AnyOctant::<i8>`]:
-//!     - **Builder style**: using one of the methods on [`Clip`], e.g. [`Clip::<i8>::any_octant`].
-//!       Should be preferred, as it avoids specifying the numeric type again.
-//!     - **Constructor style**: [`AnyOctant::<i8>::clip`].
-//!
-//! ### Octant iterators
-//!
-//! For an arbitrary line segment, use the [`AnyOctant`] iterator,
-//! which determines the type of the line segment at runtime
-//! and handles it with a specialized iterator.
-//!
-//! If you know more about the line segment, you can use an iterator
-//! from the [axis-aligned](Axis) or [diagonal](Diagonal) families (more below),
-//! or the generic [`Octant`] backed by one of the eight cases of [Bresenham's algorithm][bres]:
-//!
-//! - [`Octant0`]: `x` and `y` both increase, `x` changes faster than `y`.
-//! - [`Octant1`]: `x` increases and `y` decreases, `y` changes faster than `x`.
-//! - [`Octant2`]: `x` decreases and `y` increases, `x` changes faster than `y`.
-//! - [`Octant3`]: `x` and `y` both decrease, `y` changes faster than `x`.
-//! - [`Octant4`]: `x` and `y` both increase, `x` changes faster than `y`.
-//! - [`Octant5`]: `x` increases and `y` decreases, `y` changes faster than `x`.
-//! - [`Octant6`]: `x` decreases and `y` increases, `x` changes faster than `y`.
-//! - [`Octant7`]: `x` and `y` both decrease, `y` changes faster than `x`.
-//!
-//! ### Axis-aligned iterators
-//!
-//! For an arbitrary axis-aligned line segment, use the [`AnyAxis`] iterator,
-//! which determines both the axis-alignment and direction at runtime.
-//!
-//! If you know the axis-alignment of the line segment but not the direction,
-//! use the generic [`Axis`] iterator, or one of its type aliases:
-//!
-//! - [`Axis0`]: horizontal, runtime direction.
-//! - [`Axis1`]: vertical, runtime direction.
-//!
-//! If you also know the direction, use the generic [`SignedAxis`] iterator,
-//! or one of its type aliases:
-//!
-//! - [`PositiveAxis`]/[`NegativeAxis`]: fixed direction, generic orientation.
-//! - [`SignedAxis0`]/[`SignedAxis1`]: fixed orientation, generic direction.
-//! - [`PositiveAxis0`]/[`NegativeAxis0`]/[`PositiveAxis1`]/[`NegativeAxis1`]: both fixed.
-//!
-//! ### Diagonal iterators
-//!
-//! For an arbitrary diagonal line segment, use the [`AnyDiagonal`] iterator,
-//! which determines the orientation at runtime.
-//!
-//! If you know the orientation, use the generic [`Diagonal`] iterator,
-//! or one of its type aliases:
-//!
-//! - [`Diagonal0`]: `x` and `y` both increase.
-//! - [`Diagonal1`]: `x` increases and `y` decreases.
-//! - [`Diagonal2`]: `x` decreases and `y` increases.
-//! - [`Diagonal3`]: `x` and `y` both decrease.
-//!
-//! ## Example
+//! # Usage
 //!
 //! ```
-//! use clipline::{AnyOctant, Clip, Diagonal0, Point};
+//! use clipline::*;
 //!
 //! /// Width of the pixel buffer.
-//! const WIDTH: usize = 64;
+//! const WIDTH: u16 = 256;
 //! /// Height of the pixel buffer.
-//! const HEIGHT: usize = 48;
-//!
-//! /// Pixel color value.
-//! const RGBA: u32 = 0xFFFFFFFF;
+//! const HEIGHT: u16 = 240;
 //!
 //! /// A function that operates on a single pixel in a pixel buffer.
 //! ///
-//! /// ## Safety
-//! /// `(x, y)` must be inside the `buffer`.
-//! unsafe fn draw(buffer: &mut [u32], (x, y): Point<i8>, rgba: u32) {
-//!     let index = y as usize * WIDTH + x as usize;
-//!     debug_assert!(index < buffer.len());
-//!     *buffer.get_unchecked_mut(index) = rgba;
+//! /// # Safety
+//! ///
+//! /// `i < WIDTH`, `j < HEIGHT`.
+//! unsafe fn draw(pixels: &mut [bool], i: u16, j: u16, pixel: bool) {
+//!     let index = j as usize * WIDTH as usize + i as usize;
+//!     debug_assert!(index < pixels.len());
+//!     unsafe { *pixels.get_unchecked_mut(index) = pixel; }
 //! }
 //!
 //! fn main() {
-//!     let mut buffer = [0_u32; WIDTH * HEIGHT];
+//!     let mut pixels = [false; WIDTH as usize * HEIGHT as usize];
 //!
-//!     // The clipping region is closed/inclusive, thus 1 needs to be subtracted from the size.
-//!     let clip = Clip::<i8>::new((0, 0), (WIDTH as i8 - 1, HEIGHT as i8 - 1)).unwrap();
+//!     // This defines a clipping region (0, 0, WIDTH-1, HEIGHT-1),
+//!     // which covers all valid indices of the pixel buffer.
+//!     let clip = Clip::<i16>::from_size(WIDTH, HEIGHT).unwrap();
 //!
-//!     // `Clip` has convenience methods for the general iterators.
-//!     clip.any_octant((-128, -100), (100, 80))
-//!         // None if the line segment is completely invisible.
-//!         // You might want to handle that case differently.
+//!     // For Clip, *_proj involves a simple cast from i16 to u16.
+//!     clip.line_b_proj(-32, -64, 320, 256)
+//!         // This will panic if the line segment is completely outside the region.
 //!         .unwrap()
-//!         // clipped to [(0, 1), ..., (58, 47)]
-//!         .for_each(|xy| {
-//!             // SAFETY: (x, y) has been clipped to the buffer.
-//!             unsafe { draw(&mut buffer, xy, RGBA) }
+//!         // This iterates over all points inside the region, relative to that region.
+//!         // Effectively this allows to safely index into the underlying buffer.
+//!         .for_each(|(i, j)| {
+//!             // SAFETY: i < WIDTH, j < HEIGHT.
+//!             unsafe { draw(&mut pixels, i, j, true) }
 //!         });
 //!
-//!     // Alternatively, use the iterator constructors.
-//!     AnyOctant::<i8>::clip((12, 0), (87, 23), &clip)
-//!         .into_iter()
-//!         .flatten()
-//!         // clipped to [(12, 0), ..., (63, 16)]
-//!         .for_each(|xy| {
-//!             // SAFETY: (x, y) has been clipped to the buffer.
-//!             unsafe { draw(&mut buffer, xy, RGBA) }
-//!         });
-//!
-//!     // Horizontal and vertical line segments.
-//!     clip.axis_0(32, 76, -23)
+//!     // This is how you can construct an unclipped line segment iterator.
+//!     LineD::<u16>::new(1, 2, 31, 32)
+//!         // This will panic if the segment is not diagonal.
 //!         .unwrap()
-//!         // clipped to [(63, 32), ..., (0, 32)]
-//!         .for_each(|xy| {
-//!             // SAFETY: (x, y) has been clipped to the buffer.
-//!             unsafe { draw(&mut buffer, xy, RGBA) }
+//!         // By construction, all points of this line segment lie inside the region, thus
+//!         // clipping can be skipped. Do this if you are sure your line segments are inside.
+//!         .for_each(|(i, j)| {
+//!             // SAFETY: i < WIDTH, j < HEIGHT.
+//!             unsafe { draw(&mut pixels, i, j, true) }
 //!         });
 //!
-//!     clip.axis_1(32, -23, 76)
-//!         .unwrap()
-//!         // clipped to [(32, 0), ..., (32, 47)]
-//!         .for_each(|xy| {
-//!             // SAFETY: (x, y) has been clipped to the buffer.
-//!             unsafe { draw(&mut buffer, xy, RGBA) }
+//!     // (-32, 16) -> (64, 16)
+//!     LineAx::<i16>::new(16, -32, 64)
+//!         // This is a naive pointwise clip-projection.
+//!         // It's much slower than clipping the segment as a whole.
+//!         .filter_map(|(x, y)| clip.point_proj(x, y))
+//!         // But it gets the job done.
+//!         .for_each(|(i, j)| {
+//!             // SAFETY: i < WIDTH, j < HEIGHT.
+//!             unsafe { draw(&mut pixels, i, j, true) }
 //!         });
 //!
-//!     // Unclipped iterators are also available.
-//!     // (-2, -2) -> (12, 12) is covered by Diagonal0, we can construct it directly.
-//!     Diagonal0::<i8>::new((-2, -2), (12, 12))
+//!     // This defines a clipping region (16, 32, 16+WIDTH-1, 32+HEIGHT-1),
+//!     // which covers all valid indices of the pixel buffer ONLY AFTER PROJECTION.
+//!     let clip = Viewport::<i16>::from_min_size(16, 32, WIDTH, HEIGHT).unwrap();
+//!
+//!     // For Viewport, *_proj involves subtracting the minimum corner of the Viewport
+//!     // from all the clipped coordinates.
+//!     clip.line_b_proj(-16, -32, 336, 288)
+//!         // This is equivalent to the first example (we just shifted the original line segment).
 //!         .unwrap()
-//!         // Need to check every pixel to avoid going out of bounds.
-//!         .filter(|&xy| clip.point(xy))
-//!         .for_each(|xy| {
-//!             // SAFETY: (x, y) is inside the buffer.
-//!             unsafe { draw(&mut buffer, xy, RGBA) }
+//!         // This iterates over all points inside the region, relative to that region.
+//!         // Effectively this allows to safely index into the underlying buffer.
+//!         .for_each(|(i, j)| {
+//!             // SAFETY: i < WIDTH, j < HEIGHT.
+//!             unsafe { draw(&mut pixels, i, j, true) }
 //!         });
+//!
+//!     fn do_at_world_pos(x: i16, y: i16) {
+//!         println!("doing something at world position {x}, {y}")
+//!     }
+//!
+//!     // Both Clip and Viewport support clipping without projection.
+//!     // This could be useful if you want to iterate over a line segment
+//!     // in "world-space" (represented by signed or unsigned coordinates),
+//!     // restricted to a region.
+//!     clip.line_b(-16, -32, 336, 288)
+//!         .unwrap()
+//!         .for_each(|(x, y)| do_at_world_pos(x, y));
+//!
+//!     // Unsigned Clips have infallible from_max constructors
+//!     // and do not provide *_proj methods (no need).
+//!     let mut line = Clip::<u16>::from_max(WIDTH - 1, HEIGHT - 1)
+//!         .line_b(1, 2, 320, 256)
+//!         .unwrap();
+//!
+//!     // custom iteration APIs are available in const contexts
+//!     while let Some((i, j)) = line.pop_head() {
+//!         // SAFETY: i < WIDTH, j < HEIGHT.
+//!         unsafe { draw(&mut pixels, i, j, true) }
+//!     }
 //! }
 //! ```
 //!
-//! ## Limitations
-//!
-//! * To support usage in `const` contexts, types must have an inherent implementation for every
-//!   supported numeric type instead of relying on a trait. This and Rust's lack of support for
-//!   function overloading means that the numeric type parameter must always be specified.
-//! * Currently, only half-open line segments can be iterated. This allows [`ExactSizeIterator`]
-//!   to be implemented for all types. Inclusive iterators are tracked in [#1].
-//!
-//! ## Feature flags
-//!
-//! - `octant_64`
-//!   * Enables [`Octant`] and [`AnyOctant`] over [`i64`]/[`u64`] for all targets,
-//!     and over [`isize`]/[`usize`] for 64-bit targets.
-//!   * Use this only if you need the full 64-bit range, as [`Octant`] will use
-//!     [`u128`] and [`i128`] for some calculations.
-//! - `try_fold`, `is_empty` *(nightly-only)*
-//!   * Enable optimized [`Iterator::try_fold`] and [`ExactSizeIterator::is_empty`] implementations.
-//!
 //! ## References
 //!
-//! `clipline` is inspired by the following papers:
+//! `clipline` synthesizes the algorithms from the following papers:
 //!
 //! * [A fast two-dimensional line clipping algorithm via line encoding][spy],
 //!   Mark S. Sobkow, Paul Pospisil, Yee-Hong Yang, 1987.
@@ -187,67 +140,24 @@
 //! [spy]: https://doi.org/10.1016/0097-8493(87)90061-6
 //! [dorr]: https://doi.org/10.1016/0097-8493(90)90067-8
 //! [kuzmin]: https://doi.org/10.1111/1467-8659.1450275
-//! [#1]: https://github.com/nxsaken/clipline/issues/1
 
 #![no_std]
-#![cfg_attr(feature = "try_fold", feature(try_trait_v2))]
-#![cfg_attr(feature = "is_empty", feature(exact_size_is_empty))]
 #![forbid(
-    clippy::arithmetic_side_effects,
     clippy::undocumented_unsafe_blocks,
     clippy::unnecessary_safety_comment,
     clippy::missing_safety_doc,
     clippy::unnecessary_safety_doc
 )]
 #![deny(missing_docs)]
-#![warn(clippy::nursery, clippy::cargo, clippy::pedantic)]
-#![allow(
-    clippy::module_name_repetitions,
-    clippy::inline_always,
-    clippy::similar_names,
-    clippy::if_not_else,
-    clippy::cast_lossless
-)]
 
-mod axis_aligned;
 mod clip;
-mod diagonal;
+mod line_a;
+mod line_b;
+mod line_d;
+mod macros;
 mod math;
-mod octant;
-mod symmetry;
-mod utils;
 
-pub use clip::Clip;
-pub use math::Point;
-
-pub use octant::AnyOctant;
-pub use octant::Octant;
-pub use octant::Octant0;
-pub use octant::Octant1;
-pub use octant::Octant2;
-pub use octant::Octant3;
-pub use octant::Octant4;
-pub use octant::Octant5;
-pub use octant::Octant6;
-pub use octant::Octant7;
-
-pub use diagonal::AnyDiagonal;
-pub use diagonal::Diagonal;
-pub use diagonal::Diagonal0;
-pub use diagonal::Diagonal1;
-pub use diagonal::Diagonal2;
-pub use diagonal::Diagonal3;
-
-pub use axis_aligned::AnyAxis;
-pub use axis_aligned::Axis;
-pub use axis_aligned::Axis0;
-pub use axis_aligned::Axis1;
-pub use axis_aligned::NegativeAxis;
-pub use axis_aligned::NegativeAxis0;
-pub use axis_aligned::NegativeAxis1;
-pub use axis_aligned::PositiveAxis;
-pub use axis_aligned::PositiveAxis0;
-pub use axis_aligned::PositiveAxis1;
-pub use axis_aligned::SignedAxis;
-pub use axis_aligned::SignedAxis0;
-pub use axis_aligned::SignedAxis1;
+pub use clip::{Clip, Viewport};
+pub use line_a::{LineA, LineAu, LineAx, LineAy};
+pub use line_b::{LineB, LineBu, LineBx, LineBy};
+pub use line_d::{LineD, LineD2};

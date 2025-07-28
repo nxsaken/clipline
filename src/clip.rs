@@ -1,125 +1,201 @@
-//! ## Clipping
-//!
-//! This module provides the [`Clip`] type representing a rectangular clipping region,
-//! as well as methods for constructing iterators over clipped line segments of common types.
+use crate::macros::*;
+use crate::math::{Coord, ops};
 
-use crate::axis_aligned::{AnyAxis, Axis0, Axis1};
-use crate::diagonal::AnyDiagonal;
-use crate::math::Point;
-use crate::octant::AnyOctant;
+mod line_a;
+mod line_b;
+mod line_d;
+mod point;
 
-/// A rectangular region defined by its minimum and maximum [corners](Point).
+/// A closed[^1] rectangular clipping region with a zero origin and a maximum corner.
 ///
-/// *Both corners are included in the region.*
-#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, Default)]
-pub struct Clip<T> {
-    pub(crate) wx1: T,
-    pub(crate) wy1: T,
-    pub(crate) wx2: T,
-    pub(crate) wy2: T,
+/// Use [`Viewport`] if the region needs an arbitrary position.
+///
+/// [^1]: `x_max` and `y_max` are inside the region.
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct Clip<C: Coord> {
+    pub(crate) x_max: C,
+    pub(crate) y_max: C,
 }
 
-macro_rules! clip_impl {
-    ($T:ty) => {
-        impl Clip<$T> {
-            /// Returns a new [`Clip`] if `x1 <= x2 && y1 <= y2`, otherwise returns [`None`].
+/// A closed[^1] rectangular clipping region with a minimum and maximum corner.
+///
+/// Use [`Clip`] if the region is always positioned at zero.
+///
+/// [^1]: `x_min`, `y_min`, `x_max` and `y_max` are inside the region.
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+pub struct Viewport<C: Coord> {
+    pub(crate) x_min: C,
+    pub(crate) y_min: C,
+    pub(crate) x_max: C,
+    pub(crate) y_max: C,
+}
+
+macro_rules! clip {
+    ($U:ty|$I:ty) => {
+        clip!(@impl Clip<unsigned $U>, $U);
+        clip!(@impl Clip<signed $I>, $U);
+        clip!(@impl Viewport<$U>, $U);
+        clip!(@impl Viewport<$I>, $U);
+    };
+    (@impl Clip<$signedness:ident $UI:ty>, $U:ty) => {
+        impl Clip<$UI> {
+            /// Returns a [`Clip`] with the given maximum
+            #[doc = if_unsigned!($signedness <
+                "corner."
+            > else <
+                "corner, or [`None`] if `x_max` or `y_max` is negative."
+            >)]
             #[inline]
-            #[must_use]
-            pub const fn new((wx1, wy1): Point<$T>, (wx2, wy2): Point<$T>) -> Option<Self> {
-                if wx2 < wx1 || wy2 < wy1 {
+            pub const fn from_max(
+                x_max: $UI,
+                y_max: $UI,
+            ) -> if_unsigned!($signedness [Self] else [Option<Self>]) {
+                if_unsigned!($signedness {
+                    Self { x_max, y_max }
+                } else {
+                    if x_max < 0 || y_max < 0 {
+                        return None;
+                    }
+                    Some(Self { x_max, y_max })
+                })
+            }
+
+            /// Returns a [`Clip`] with the given size, or [`None`] if
+            #[doc = if_unsigned!($signedness <
+                "`width` or `height` is zero."
+            > else <
+                "either:\n\
+                - `width` or `height` is zero,\n\
+                - `width - 1` or `height - 1` is greater than the largest possible coordinate."
+            >)]
+            #[inline]
+            pub const fn from_size(width: $U, height: $U) -> Option<Self> {
+                let (x_max, y_max) = if_unsigned!($signedness {
+                    if width == 0 || height == 0 {
+                        return None;
+                    }
+                    let x_max = width - 1;
+                    let y_max = height - 1;
+                    (x_max, y_max)
+                } else {
+                    const MAX: $U = <$UI>::MAX as $U + 1;
+                    if width == 0 || height == 0 || MAX < width || MAX < height {
+                        return None;
+                    }
+                    let x_max = (width - 1) as $UI;
+                    let y_max = (height - 1) as $UI;
+                    (x_max, y_max)
+                });
+                Some(Self { x_max, y_max })
+            }
+        }
+    };
+    (@impl Viewport<$UI:ty>, $U:ty) => {
+        impl Viewport<$UI> {
+            /// Returns a [`Viewport`] with the given minimum and maximum corners,
+            /// or [`None`] if `x_max < x_min` or `y_max < y_min`.
+            #[inline]
+            pub const fn from_min_max(
+                x_min: $UI,
+                y_min: $UI,
+                x_max: $UI,
+                y_max: $UI,
+            ) -> Option<Self> {
+                if x_max < x_min || y_max < y_min {
                     return None;
                 }
-                Some(Self { wx1, wy1, wx2, wy2 })
+                Some(Self { x_min, y_min, x_max, y_max })
             }
 
-            /// Returns the minimum corner of this clipping region.
+            /// Returns a [`Viewport`] with the given minimum corner and size,
+            /// or [`None`] if either:
+            /// - `width` or `height` is zero,
+            /// - `x_min + width` or `y_min + height` overflows.
             #[inline]
-            #[must_use]
-            pub const fn min(&self) -> Point<$T> {
-                (self.wx1, self.wy1)
+            pub const fn from_min_size(
+                x_min: $UI,
+                y_min: $UI,
+                width: $U,
+                height: $U,
+            ) -> Option<Self> {
+                if width == 0 || height == 0 {
+                    return None;
+                }
+                let dx = width - 1;
+                let dy = height - 1;
+                let x_max = try_opt!(ops::<$UI>::chadd_u(x_min, dx));
+                let y_max = try_opt!(ops::<$UI>::chadd_u(y_min, dy));
+                Some(Self { x_min, y_min, x_max, y_max })
+            }
+        }
+    };
+    (@impl[$($generics:tt)+] MinMax for $Self:ident<$UI:ty> { $self:ident, $x_min:expr, $y_min:expr }) => {
+        impl<$($generics)*> $Self<$UI> {
+            /// Returns the minimum `x` coordinate of this clipping region.
+            #[inline]
+            pub const fn x_min(&$self) -> $UI {
+                $x_min
             }
 
-            /// Returns the maximum corner of this clipping region.
+            /// Returns the minimum `y` coordinate of this clipping region.
             #[inline]
-            #[must_use]
-            pub const fn max(&self) -> Point<$T> {
-                (self.wx2, self.wy2)
+            pub const fn y_min(&$self) -> $UI {
+                $y_min
             }
 
-            /// Checks if this region contains a [point](Point).
+            /// Returns the maximum `x` coordinate of this clipping region.
             #[inline]
-            #[must_use]
-            pub const fn point(&self, (x, y): Point<$T>) -> bool {
-                self.wx1 <= x && x <= self.wx2 && self.wy1 <= y && y <= self.wy2
+            pub const fn x_max(&self) -> $UI {
+                self.x_max
             }
 
-            /// Clips a *half-open* [horizontal](Axis0) line segment
-            /// to this region, and returns an iterator over it.
-            ///
-            /// Returns [`None`] if the line segment does not intersect this clipping region.
+            /// Returns the maximum `y` coordinate of this clipping region.
             #[inline]
-            #[must_use]
-            pub const fn axis_0(&self, y: $T, x1: $T, x2: $T) -> Option<Axis0<$T>> {
-                Axis0::<$T>::clip(y, x1, x2, self)
+            pub const fn y_max(&self) -> $UI {
+                self.y_max
             }
 
-            /// Clips a *half-open* [vertical](Axis1) line segment
-            /// to this region, and returns an iterator over it.
-            ///
-            /// Returns [`None`] if the line segment does not intersect this clipping region.
             #[inline]
-            #[must_use]
-            pub const fn axis_1(&self, x: $T, y1: $T, y2: $T) -> Option<Axis1<$T>> {
-                Axis1::<$T>::clip(x, y1, y2, self)
+            const fn u_min<const YX: bool>(&self) -> $UI {
+                if YX { self.y_min() } else { self.x_min() }
             }
 
-            /// Clips a *half-open* line segment to this region
-            /// if it is aligned to [any axis](AnyAxis), and returns an iterator over it,
-            /// .
-            ///
-            /// Returns [`None`] if the line segment is not axis-aligned,
-            /// or if it does not intersect this clipping region.
             #[inline]
-            #[must_use]
-            pub const fn any_axis(&self, p1: Point<$T>, p2: Point<$T>) -> Option<AnyAxis<$T>> {
-                AnyAxis::<$T>::clip(p1, p2, self)
+            const fn v_min<const YX: bool>(&self) -> $UI {
+                if YX { self.x_min() } else { self.y_min() }
             }
 
-            /// Clips a *half-open* line segment to this region
-            /// if it is [diagonal](AnyDiagonal), and returns an iterator over it.
-            ///
-            /// Returns [`None`] if the line segment is not diagonal,
-            /// or if it does not intersect this clipping region.
             #[inline]
-            #[must_use]
-            pub const fn any_diagonal(
-                &self,
-                p1: Point<$T>,
-                p2: Point<$T>,
-            ) -> Option<AnyDiagonal<$T>> {
-                AnyDiagonal::<$T>::clip(p1, p2, self)
+            const fn u_max<const YX: bool>(&self) -> $UI {
+                if YX { self.y_max } else { self.x_max }
             }
 
-            /// Clips a *half-open* [arbitrary](AnyOctant) line segment
-            /// to this region, and returns an iterator over it.
-            ///
-            /// Returns [`None`] if the line segment does not intersect this clipping region.
             #[inline]
-            #[must_use]
-            pub const fn any_octant(&self, p1: Point<$T>, p2: Point<$T>) -> Option<AnyOctant<$T>> {
-                AnyOctant::<$T>::clip(p1, p2, self)
+            const fn v_max<const YX: bool>(&self) -> $UI {
+                if YX { self.x_max } else { self.y_max }
+            }
+
+            #[inline]
+            const fn uv_min_max<const YX: bool>(&self) -> ($UI, $UI, $UI, $UI) {
+                (
+                    self.u_min::<YX>(),
+                    self.v_min::<YX>(),
+                    self.u_max::<YX>(),
+                    self.v_max::<YX>(),
+                )
             }
         }
     };
 }
 
-clip_impl!(i8);
-clip_impl!(u8);
-clip_impl!(i16);
-clip_impl!(u16);
-clip_impl!(i32);
-clip_impl!(u32);
-#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-clip_impl!(isize);
-#[cfg(any(target_pointer_width = "16", target_pointer_width = "32"))]
-clip_impl!(usize);
+clone!([C: Coord] Clip<C>);
+clone!([C: Coord] Viewport<C>);
+
+clip!(@impl[C: Coord] MinMax for Clip<C> { self, C::ZERO, C::ZERO });
+clip!(@impl[C: Coord] MinMax for Viewport<C> { self, self.x_min, self.y_min });
+
+clip!(u8 | i8);
+clip!(u16 | i16);
+clip!(u32 | i32);
+clip!(u64 | i64);
+clip!(usize | isize);
