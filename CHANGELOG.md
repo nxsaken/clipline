@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] – 2025-07-28
+
+### Added
+
+- Add `LineA*`, `LineB*`, `LineD*` iterators
+- Add `head`, `pop_head` methods (for all iterators)
+- Add `tail`, `pop_tail` methods (for all iterators except `LineB*`)
+- Add `Clip` and `Viewport` clipping regions
+- Add `Clip::line_*` and `Clip::line_*_proj` methods
+- Add `Viewport::line_*` and `Viewport::line_*_proj` methods
+- Property tests for all line segment types
+
+### Changed
+
+- `Clip` separated into `Clip` (zero-origin) and `Viewport` (any origin)
+
+### Removed
+
+- `SignedAxis`, `Axis`, `AnyAxis` (now `LineA*`)
+- `Diagonal`, `AnyDiagonal` (now `LineD*`)
+- `Octant`, `AnyOctant` (now `LineB*`)
+
 ## [0.3.0] – 2024-08-11
 
 ### Added
@@ -69,5 +91,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add the `clipline` function
 
+[0.4.0]: https://github.com/nxsaken/clipline/releases/tag/0.4.0
 [0.3.0]: https://github.com/nxsaken/clipline/releases/tag/0.3.0
 [0.2.0]: https://github.com/nxsaken/clipline/releases/tag/0.2.0
