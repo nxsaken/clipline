@@ -10,7 +10,7 @@ use crate::math::{Coord, ops};
 ///
 /// # Warning
 ///
-/// Internally, this uses an error accumulator twice the size of [`C`].
+/// Internally, this uses an error accumulator twice the size of the coordinate type.
 /// Keep this in mind when using `u64`, `i64`, `usize` and `isize` coordinates.
 /// If you do not need the whole range, prefer smaller coordinate types.
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -30,7 +30,7 @@ pub struct LineBu<const YX: bool, C: Coord> {
 ///
 /// # Warning
 ///
-/// Internally, this uses an error accumulator twice the size of [`C`].
+/// Internally, this uses an error accumulator twice the size of the coordinate type.
 /// Keep this in mind when using `u64`, `i64`, `usize` and `isize` coordinates.
 /// If you do not need the whole range, prefer smaller coordinate types.
 pub type LineBx<C> = LineBu<false, C>;
@@ -40,7 +40,7 @@ pub type LineBx<C> = LineBu<false, C>;
 ///
 /// # Warning
 ///
-/// Internally, this uses an error accumulator twice the size of [`C`].
+/// Internally, this uses an error accumulator twice the size of the coordinate type.
 /// Keep this in mind when using `u64`, `i64`, `usize` and `isize` coordinates.
 /// If you do not need the whole range, prefer smaller coordinate types.
 pub type LineBy<C> = LineBu<true, C>;
@@ -149,7 +149,7 @@ line_bu!(usize | isize);
 ///
 /// # Warning
 ///
-/// Internally, this uses an error accumulator twice the size of [`C`].
+/// Internally, this uses an error accumulator twice the size of the coordinate type.
 /// Keep this in mind when using `u64`, `i64`, `usize` and `isize` coordinates.
 /// If you do not need the whole range, prefer smaller coordinate types.
 ///
